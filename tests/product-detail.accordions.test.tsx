@@ -6,14 +6,14 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
+import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
 import type {
   CoreRoutineSummary,
   OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
-import type { Product, Variant } from "@/lib/products";
 
 const cartMock = vi.hoisted(() => ({
   add: vi.fn(),
@@ -76,15 +76,13 @@ vi.mock("@/components/product-detail/AfterpayMessaging", () => ({
     ) : null,
 }));
 
-type ProductOverrides = Omit<Partial<Product>, "variants"> & {
-  variants?: Array<Variant | OfferAvailability>;
-};
+type ProductOverrides = Partial<PdpProduct>;
 
 function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
-  const editorialMedia: Product["media"] = [
+  const editorialMedia: PdpProduct["media"] = [
     {
       kind: "video",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/video.mp4",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/video.mp4",
       alt: "TREAT routine application video.",
       width: 720,
       height: 1280,
@@ -95,7 +93,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/routine/poster.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/routine/poster.webp",
       alt: "TREAT routine video poster showing skincare application.",
       width: 720,
       height: 1280,
@@ -106,7 +104,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/profile/profile.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/profile/profile.webp",
       alt: "TREAT bottle with wood-grain cap on a warm neutral backdrop.",
       width: 1122,
       height: 1402,
@@ -117,7 +115,7 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     },
     {
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/ingredients-texture/texture.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/treat/ingredients-texture/texture.webp",
       alt: "Golden TREAT serum formula texture with suspended air bubbles.",
       width: 1254,
       height: 1254,
@@ -127,51 +125,39 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       palette: null,
     },
   ];
-  const base: Product = {
+  const base: PdpProduct = {
     id: "33333333-3333-4333-8333-333333333333",
-    slug: "treat-03-pdrn-5-ampoule",
-    displayName: "TREAT",
+    slug: "super-serum",
+    displayName: "Super Serum",
     routineGroup: "core",
     systemStepPosition: 3,
     systemStepName: "TREAT",
     routineSort: 20,
-    productType: "Ampoule",
-    badge: null,
+    productType: "Serum",
     currency: "USD",
-    sortOrder: 0,
-    description: "A daily ampoule for smoother-looking bounce.",
-    benefits: [
-      "Helps skin look smoother and more replenished",
-      "Supports a bouncier-looking finish",
-      "Layers cleanly under moisturizer",
-    ],
+    description: "A daily serum for smoother-looking skin.",
     howToUse: "Apply after cleansing.",
-    formulaNotes: ["Source formulation highlights PDRN and niacinamide."],
     variants: [
       {
+        productId: "33333333-3333-4333-8333-333333333333",
+        productSlug: "super-serum",
+        productStatus: "available",
         id: "15ml",
         label: "15 mL",
         price: 2500,
-        compareAtPrice: null,
-        sku: null,
         available: true,
         inventoryStatus: "in_stock",
         volume: "15 mL",
         packCount: null,
-        optionValues: { size: "15 mL" },
         sortOrder: 0,
       },
     ],
     swatch: ["#edf4f5", "#87a3aa"],
     media: editorialMedia,
     cardMedia: null,
-    cardHoverMedia: null,
-    heroMedia: null,
     detailMedia: null,
     cartMedia: null,
-    searchMedia: null,
     status: "available",
-    catalogStatus: "active",
     madeFor: "Dull-looking skin",
     goodFor: "Dullness, dehydration, uneven-looking texture",
     texture: "Lightweight concentrated serum",
@@ -181,25 +167,19 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     finish: "Clean, hydrated, non-sticky",
     volume: "15 mL",
     skinTypes: ["All skin types"],
-    concerns: ["Dullness", "Texture"],
     usageTime: ["Morning", "Night"],
-    seoTitle: null,
-    seoDescription: null,
-    searchKeywords: [],
     pdpContent: {
       schemaVersion: 1,
       profileTitleTokens: [
-        { text: "A lightweight " },
-        { text: "PDRN SERUM", emphasis: true },
-        { text: " for " },
-        { text: "HYDRATION", emphasis: true },
-        { text: ", smoother-looking texture, and a steadier " },
-        { text: "GLOW", emphasis: true },
-        { text: "." },
+        { text: "The " },
+        { text: "SUPERCHARGED", emphasis: true },
+        { text: " step for " },
+        { text: "GLOWING", emphasis: true },
+        { text: " skin." },
       ],
       routineOverlay: "See how TREAT works in your skin routine.",
       outcomeHeading: "YOUR DAILY TREATMENT THAT:",
-      outcomeLabels: ["hydrates", "smooths", "wakes up the finish"],
+      outcomeLabels: ["hydrates", "enhances", "replenishes"],
       howToUseSteps: [
         "After cleansing and toner or essence, apply 2-3 drops.",
         "Press into skin for 30-60 seconds.",
@@ -207,8 +187,8 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
         "Use SPF in daytime. Use morning and night.",
       ],
       applicationSteps: [
-        "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
-        "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
+        "After cleanser apply 2–3 drops across face and neck.",
+        "Press into skin for 30–60 seconds, letting the serum settle.",
         "Follow with SEAL. In the morning, finish with SPF.",
       ],
       ingredientCards: [
@@ -236,13 +216,21 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
       routineGuidance:
         "Use after CLEANSE and before SEAL. In the morning, finish with SPF.",
     },
-    createdAt: "2026-06-14T00:00:00.000Z",
+    productFamily: null,
+  };
+  const product: PdpProduct = {
+    ...base,
+    ...overrides,
   };
   return {
-    ...base,
-    productFamily: null,
-    ...overrides,
-  } as unknown as PdpProduct;
+    ...product,
+    variants: product.variants.map((variant) => ({
+      ...variant,
+      productId: product.id,
+      productSlug: product.slug,
+      productStatus: product.status,
+    })),
+  };
 }
 
 function before(a: Element, b: Element) {
@@ -255,12 +243,88 @@ beforeEach(() => {
   cartMock.openCartDrawer.mockReset();
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe("ProductDetail purchase accordions", () => {
+  it.each([
+    ["balancing-prep", "Balancing Prep"],
+    ["peptide-eye-cream", "Peptide Eye Cream"],
+    ["peptide-nourish-mask", "Peptide Nourish Mask"],
+  ])("shows truthful empty Customer Reviews by default for %s", (slug, displayName) => {
+    render(<ProductDetail product={makeProduct({ slug, displayName })} />);
+
+    const reviews = screen.getByRole("region", {
+      name: `${displayName} customer reviews`,
+    });
+    expect(reviews).toHaveAttribute("data-review-empty", "true");
+    expect(within(reviews).getByText("Based on 0 reviews.")).toBeInTheDocument();
+    expect(
+      within(reviews).getByText("Reviews are not available for this product yet."),
+    ).toBeInTheDocument();
+    expect(within(reviews).queryByRole("article")).not.toBeInTheDocument();
+    expect(within(reviews).queryByRole("meter")).not.toBeInTheDocument();
+  });
+
+  it("places serum effects immediately after the routine video by stable Product identity", () => {
+    vi.stubGlobal("ResizeObserver", class {
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+    });
+    vi.stubGlobal("matchMedia", vi.fn((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })));
+    render(
+      <ProductDetail
+        product={makeProduct({
+          id: SERUM_EFFECTS_PRODUCT_ID,
+          slug: "a-future-serum-slug",
+          displayName: "Super Serum",
+        })}
+      />,
+    );
+
+    const effects = screen
+      .getByRole("heading", { name: "Four effects. One formula." })
+      .closest("section");
+    const details = screen.getByRole("region", { name: "Super Serum details" });
+    const video = screen.getByLabelText("Super Serum routine video");
+
+    expect(details.firstElementChild).toBe(effects);
+    expect(video.nextElementSibling).toBe(details);
+    expect(effects).not.toBeNull();
+  });
+
+  it("does not add serum effects to another Product with the same display name and slug", () => {
+    render(
+      <ProductDetail
+        product={makeProduct({
+          displayName: "Super Serum",
+          slug: "super-serum",
+        })}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Four effects. One formula." }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Super Serum routine video")).toBeInTheDocument();
+  });
+
   it("renders the Core Routine in place of Details", () => {
     const coreDetailProducts = [
       makeProduct({
         id: "cleanse-id",
-        slug: "cleanse-01-calming-gel-cleanser",
+        slug: "biotic-reset",
         displayName: "CLEANSE",
         productType: "Gel cleanser",
         systemStepPosition: 1,
@@ -270,7 +334,7 @@ describe("ProductDetail purchase accordions", () => {
       makeProduct(),
       makeProduct({
         id: "seal-id",
-        slug: "seal-05-green-collagen-cream",
+        slug: "ceramide-cushion",
         displayName: "SEAL",
         productType: "Cream",
         systemStepPosition: 5,
@@ -290,7 +354,7 @@ describe("ProductDetail purchase accordions", () => {
       finish: item.finish,
       keyIngredients: item.keyIngredients,
       pdpContent: item.pdpContent ?? null,
-      status: item.status,
+      status: index === 1 ? item.status : "coming_soon",
       routineGroup: "core",
       systemStepPosition: ([1, 3, 5] as const)[index],
       systemStepName: (["CLEANSE", "TREAT", "SEAL"] as const)[index],
@@ -321,13 +385,21 @@ describe("ProductDetail purchase accordions", () => {
 
     const ingredients = screen.getByRole("heading", { name: "what’s inside" });
     const coreRoutine = screen.getByRole("heading", {
-      name: "The Mei Pelle CORE for clearer, healthier skin.",
+      name: "The Core for clearer, healthier skin.",
     });
 
     expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
     expect(before(ingredients, coreRoutine)).toBe(true);
     expect(container.querySelectorAll(".pdp-core-routine")).toHaveLength(1);
+    const links = screen.getByRole("region", { name: "Complete the routine" });
+    expect(within(links).getAllByRole("link")).toHaveLength(2);
+    expect(within(links).getByRole("link", { name: /CLEANSE/ })).toHaveAttribute("href", "/products/biotic-reset");
+    expect(within(links).getByRole("link", { name: /SEAL/ })).toHaveAttribute("href", "/products/ceramide-cushion");
+    expect(within(links).getAllByText("Coming soon")).toHaveLength(2);
+    expect(within(links).queryByRole("button")).not.toBeInTheDocument();
+    expect(before(container.querySelector("[data-pdp-buy-button]")!, links)).toBe(true);
+    expect(before(links, container.querySelector(".pdp-accordions")!)).toBe(true);
   });
 
   it("omits Details and Core Routine for a Product Beyond The Core", () => {
@@ -346,10 +418,52 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(screen.queryByRole("heading", { name: "DETAILS" })).toBeNull();
     expect(screen.queryByRole("heading", {
-      name: "The Mei Pelle CORE for clearer, healthier skin.",
+      name: "The Core for clearer, healthier skin.",
     })).toBeNull();
     expect(container.querySelector("[data-pdp-details-routine]")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Complete the routine" })).toBeNull();
+    expect(container.querySelector(".pdp__price")).toHaveTextContent("$25.00");
     expect(container.querySelector(".pdp-core-routine")).toBeNull();
+  });
+
+  it("uses only reviewed structured instructions for Beyond The Core application steps", () => {
+    const product = makeProduct({
+      slug: "balancing-prep",
+      displayName: "Balancing Prep",
+      routineGroup: "beyond_core",
+      systemStepPosition: 2,
+      systemStepName: "REFINE",
+      howToUse: "Unreviewed paragraph instruction. Another paragraph instruction.",
+    });
+    const content = product.pdpContent;
+    if (!content) throw new Error("Expected authored PDP content in this fixture.");
+    const { rerender } = render(
+      <ProductDetail product={product} content={{ ...content, howToUseSteps: null }} />,
+    );
+
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(<ProductDetail product={product} content={{ ...content, howToUseSteps: [] }} />);
+    expect(screen.queryAllByRole("heading", { name: "HOW TO USE" })).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "How to use" })).not.toBeInTheDocument();
+
+    rerender(
+      <ProductDetail
+        product={product}
+        content={{
+          ...content,
+          howToUseSteps: ["Reviewed first instruction.", "Reviewed second instruction."],
+        }}
+      />,
+    );
+    expect(screen.getAllByRole("heading", { name: "HOW TO USE" }).length).toBeGreaterThan(0);
+    const sequence = screen.getByRole("group", { name: "How to use" });
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed first instruction.");
+    fireEvent.click(within(sequence).getByRole("button", { name: "Next How to use" }));
+    expect(within(sequence).getByRole("article")).toHaveTextContent("Reviewed second instruction.");
+    expect(screen.queryAllByText(/Unreviewed paragraph instruction/)).toHaveLength(0);
   });
 
   it("uses one accordion at a time and links structured ingredients", async () => {
@@ -370,7 +484,7 @@ describe("ProductDetail purchase accordions", () => {
       screen.getByRole("link", { name: "Explore ingredients" }),
     ).toHaveAttribute(
       "href",
-      "#pdp-ingredients-treat-03-pdrn-5-ampoule",
+      "#pdp-ingredients-super-serum",
     );
 
     await user.click(ingredients);
@@ -381,7 +495,7 @@ describe("ProductDetail purchase accordions", () => {
     const user = userEvent.setup();
     const cartMedia = {
       kind: "image" as const,
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat-03-pdrn-5-ampoule/primary/hash.webp",
+      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/10000000-0000-4000-8000-000000000101/primary/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
       alt: "TREAT PDRN ampoule",
       width: 1400,
       height: 1867,
@@ -402,7 +516,7 @@ describe("ProductDetail purchase accordions", () => {
     );
 
     const buyButton = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     await user.click(buyButton);
 
@@ -426,7 +540,7 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct()} />);
 
     const buyButton = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     await user.click(buyButton);
 
@@ -441,8 +555,8 @@ describe("ProductDetail purchase accordions", () => {
 
   it("keeps one canonical primary and removes synthetic gallery hues", () => {
     const sharedAsset =
-      "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/mei-pelle-catalog/products/treat/primary/hash.webp";
-    const media: Product["media"] = [
+      "https://ERASOGMSQPGIIROVUBJH.supabase.co/storage/v1/object/public/helix-catalog/products/treat/primary/hash.webp";
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: `${sharedAsset}?width=1400`,
@@ -522,7 +636,7 @@ describe("ProductDetail purchase accordions", () => {
       .spyOn(HTMLMediaElement.prototype, "pause")
       .mockImplementation(() => undefined);
     const user = userEvent.setup();
-    const media: Product["media"] = [
+    const media: PdpProduct["media"] = [
       {
         kind: "image",
         url: "https://example.com/detail.webp",
@@ -642,14 +756,14 @@ describe("ProductDetail purchase accordions", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+        name: "The SUPERCHARGED step for GLOWING skin.",
       }),
     ).toBeInTheDocument();
 
     rerender(
       <ProductDetail
         product={makeProduct({
-          slug: "cleanse-01-calming-gel-cleanser",
+          slug: "biotic-reset",
           displayName: "CLEANSE",
           systemStepPosition: 1,
           systemStepName: "CLEANSE",
@@ -681,7 +795,7 @@ describe("ProductDetail purchase accordions", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", {
-        name: /A lightweight PDRN SERUM/,
+        name: /The SUPERCHARGED step/,
       }),
     ).toBeNull();
   });
@@ -715,19 +829,18 @@ describe("ProductDetail purchase accordions", () => {
     expect(cartMock.openCartDrawer).not.toHaveBeenCalled();
   });
 
-  it("keeps selected server product pricing in sync with main messaging and the sticky CTA", async () => {
+  it("keeps selected pricing and purchase controls in sync without advertising unsupported financing", async () => {
     const user = userEvent.setup();
     const base = makeProduct();
-    const secondVariant = {
+    const secondVariant: OfferAvailability = {
       ...base.variants[0],
       id: "30ml",
       label: "30 mL",
       price: 4200,
       volume: "30 mL",
-      optionValues: { size: "30 mL" },
       sortOrder: 1,
     };
-    const unavailableVariant = {
+    const unavailableVariant: OfferAvailability = {
       ...base.variants[0],
       id: "50ml",
       label: "50 mL",
@@ -735,7 +848,6 @@ describe("ProductDetail purchase accordions", () => {
       available: true,
       inventoryStatus: "out_of_stock" as const,
       volume: "50 mL",
-      optionValues: { size: "50 mL" },
       sortOrder: 2,
     };
     render(
@@ -747,32 +859,23 @@ describe("ProductDetail purchase accordions", () => {
       />,
     );
 
-    const initialMessage = screen.getByTestId("afterpay-messaging-boundary");
     const initialAdd = screen.getByRole("button", {
-      name: "BUY TREAT - $25.00",
+      name: "BUY Super Serum - $25.00",
     });
     expect(initialAdd).not.toHaveTextContent(/[–—]/);
-    expect(initialMessage).toHaveAttribute("data-amount", "2500");
-    expect(initialMessage).toHaveAttribute("data-currency", "USD");
-    expect(before(initialAdd, initialMessage)).toBe(true);
-    expect(document.querySelector(".pdp-sticky-purchase")).not.toContainElement(
-      initialMessage,
-    );
-    expect(screen.getAllByTestId("afterpay-messaging-boundary")).toHaveLength(1);
+    expect(document.querySelector(".pdp__price")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "30 mL" }));
 
-    expect(screen.getByTestId("afterpay-messaging-boundary")).toHaveAttribute(
-      "data-amount",
-      "4200",
-    );
+    expect(screen.queryByTestId("afterpay-messaging-boundary")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "BUY TREAT - $42.00" }),
+      screen.getByRole("button", { name: "BUY Super Serum - $42.00" }),
     ).toBeInTheDocument();
     const stickyBuy = document.querySelector<HTMLButtonElement>(
       "[data-sticky-pdp-buy-button]",
     );
-    expect(stickyBuy).toHaveTextContent("BUY TREAT - $42.00");
+    expect(stickyBuy).toHaveTextContent("BUY Super Serum - $42.00");
     expect(
       stickyBuy?.querySelector(".pdp-sticky-purchase__cta-price"),
     ).toHaveTextContent("$42.00");
@@ -914,7 +1017,7 @@ describe("ProductDetail purchase accordions", () => {
     render(<ProductDetail product={makeProduct({ media: [] })} />);
 
     expect(
-      screen.queryByLabelText("TREAT routine video"),
+      screen.queryByLabelText("Super Serum routine video"),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /PDRN SERUM/ }),

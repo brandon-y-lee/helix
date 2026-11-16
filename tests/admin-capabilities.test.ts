@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ADMIN_CAPABILITIES,
+  capabilitiesForRole,
   checkAdminCapability,
   requireAdminCapability,
 } from "@/lib/admin/capabilities";
@@ -29,6 +30,11 @@ describe("admin capability enforcement", () => {
       "catalog.edit",
       "catalog.publish",
       "catalog.delivery",
+      "fulfillment.manage",
+      "orders.simulate",
+      "support.read",
+      "support.reply",
+      "reviews.moderate",
     ]);
   });
 
@@ -62,6 +68,27 @@ describe("admin capability enforcement", () => {
         getMembership: async () => membership("catalog_editor"),
       }),
     ).resolves.toEqual({ status: "forbidden", principal: identity });
+  });
+
+  it("limits simulation and Support capabilities to active admins without expanding catalog roles", async () => {
+    for (const capability of [ADMIN_CAPABILITIES.ordersSimulate, ADMIN_CAPABILITIES.supportRead, ADMIN_CAPABILITIES.supportReply, ADMIN_CAPABILITIES.reviewsModerate]) {
+      for (const role of ["catalog_editor", "catalog_publisher"] as const) {
+        expect(capabilitiesForRole(role)).not.toContain(capability);
+        await expect(checkAdminCapability(capability, {
+          getIdentity: async () => identity,
+          getMembership: async () => membership(role),
+        })).resolves.toEqual({ status: "forbidden", principal: identity });
+      }
+      expect(capabilitiesForRole("admin")).toContain(capability);
+      await expect(checkAdminCapability(capability, {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("admin"),
+      })).resolves.toMatchObject({ status: "allowed" });
+      await expect(checkAdminCapability(capability, {
+        getIdentity: async () => identity,
+        getMembership: async () => membership("admin", false),
+      })).resolves.toEqual({ status: "forbidden", principal: identity });
+    }
   });
 
   it("fails closed when identity or membership cannot be determined", async () => {

@@ -8,14 +8,14 @@ import { expect, test } from "./storefront-fixture";
 
 const CORE_DESCRIPTION_BY_SLUG = {
   "biotic-reset": homeCoreDescriptions.items.cleanse,
-  "peptide-bounce": homeCoreDescriptions.items.treat,
+  "super-serum": homeCoreDescriptions.items.treat,
   "ceramide-cushion": homeCoreDescriptions.items.seal,
 } as const;
 
 const BEYOND_DESCRIPTION_BY_SLUG = {
   "balancing-prep": homeBeyondCoreDescriptions.items.refine,
-  "frame-04-pdrn-eye-cream": homeBeyondCoreDescriptions.items.frame,
-  "lift-06-pdrn-mask-system": homeBeyondCoreDescriptions.items.lift,
+  "peptide-eye-cream": homeBeyondCoreDescriptions.items.frame,
+  "peptide-nourish-mask": homeBeyondCoreDescriptions.items.lift,
 } as const;
 
 function descriptionForSlug(
@@ -83,37 +83,65 @@ async function renderedProducts(
   return products;
 }
 
-test("historical Product slugs redirect permanently without dynamic render failures", async ({
+test("current Product URLs load and retired Product URLs return 404", async ({
   request,
+  storefront,
 }) => {
-  const redirects = [
-    ["reset-01-calming-gel-cleanser", "biotic-reset"],
-    ["cleanse-01-calming-gel-cleanser", "biotic-reset"],
-    ["recode-03-pdrn-5-ampoule", "peptide-bounce"],
-    ["treat-03-pdrn-5-ampoule", "peptide-bounce"],
-    ["refine-02-pore-treatment-pads", "balancing-prep"],
-    ["frame-04-pdrn-eye-cream", "peptide-eye-cream"],
-    ["lift-06-pdrn-mask-system", "peptide-nourish-mask"],
-    ["seal-05-green-collagen-cream", "ceramide-cushion"],
-  ] as const;
-
-  for (const [source, target] of redirects) {
-    const response = await request.get(`/products/${source}`, {
-      maxRedirects: 0,
-    });
-
-    expect(response.status(), source).toBe(308);
-    expect(response.headers().location, source).toBe(`/products/${target}`);
+  const currentSlugs = ["biotic-reset", "super-serum", "balancing-prep", "peptide-eye-cream", "peptide-nourish-mask", "ceramide-cushion"];
+  for (const slug of currentSlugs) {
+    expect(storefront.productAtPath(`/products/${slug}`).slug).toBe(slug);
+    const response = await request.get(`/products/${slug}`, { maxRedirects: 0 });
+    expect(response.status(), slug).toBe(200);
+    expect(response.headers().location, slug).toBeUndefined();
   }
-
+  const retiredSlugs = [
+    "reset-01-calming-gel-cleanser", "cleanse-01-calming-gel-cleanser",
+    "recode-03-pdrn-5-ampoule", "treat-03-pdrn-5-ampoule", "peptide-bounce", "maxxing-serum",
+    "refine-02-pore-treatment-pads", "frame-04-pdrn-eye-cream",
+    "lift-06-pdrn-mask-system", "seal-05-green-collagen-cream",
+  ];
+  for (const slug of retiredSlugs) {
+    const response = await request.get(`/products/${slug}`, { maxRedirects: 0 });
+    expect(response.status(), slug).toBe(404);
+    expect(response.headers().location, slug).toBeUndefined();
+  }
   const queryResponse = await request.get(
     "/products/reset-01-calming-gel-cleanser?campaign=core%20launch&filter=one&filter=two",
     { maxRedirects: 0 },
   );
-  expect(queryResponse.status()).toBe(308);
-  expect(queryResponse.headers().location).toBe(
-    "/products/biotic-reset?campaign=core+launch&filter=one&filter=two",
+  expect(queryResponse.status()).toBe(404);
+  expect(queryResponse.headers().location).toBeUndefined();
+});
+
+test("Super Serum has one current identity across discovery, the System and its PDP", async ({ page, storefront }) => {
+  const product = storefront.products().find(({ slug }) => slug === "super-serum");
+  if (!product) throw new Error("The current Catalog must contain Super Serum.");
+  expect(product.displayName).toBe("Super Serum");
+  for (const path of ["/", "/collections/shop", "/system#system-treat"]) {
+    await page.goto(path);
+    const link = page.locator(`a[href="${product.path}"]`).first();
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAccessibleName(/Super Serum/);
+    await expect(page.locator('a[href="/products/peptide-bounce"], a[href="/products/maxxing-serum"]')).toHaveCount(0);
+  }
+
+  const response = await page.goto(product.path);
+  expect(response?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Super Serum", exact: true })).toBeVisible();
+  await expect(page).toHaveTitle(/Super Serum/);
+  expect(await page.title()).not.toMatch(/Peptide Bounce|Maxxing Serum/);
+  const canonical = await page.locator('link[rel="canonical"]').getAttribute("href");
+  expect(canonical).not.toBeNull();
+  expect(new URL(canonical!).pathname).toBe(product.path);
+  const structured = await page.locator('script[type="application/ld+json"]').evaluateAll((scripts) =>
+    scripts.flatMap((script) => {
+      const value: unknown = JSON.parse(script.textContent ?? "null");
+      return Array.isArray(value) ? value : [value];
+    }),
   );
+  const productData = structured.find((value) => value?.["@type"] === "Product");
+  expect(productData?.name).toBe(`Super Serum — ${product.productType}`);
+  expect(new URL(productData?.url).pathname).toBe(product.path);
 });
 
 test("Explore The Core is locally outlined and inverts for discovery", async ({
@@ -144,7 +172,7 @@ test("Explore The Core is locally outlined and inverts for discovery", async ({
   await expect(exploreCore).toHaveCSS("outline-style", "solid");
   await expect(exploreCore).toHaveCSS("outline-width", "2px");
 
-  await expect(readIndex).toHaveCSS("border-color", "rgb(211, 206, 194)");
+  await expect(readIndex).toHaveCSS("border-color", "rgb(140, 140, 145)");
   await expect(readIndex).toHaveCSS("color", "rgb(17, 19, 18)");
 });
 
@@ -237,14 +265,14 @@ test("reduced motion presents Product discovery copy immediately", async ({
   ).toBe(true);
 });
 
-test("Three Principles selection uses only a persistent 700ms label fade", async ({
+test("Three Principles retain selection with eased labels, copy and a one-frame image slide", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: null });
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
 
-  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const group = page.getByRole("group", { name: "helix principles" });
   const mission = group.getByRole("button", { name: "mission" });
   const innovation = group.getByRole("button", { name: "innovation" });
   const sustainability = group.getByRole("button", {
@@ -252,32 +280,39 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   });
   const principles = [mission, innovation, sustainability];
 
+  // Prove hydration before measuring the initial presentation.
+  await innovation.click();
+  await expect(innovation).toHaveAttribute("aria-pressed", "true");
+  await mission.click();
+  await page.mouse.move(0, 0);
   await expect(mission).toHaveAttribute("aria-pressed", "true");
-  await expect(mission).toHaveCSS("transition-property", "opacity");
-  await expect
-    .poll(() =>
-      Promise.all(
-        principles.map((principle) =>
-          principle.evaluate((element) => getComputedStyle(element).opacity),
-        ),
-      ),
-    )
-    .toEqual(["1", "0.75", "0.75"]);
+  await expect(mission).toHaveCSS("transition-property", "color");
+  await expect(mission).toHaveCSS("color", "rgb(17, 19, 18)");
+  const slides = page.locator(".home-three-principles__slide");
+  const rail = page.locator(".home-three-principles-visual__rail");
+  await expect(slides).toHaveCount(3);
+  await expect(slides.nth(0)).toHaveCSS("opacity", "1");
+  for (const animated of [slides.nth(0), rail]) {
+    await expect(animated).toHaveCSS("transition-duration", "1s");
+    await expect(animated).toHaveCSS("transition-timing-function", "ease");
+  }
+  await expect(slides.nth(0)).toHaveCSS("transition-property", "opacity");
+  await expect(rail).toHaveCSS("transition-property", "transform");
   const initialPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
   expect(initialPresentation.map(({ opacity }) => opacity)).toEqual([
     "1",
-    "0.75",
-    "0.75",
+    "1",
+    "1",
   ]);
-  expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(1);
+  expect(new Set(initialPresentation.map(({ color }) => color)).size).toBe(2);
   expect(
     new Set(initialPresentation.map(({ fontWeight }) => fontWeight)).size,
   ).toBe(1);
   expect(
     initialPresentation.every(({ transitionDuration }) =>
-      transitionDurationMs(transitionDuration) === 700,
+      transitionDurationMs(transitionDuration) === 1_000,
     ),
   ).toBe(true);
   expect(
@@ -314,6 +349,26 @@ test("Three Principles selection uses only a persistent 700ms label fade", async
   await expect(innovation).toBeFocused();
   await expect(innovation).toHaveAttribute("aria-pressed", "true");
 
+  await expect(slides.nth(1)).toHaveAttribute("aria-hidden", "false");
+  await expect(slides.nth(1)).not.toHaveAttribute("inert", "");
+  for (const index of [0, 2]) {
+    await expect(slides.nth(index)).toHaveAttribute("aria-hidden", "true");
+    await expect(slides.nth(index)).toHaveAttribute("inert", "");
+    await expect(slides.nth(index)).toHaveCSS("opacity", "0");
+  }
+  await expect(slides.nth(1)).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("link", { name: "our formulas", exact: true }))
+    .toHaveAttribute("href", "/about#quality-heading");
+  await expect(page.getByRole("link", { name: "our values", exact: true })).toHaveCount(0);
+  await expect.poll(() => rail.evaluate((element) => {
+    const frame = element.parentElement!.getBoundingClientRect();
+    const selected = element.children[1]!.getBoundingClientRect();
+    return Math.max(
+      Math.abs(selected.top - frame.top),
+      Math.abs(selected.bottom - frame.bottom),
+    );
+  })).toBeLessThan(1);
+
   const selectedPresentation = await Promise.all(
     principles.map(principlePresentation),
   );
@@ -334,12 +389,12 @@ test("Three Principles selection is immediate with reduced motion", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const group = page.getByRole("group", { name: "Mei Pelle principles" });
+  const group = page.getByRole("group", { name: "helix principles" });
   const mission = group.getByRole("button", { name: "mission" });
   const innovation = group.getByRole("button", { name: "innovation" });
 
   await expect(mission).toHaveCSS("opacity", "1");
-  await expect(innovation).toHaveCSS("opacity", "0.75");
+  await expect(innovation).toHaveCSS("opacity", "1");
   expect(
     transitionDurationMs(
       await innovation.evaluate(
@@ -351,10 +406,31 @@ test("Three Principles selection is immediate with reduced motion", async ({
   await innovation.click();
   await expect(innovation).toHaveAttribute("aria-pressed", "true");
   await expect(innovation).toHaveCSS("opacity", "1");
-  await expect(mission).toHaveCSS("opacity", "0.75");
+  await expect(mission).toHaveCSS("opacity", "1");
+  const slides = page.locator(".home-three-principles__slide");
+  const rail = page.locator(".home-three-principles-visual__rail");
+  await expect(slides.nth(1)).toHaveCSS("opacity", "1");
+  await expect(slides.nth(0)).toHaveCSS("opacity", "0");
+  await expect(slides.nth(2)).toHaveCSS("opacity", "0");
+  for (const animated of [mission, slides.nth(1), rail]) {
+    expect(transitionDurationMs(await animated.evaluate(
+      (element) => getComputedStyle(element).transitionDuration,
+    ))).toBeLessThanOrEqual(1);
+  }
+  await expect(page.getByRole("link", { name: "our formulas", exact: true }))
+    .toHaveAttribute("href", "/about#quality-heading");
+  expect(await rail.evaluate((element) => {
+    const frame = element.parentElement!.getBoundingClientRect();
+    const selected = element.children[1]!.getBoundingClientRect();
+    return Math.max(
+      Math.abs(selected.top - frame.top),
+      Math.abs(selected.bottom - frame.bottom),
+    );
+  })).toBeLessThan(1);
 });
 
-test("Beyond carousel is finite and keyboard operable on mobile", async ({
+for (const collection of ["The Core", "Beyond The Core"]) {
+test(`${collection} carousel is finite and keyboard operable on mobile`, async ({
   page,
   storefront,
 }) => {
@@ -362,7 +438,7 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   await page.goto("/");
 
   const beyond = page.getByRole("region", {
-    name: "Beyond The Core",
+    name: collection,
     exact: true,
   });
   const carousel = beyond.locator(".home-beyond-carousel");
@@ -387,11 +463,10 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
     beyond.getByRole("button", { name: "Previous product" }),
   ).toBeVisible();
 
-  while (
-    (await carousel.getAttribute("data-active-index")) !==
-    String(products.length - 1)
-  ) {
+  for (let index = 2; index < products.length; index += 1) {
+    await expect(carousel.locator(".home-beyond-carousel__track")).toHaveAttribute("data-motion", "idle");
     await beyond.getByRole("button", { name: "Next product" }).click();
+    await expect(carousel).toHaveAttribute("data-active-index", String(index));
   }
   await expect(carousel).toHaveAttribute(
     "data-active-index",
@@ -400,6 +475,102 @@ test("Beyond carousel is finite and keyboard operable on mobile", async ({
   await expect(
     beyond.getByRole("button", { name: "Next product" }),
   ).toHaveCount(0);
+  await expect(carousel.locator(".home-beyond-carousel__position"))
+    .toHaveText(`${products.length} / ${products.length}`);
+});
+}
+
+test("Core changes from one card and a preview to two and then its desktop grid without duplicating products", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "html { scrollbar-gutter: stable; }" });
+  const core = page.getByRole("region", { name: "The Core products", exact: true });
+  const cards = core.locator(".product-card");
+  await expect(cards).toHaveCount(3);
+  const firstCard = await cards.first().elementHandle();
+  const next = core.getByRole("button", { name: "Next product" });
+  await expect(next).toBeVisible();
+  const geometry = await core.evaluate((element) => {
+    const items = element.querySelectorAll(".product-card");
+    const first = items[0].getBoundingClientRect();
+    const second = items[1].getBoundingClientRect();
+    const control = element.querySelector("button.home-beyond-carousel__control")!.getBoundingClientRect();
+    return { peek: element.getBoundingClientRect().right - second.left, gap: second.left - first.right, cardBottom: first.bottom, controlTop: control.top, controlWidth: control.width, controlHeight: control.height };
+  });
+  expect(geometry.peek).toBeGreaterThanOrEqual(36);
+  expect(geometry.peek).toBeLessThanOrEqual(52);
+  expect(geometry.gap).toBeGreaterThanOrEqual(12);
+  expect(geometry.controlTop).toBeGreaterThan(geometry.cardBottom);
+  expect(geometry.controlWidth).toBeGreaterThanOrEqual(44);
+  expect(geometry.controlHeight).toBeGreaterThanOrEqual(44);
+
+  await page.setViewportSize({ width: 900, height: 1000 });
+  const tablet = await cards.evaluateAll((items) => items.map((item) => {
+    const bounds = item.getBoundingClientRect();
+    return { left: bounds.left, right: bounds.right, top: bounds.top };
+  }));
+  expect(tablet[1].right).toBeLessThan(900);
+  expect(tablet[2].left).toBeLessThan(900);
+  expect(tablet[2].right).toBeGreaterThan(900);
+  await next.focus();
+  await page.setViewportSize({ width: 901, height: 1000 });
+  await expect(next).toHaveCount(0);
+  await expect(core).toBeFocused();
+  expect(await firstCard?.evaluate((element) => element.isConnected)).toBe(true);
+  const desktop = await cards.evaluateAll((items) => items.map((item) => {
+    const bounds = item.getBoundingClientRect();
+    return { right: bounds.right, top: bounds.top };
+  }));
+  expect(desktop[2].right).toBeLessThanOrEqual(901);
+  const desktopViewport = await core.locator(".home-beyond-carousel__viewport").boundingBox();
+  expect(desktopViewport).not.toBeNull();
+  expect(desktop[2].right).toBeLessThanOrEqual(desktopViewport!.x + desktopViewport!.width + 1);
+  expect(new Set(desktop.map((item) => item.top)).size).toBe(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(901);
+
+  const lastLink = cards.last().locator(".product-card__link");
+  await lastLink.focus();
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expect(lastLink).toBeFocused();
+  await expect(core).toHaveAttribute("data-active-index", "2");
+  await expect.poll(async () => core.evaluate((element) => {
+    const viewport = element.querySelector(".home-beyond-carousel__viewport")!.getBoundingClientRect();
+    const focused = document.activeElement!.getBoundingClientRect();
+    return focused.left >= viewport.left - 1 && focused.right <= viewport.right + 1;
+  })).toBe(true);
+  await firstCard?.dispose();
+});
+
+test("ingredient preview remains a linked, stacked thumbnail list across breakpoints", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const ingredients = page.getByRole("list", { name: "Ingredient literacy preview", exact: true });
+  const links = ingredients.getByRole("link");
+  await expect(links).toHaveCount(3);
+  for (const [index, id] of ["pdrn", "peptides", "niacinamide"].entries()) {
+    await expect(links.nth(index)).toHaveAttribute("href", `/system#system-ingredient-${id}`);
+  }
+  await expect(ingredients.locator("img")).toHaveCount(3);
+  await expect(page.locator(".home-lander-ingredients").getByRole("button", { name: /(?:Next|Previous) ingredient/ })).toHaveCount(0);
+  await links.last().focus();
+  for (const width of [390, 720, 721, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(links.last()).toBeFocused();
+    const bounds = await links.evaluateAll((items) => items.map((item) => {
+      const box = item.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+    }));
+    expect(bounds[1].top).toBeGreaterThanOrEqual(bounds[0].bottom);
+    expect(bounds[2].top).toBeGreaterThanOrEqual(bounds[1].bottom);
+    expect(bounds.every((box) => box.left >= 0 && box.right <= width)).toBe(true);
+    for (const image of await ingredients.locator("img").all()) {
+      await expect(image).toHaveAttribute("alt", "");
+      const box = await image.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThan(0);
+      expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
+    }
+  }
 });
 
 test("homepage ingredient discovery lands below the fixed System header", async ({

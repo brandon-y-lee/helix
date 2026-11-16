@@ -26,13 +26,6 @@ const ceramide: CatalogProductSource = {
   concerns: ["Dryness"],
   usage_time: ["Morning", "Night"],
   search_keywords: ["ceramide cushion"],
-  product_slug_routes: [
-    {
-      source_slug: "seal-05-green-collagen-cream",
-      route_kind: "replacement",
-    },
-    { source_slug: "ceramide-cushion", route_kind: "canonical" },
-  ],
   product_family_memberships: null,
   routine_group: "core",
   system_step_name: "SEAL",
@@ -49,7 +42,6 @@ const archivedGreen: CatalogProductSource = {
   display_name: "SEAL",
   catalog_status: "archived",
   status: "available",
-  product_slug_routes: [],
   product_variants: [
     {
       variant_key: "50ml",
@@ -63,18 +55,20 @@ const archivedGreen: CatalogProductSource = {
 };
 
 describe("Ceramide Cushion search replacement projection", () => {
-  it("indexes only Ceramide with the Green alias and no commerce or excluded claims", () => {
+  it("indexes current Ceramide identity without the archived Product, commerce, or excluded claims", () => {
     const records = buildPublicSearchRecords([ceramide, archivedGreen]);
 
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
       slug: "ceramide-cushion",
-      slugAliases: ["seal-05-green-collagen-cream"],
       status: "coming_soon",
       available: false,
       variantCount: 0,
       variantNames: [],
     });
+    expect(records[0]).not.toHaveProperty("slugAliases");
+    expect(records[0].keywords).not.toContain("seal-05-green-collagen-cream");
+    expect(records[0].ingredients).toContain("Ceramide AP");
     expect(records[0]).not.toHaveProperty("priceMin");
     expect(records[0]).not.toHaveProperty("priceMax");
     expect(JSON.stringify(records[0])).not.toMatch(

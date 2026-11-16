@@ -11,8 +11,8 @@ import {
 } from "@/scripts/verify-product-media";
 
 const approvedOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
-const imageUrl = `${approvedOrigin}/storage/v1/object/public/mei-pelle-catalog/card.png`;
-const videoUrl = `${approvedOrigin}/storage/v1/object/public/mei-pelle-catalog/video.mp4`;
+const imageUrl = `${approvedOrigin}/storage/v1/object/public/helix-catalog/card.png`;
+const videoUrl = `${approvedOrigin}/storage/v1/object/public/helix-catalog/video.mp4`;
 
 function httpSuccessResponse(mediaType: "image" | "video" = "image") {
   const bytes = mediaType === "image"
@@ -46,7 +46,7 @@ function createRuntimeForCatalog(
 ): ProductMediaVerifierRuntime {
   const fetchMock = vi.fn(fetchImpl);
   return {
-    pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
+    pathPrefix: "/storage/v1/object/public/helix-catalog/",
     maxRedirects: 3,
     timeoutMs: 1_000,
     approvedMediaOrigin: approvedOrigin,
@@ -110,7 +110,7 @@ describe("Product Media Verification Command", () => {
       },
       approvedMediaOrigin: approvedOrigin,
       createHttpClient: () => createBoundedProductMediaHttpClient(async () => httpSuccessResponse()),
-      pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
+      pathPrefix: "/storage/v1/object/public/helix-catalog/",
       maxRedirects: 3,
       timeoutMs: 1_000,
     };
@@ -213,7 +213,7 @@ describe("Product Media Verification Command", () => {
         },
         approvedMediaOrigin: approvedOrigin,
         createHttpClient: () => createBoundedProductMediaHttpClient(async () => httpSuccessResponse()),
-        pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
+        pathPrefix: "/storage/v1/object/public/helix-catalog/",
         maxRedirects: 3,
         timeoutMs: 1_000,
       },
@@ -286,6 +286,25 @@ describe("Product Media Verification Command", () => {
         mediaType: "video",
         url: videoUrl,
       },
+    ]);
+  });
+
+  it("verifies URL-backed media while ignoring valid palette-only rows", () => {
+    const snapshot: ProductMediaCatalogSnapshot = {
+      products: [
+        {
+          id: "p-1",
+          slug: "alpha",
+          product_media: [
+            { media_type: "image", url: null },
+            { media_type: "image", url: imageUrl },
+          ],
+        },
+      ],
+    };
+
+    expect(collectExpectedProductMedia(snapshot)).toEqual([
+      { mediaType: "image", url: imageUrl },
     ]);
   });
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import CatalogEditor from "@/components/admin/catalog-editor/CatalogEditor";
 
 export const metadata: Metadata = {
-  title: "Edit Catalog Product | Mei Pelle Admin",
+  title: "Edit Catalog Product",
 };
 
 export default async function AdminCatalogProductPage({

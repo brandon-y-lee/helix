@@ -1,0 +1,93 @@
+import type { AccountDashboardOrder } from "@/components/account/AccountDashboardView";
+import type { OrderConfirmationDisplay } from "@/components/cart/OrderConfirmationView";
+import type { RewardsSummary } from "@/lib/rewards/server";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
+
+export const CUSTOMER_FIXTURE_VIEWS = ["account", "rewards", "auth", "order"] as const;
+export type CustomerFixtureView = typeof CUSTOMER_FIXTURE_VIEWS[number];
+export const CUSTOMER_FIXTURE_STATES = [
+  "populated", "empty", "unavailable", "unverified", "signed-out", "pending", "success", "error", "validation",
+] as const;
+export type CustomerFixtureState = typeof CUSTOMER_FIXTURE_STATES[number];
+export const CUSTOMER_FIXTURE_FORMS = ["sign-in", "sign-up", "forgot-password", "reset-password"] as const;
+export type CustomerFixtureForm = typeof CUSTOMER_FIXTURE_FORMS[number];
+
+export function customerRewardsFixture(state: CustomerFixtureState): RewardsSummary | null {
+  if (state === "unavailable") return null;
+  const empty = state === "empty" || state === "signed-out";
+  return {
+    authenticated: state !== "signed-out",
+    emailConfirmed: state !== "unverified" && state !== "signed-out",
+    programName: "helix rewards",
+    pointsBalance: empty ? 0 : 425,
+    lifetimePoints: empty ? 0 : 725,
+    estimatedPurchasePoints: 0,
+    affordableTiers: [],
+    referralCode: empty ? null : "SAMPLE25",
+    recentLedger: empty ? [] : [
+      { id: "sample-award", entry_type: "purchase_earn", points: 300, description: "Sandbox purchase Points Award.", created_at: "2026-08-19T12:00:00.000Z" },
+      { id: "sample-reservation", entry_type: "redemption_reserved", points: -200, description: "Checkout Points Reservation.", created_at: "2026-08-20T12:00:00.000Z" },
+      { id: "sample-release", entry_type: "redemption_released", points: 200, description: "Checkout Points Reservation released.", created_at: "2026-08-21T12:00:00.000Z" },
+    ],
+    feedbackRequests: empty ? [] : [{ id: "sample-feedback", order_id: "sample-order", order_number: "SAMPLE-001", points: 300 }],
+  };
+}
+
+export function customerOrdersFixture(state: CustomerFixtureState): AccountDashboardOrder[] {
+  return state === "empty" ? [] : [
+    { id: "sample-order", order_number: "SAMPLE-001", status: "paid", total_cents: 5600, reward_points_earned: 560 },
+    { id: "sample-pending", order_number: "SAMPLE-002", status: "pending_payment", total_cents: 3200, reward_points_earned: 0 },
+  ];
+}
+
+export function customerOrderConfirmationFixture(state: CustomerFixtureState): OrderConfirmationDisplay | null {
+  if (state === "unverified") return null;
+  return {
+    notice: SANDBOX_CHECKOUT_NOTICE,
+    state: state === "pending" ? "pending" : "paid",
+    retryAfterSeconds: 5,
+    shipping: state === "pending" ? null : {
+      name: "Sample Recipient",
+      line1: "123 Example Street",
+      line2: null,
+      city: "San Francisco",
+      state: "CA",
+      postal_code: "94110",
+      country: "US",
+    },
+    tracking: state === "populated" || state === "success" ? {
+      frozen: false,
+      shipments: [
+        {
+          id: "sample-shipment-one", number: 1, state: "delivered", version: 3,
+          items: [{ name: "Sample skincare product", variantLabel: "50 ml", quantity: 1 }],
+          events: [
+            { state: "dispatched", occurredAt: "2026-09-20T12:00:00.000Z" },
+            { state: "in_transit", occurredAt: "2026-09-21T12:00:00.000Z" },
+            { state: "delivered", occurredAt: "2026-09-22T12:00:00.000Z" },
+          ],
+        },
+        {
+          id: "sample-shipment-two", number: 2, state: "exception", version: 2,
+          items: [{ name: "Sample skincare product", variantLabel: "50 ml", quantity: 1 }],
+          events: [
+            { state: "dispatched", occurredAt: "2026-09-21T13:00:00.000Z" },
+            { state: "exception", occurredAt: "2026-09-22T13:00:00.000Z" },
+          ],
+        },
+      ],
+    } : undefined,
+    order: {
+      order_number: "SAMPLE-001",
+      status: state === "pending" ? "pending_payment" : "paid",
+      reward_points_earned: state === "pending" ? 0 : 560,
+      reward_points_redeemed: 200,
+      merchandise_subtotal_cents: 6000,
+      discount_cents: 500,
+      shipping_cents: 0,
+      tax_cents: 100,
+      total_cents: 5600,
+    },
+    items: [{ product_name: "Sample skincare product", variant_label: "50 ml", quantity: 2, line_subtotal_cents: 6000 }],
+  };
+}

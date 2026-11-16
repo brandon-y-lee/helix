@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FullConfig } from "@playwright/test";
@@ -58,7 +58,7 @@ function product(
     product_media: [
       {
         media_type: "video",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/routine.mp4",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/routine.mp4",
         alt: "Routine video",
         width: null,
         height: null,
@@ -69,7 +69,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/poster.webp",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/poster.webp",
         alt: "Routine poster",
         width: 1200,
         height: 1600,
@@ -80,7 +80,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/gallery.webp",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/gallery.webp",
         alt: "Product bottle",
         width: 1200,
         height: 1600,
@@ -122,8 +122,17 @@ afterEach(() => {
 describe("Playwright global Storefront baseline setup", () => {
   it("writes one validated live snapshot to the shared test output", async () => {
     const outputDirectory = await mkdtemp(
-      join(tmpdir(), "mei-pelle-global-baseline-"),
+      join(tmpdir(), "helix-global-baseline-"),
     );
+    vi.spyOn(process, "cwd").mockReturnValue(outputDirectory);
+    await mkdir(join(outputDirectory, ".next"));
+    await writeFile(join(outputDirectory, ".next/BUILD_ID"), "retained-test-build");
+    await writeFile(join(outputDirectory, ".next/prerender-manifest.json"), JSON.stringify({
+      version: 4,
+      routes: { "/": {} },
+      dynamicRoutes: {},
+      notFoundRoutes: [],
+    }));
     const storefrontReads: string[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
@@ -151,6 +160,14 @@ describe("Playwright global Storefront baseline setup", () => {
             <button data-pdp-media-thumbnail aria-label="View Product bottle, media 1 of 1"></button>
           </body></html>`, { status: 200 });
         }
+        if (pathname === "/products/family-member") {
+          return new Response(`<!doctype html><html><head>
+            <link rel="canonical" href="https://helixskin.vercel.app/products/family-member">
+            <meta property="og:url" content="https://helixskin.vercel.app/products/family-member">
+            </head><body><h1>Family Member</h1>
+            <script type="application/ld+json">{"@type":"Product","name":"Family Member — Cleanser","url":"https://helixskin.vercel.app/products/family-member"}</script>
+          </body></html>`, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        }
         return new Response("Not found", { status: 404 });
       }
       if (url.includes("product_relationships")) {
@@ -170,6 +187,13 @@ describe("Playwright global Storefront baseline setup", () => {
             status: "sold_out",
             product_variants: [],
             product_media: [],
+          }),
+          product({
+            id: "family-member-id",
+            slug: "family-member",
+            display_name: "Family Member",
+            sort_order: 30,
+            product_family_memberships: { family_id: "family-id", is_entry: false },
           }),
         ]),
         { status: 200 },
@@ -193,14 +217,18 @@ describe("Playwright global Storefront baseline setup", () => {
       expect(snapshot.products.map((item) => item.slug)).toEqual([
         "core-product",
         "beyond-product",
+        "family-member",
       ]);
       expect(snapshot.journeys.richPdpProductId).toBe("core-id");
       expect(storefrontReads).toEqual([
+        "/products/family-member",
         "/collections/shop",
         "/collections/core",
         "/collections/beyond-the-core",
         "/products/core-product",
       ]);
+      expect(JSON.parse(await readFile(join(outputDirectory, "storefront-cold-canonical.json"), "utf8")))
+        .toMatchObject({ buildId: "retained-test-build", path: "/products/family-member" });
       expect(await readFile(artifactPath, "utf8")).not.toContain(
         "public-anon-key",
       );

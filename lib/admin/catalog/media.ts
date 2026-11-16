@@ -181,7 +181,7 @@ export async function stageCatalogMedia(input: {
   const admin = createSupabaseAdminClient();
   const { data: product, error: productError } = await admin
     .from("products")
-    .select("id, slug, routine_group")
+    .select("id, routine_group")
     .eq("id", input.productId)
     .maybeSingle();
   if (productError) {
@@ -237,7 +237,7 @@ export async function stageCatalogMedia(input: {
   assertFileSignature(bytes, input.file.type);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const config = MIME_CONFIG[input.file.type];
-  const path = `products/${product.slug}/drafts/${sha256}.${config.extension}`;
+  const path = `products/${product.id}/drafts/${sha256}.${config.extension}`;
   const dimensions = mediaDimensions(bytes, input.file.type);
 
   const { error: uploadError } = await admin.storage

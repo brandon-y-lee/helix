@@ -10,9 +10,11 @@ import { usePdpSlideTransition } from "@/components/product-detail/usePdpSlideTr
 export function useCoreRoutineSelection({
   currentSlug,
   slugs,
+  durationMs,
 }: {
   currentSlug: string;
   slugs: string[];
+  durationMs?: number;
 }) {
   const defaultIndex = Math.max(slugs.indexOf(currentSlug), 0);
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -27,6 +29,7 @@ export function useCoreRoutineSelection({
     initialIndex: defaultIndex,
     itemCount: slugs.length,
     resetKey: `${currentSlug}:${slugSignature}`,
+    durationMs,
   });
 
   const handleKeyDown = useCallback(

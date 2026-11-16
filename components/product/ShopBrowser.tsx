@@ -24,6 +24,8 @@ import {
   type ReactNode,
 } from "react";
 import { ProductGrid } from "@/components/product/ProductGrid";
+import { Sheet } from "@/components/overlays/Sheet";
+import { usePhoneLayout } from "@/components/overlays/usePhoneLayout";
 import {
   SHOP_COLLECTIONS,
   type ShopCollectionSlug,
@@ -127,9 +129,12 @@ export function ShopBrowser({
 }) {
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
+  const isPhone = usePhoneLayout();
   const sortMenuId = useId();
+  const collectionNavRef = useRef<HTMLElement>(null);
   const sortTriggerRef = useRef<HTMLButtonElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+  const focusedSortRef = useRef<SortKey>("featured");
   const restoreFocusTimeoutRef = useRef<number | null>(null);
   const navigationStartedRef = useRef(false);
   const [sort, setSort] = useState<SortKey>("featured");
@@ -185,8 +190,36 @@ export function ShopBrowser({
 
   const closeSortMenu = useCallback(() => {
     setSortMenuOpen(false);
-    restoreSortTriggerFocus();
-  }, [restoreSortTriggerFocus]);
+    if (!isPhone) restoreSortTriggerFocus();
+  }, [isPhone, restoreSortTriggerFocus]);
+
+  const getSortFocusTarget = useCallback(() => {
+    return sortMenuRef.current?.querySelector<HTMLButtonElement>(
+      `[data-sort-value="${focusedSortRef.current}"]`,
+    ) ?? null;
+  }, []);
+
+  useEffect(() => {
+    const navigation = collectionNavRef.current;
+    if (!isPhone || !navigation) return;
+    const selected = navigation.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!selected) return;
+
+    function revealSelectedCollection() {
+      if (!navigation || !selected) return;
+      const viewport = navigation.getBoundingClientRect();
+      const link = selected.getBoundingClientRect();
+      // Scroll this row only; collection changes retain the page's reading position.
+      if (link.left < viewport.left) navigation.scrollLeft += link.left - viewport.left;
+      else if (link.right > viewport.right) navigation.scrollLeft += link.right - viewport.right;
+    }
+
+    revealSelectedCollection();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(revealSelectedCollection);
+    observer.observe(navigation);
+    return () => observer.disconnect();
+  }, [activeCollection, isPhone]);
 
   useEffect(() => {
     return () => {
@@ -197,12 +230,10 @@ export function ShopBrowser({
   }, []);
 
   useEffect(() => {
-    if (!sortMenuOpen) return;
+    if (!sortMenuOpen || isPhone) return;
 
     const focusTimeout = window.setTimeout(() => {
-      sortMenuRef.current
-        ?.querySelector<HTMLButtonElement>(`[data-sort-value="${sort}"]`)
-        ?.focus({ preventScroll: true });
+      getSortFocusTarget()?.focus({ preventScroll: true });
     }, 0);
 
     function handleEscape(event: globalThis.KeyboardEvent) {
@@ -216,7 +247,7 @@ export function ShopBrowser({
       window.clearTimeout(focusTimeout);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [closeSortMenu, sort, sortMenuOpen]);
+  }, [closeSortMenu, getSortFocusTarget, isPhone, sortMenuOpen]);
 
   function handleSortMenuKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const menu = sortMenuRef.current;
@@ -226,7 +257,7 @@ export function ShopBrowser({
       menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
     );
 
-    if (event.key === "Tab" && focusableButtons.length > 0) {
+    if (!isPhone && event.key === "Tab" && focusableButtons.length > 0) {
       const firstButton = focusableButtons[0];
       const lastButton = focusableButtons[focusableButtons.length - 1];
 
@@ -305,6 +336,35 @@ export function ShopBrowser({
     router.push(pendingCollectionHref, { scroll: false });
   }
 
+  const sortOptions = (
+    <ul className="sort-menu__options" role="presentation">
+      {SORTS.map((item) => (
+        <li key={item.value}>
+          <button
+            type="button"
+            className="sort-menu__option"
+            data-sort-option
+            data-sort-value={item.value}
+            aria-pressed={sort === item.value}
+            onFocus={(event) => {
+              focusedSortRef.current = item.value;
+              const panel = event.currentTarget.closest<HTMLElement>(".sort-sheet");
+              if (!panel) return;
+              const bounds = panel.getBoundingClientRect();
+              const option = event.currentTarget.getBoundingClientRect();
+              // A selected option can begin below the fold in a short sheet.
+              if (option.bottom > bounds.bottom - 16) panel.scrollTop += option.bottom - bounds.bottom + 16;
+              else if (option.top < bounds.top + 16) panel.scrollTop += option.top - bounds.top - 16;
+            }}
+            onClick={() => selectSort(item.value)}
+          >
+            {item.label}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
@@ -312,7 +372,7 @@ export function ShopBrowser({
           className="storefront-shell shop-toolbar"
           data-layout-shell="storefront"
         >
-          <nav className="filter-chips" aria-label="Shop collections">
+          <nav ref={collectionNavRef} className="filter-chips" aria-label="Shop collections">
             <div className="filter-chips__track">
               {SHOP_COLLECTIONS.map((collection) => (
                 <Link
@@ -342,14 +402,35 @@ export function ShopBrowser({
                 aria-label={`Sort: ${selectedSort.label}`}
                 aria-haspopup="dialog"
                 aria-expanded={sortMenuOpen}
-                aria-controls={sortMenuId}
-                onClick={() => setSortMenuOpen((open) => !open)}
+                aria-controls={isPhone ? undefined : sortMenuId}
+                onClick={() => {
+                  if (sortMenuOpen) closeSortMenu();
+                  else {
+                    focusedSortRef.current = sort;
+                    setSortMenuOpen(true);
+                  }
+                }}
               >
                 <span className="sort-control__label">Sort:</span>
                 <span className="sort-control__value">{selectedSort.label}</span>
                 <span className="sort-control__caret" aria-hidden="true" />
               </button>
 
+              {isPhone ? (
+                <Sheet
+                  open={sortMenuOpen}
+                  side="bottom"
+                  title="Sort products"
+                  className="sort-sheet"
+                  onClose={closeSortMenu}
+                  returnFocus={restoreSortTriggerFocus}
+                  initialFocus={getSortFocusTarget}
+                >
+                  <div ref={sortMenuRef} onKeyDown={handleSortMenuKeyDown}>
+                    {sortOptions}
+                  </div>
+                </Sheet>
+              ) : (
               <AnimatePresence initial={false}>
                 {sortMenuOpen && (
                   <>
@@ -387,26 +468,12 @@ export function ShopBrowser({
                       >
                         <span aria-hidden="true" />
                       </button>
-                      <ul className="sort-menu__options" role="presentation">
-                        {SORTS.map((item) => (
-                          <li key={item.value}>
-                            <button
-                              type="button"
-                              className="sort-menu__option"
-                              data-sort-option
-                              data-sort-value={item.value}
-                              aria-pressed={sort === item.value}
-                              onClick={() => selectSort(item.value)}
-                            >
-                              {item.label}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
+                      {sortOptions}
                     </m.div>
                   </>
                 )}
               </AnimatePresence>
+              )}
             </div>
 
             <span className="product-count" aria-live="polite">

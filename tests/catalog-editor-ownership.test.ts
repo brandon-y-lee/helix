@@ -46,7 +46,7 @@ describe("catalog editor field ownership", () => {
   it("allows only a Catalog Administrator to change the canonical slug", () => {
     const canonical = cloneDocument();
     const candidate = cloneDocument();
-    candidate.product.slug = "biotic-reset";
+    candidate.product.slug = "reviewed-cleanser";
 
     expect(
       validateCatalogEditorOwnership(candidate, canonical, "admin"),

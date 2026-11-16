@@ -25,15 +25,15 @@ describe("CatalogPreviewToolbar", () => {
         version={7}
         lastSavedLabel="Jul 29, 2026, 6:30 PM UTC"
         editorPath="/admin/catalog/draft-id"
-        publishedPath="/products/cleanse-01-calming-gel-cleanser"
+        publishedPath="/products/biotic-reset"
       />,
     );
 
     expect(
       screen.getByRole("complementary", {
-        name: "Draft preview controls",
+        name: "Catalog Preview controls",
       }),
-    ).toHaveTextContent("Draft Preview");
+    ).toHaveTextContent("helix Catalog Preview");
     expect(screen.getByText("CLEANSE")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
     expect(
@@ -43,8 +43,11 @@ describe("CatalogPreviewToolbar", () => {
       screen.getByRole("link", { name: "Open Published PDP" }),
     ).toHaveAttribute(
       "href",
-      "/products/cleanse-01-calming-gel-cleanser",
+      "/products/biotic-reset",
     );
+    expect(
+      screen.getByRole("navigation", { name: "Catalog Preview actions" }),
+    ).toBeVisible();
 
     await user.tab();
     expect(screen.getByRole("link", { name: "Back to Editor" })).toHaveFocus();

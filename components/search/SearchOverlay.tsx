@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useRef } from "react";
 import { SearchView } from "@/components/search/SearchView";
 import {
   PERSISTENT_SHEET_MOTION_TRANSITION,
@@ -20,19 +21,24 @@ export function SearchOverlay({
   onClose: () => void;
   returnFocus: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const initialFocus = useCallback(() => inputRef.current, []);
+
   return (
     <Sheet
       open={open}
       side="right"
       title="Search"
-      description="Search the Mei Pelle product catalog."
+      closeVariant="icon"
+      description="Search the helix product catalog."
       onClose={onClose}
       returnFocus={returnFocus}
+      initialFocus={initialFocus}
       className="search-sheet"
       motionTransition={PERSISTENT_SHEET_MOTION_TRANSITION}
       persistent
     >
-      <SearchView autoFocus={open} onResultClick={onClose} />
+      <SearchView inputRef={inputRef} onResultClick={onClose} />
     </Sheet>
   );
 }

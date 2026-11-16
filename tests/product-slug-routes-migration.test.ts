@@ -31,7 +31,7 @@ const lengthMigration = readFileSync(
   "utf8",
 );
 
-describe("durable Product slug route migration", () => {
+describe("historical Product reservation foundation", () => {
   it("bounds every canonical and historical Product slug", () => {
     expect(lengthMigration).toContain("char_length(source_slug) <= 120");
     expect(lengthMigration).toContain("product_slug_routes_source_slug_check");
@@ -76,13 +76,5 @@ describe("durable Product slug route migration", () => {
     expect(migration).toContain("set search_path = ''");
   });
 
-  it("exposes only safe active route resolution and denies public writes", () => {
-    expect(migration).toContain("alter table public.product_slug_routes enable row level security");
-    expect(migration).toContain("create policy \"Public read active Product slug routes\"");
-    expect(migration).toContain("public.resolve_product_slug");
-    expect(migration).toContain("revoke all on table public.product_slug_routes");
-    expect(migration).toContain("grant select on table public.product_slug_routes");
-    expect(migration).toContain("grant execute on function public.resolve_product_slug(text)");
-    expect(migration).not.toMatch(/\bdrop\s+(table|column)\b/i);
-  });
+
 });

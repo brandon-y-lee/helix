@@ -8,7 +8,7 @@ import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export const CORE_ROUTINE_PRODUCT_SLUGS = [
   "biotic-reset",
-  "peptide-bounce",
+  "super-serum",
   "ceramide-cushion",
 ] as const;
 
@@ -151,13 +151,6 @@ export type ProductMetadata = {
 
 export type ProductRoute = {
   slug: string;
-};
-
-export type ProductSlugResolution = {
-  sourceSlug: string;
-  targetSlug: string;
-  targetProductId: string;
-  routeKind: "canonical" | "rename" | "replacement";
 };
 
 export type IngredientIndexProduct = {

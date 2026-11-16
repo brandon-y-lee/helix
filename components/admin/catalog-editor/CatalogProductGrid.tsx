@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import {
   CatalogDraftFilter,
   CatalogProductListItem,
@@ -35,7 +36,11 @@ function formatTimestamp(value: string | null): string {
   }).format(new Date(value));
 }
 
-export default function CatalogProductGrid() {
+export default function CatalogProductGrid({
+  api = catalogEditorApi,
+}: {
+  api?: Pick<typeof catalogEditorApi, "listProducts">;
+} = {}) {
   const [products, setProducts] = useState<CatalogProductListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -51,7 +56,7 @@ export default function CatalogProductGrid() {
 
   const load = useCallback(
     async (cursor: string | null, signal?: AbortSignal) => {
-      const result = await catalogEditorApi.listProducts(
+      const result = await api.listProducts(
         { search, publication, routine, draft, cursor },
         signal,
       );
@@ -60,7 +65,7 @@ export default function CatalogProductGrid() {
       );
       setNextCursor(result.nextCursor);
     },
-    [draft, publication, routine, search],
+    [api, draft, publication, routine, search],
   );
 
   useEffect(() => {
@@ -110,11 +115,11 @@ export default function CatalogProductGrid() {
     <div className={styles.page}>
       <header className={styles.pageHeader}>
         <div>
-          <p className={styles.eyebrow}>Admin · Catalog</p>
-          <h1 className={styles.title}>Catalog editor</h1>
+          <p className={styles.eyebrow}>helix Admin · Catalog</p>
+          <h1 className={styles.title}>Catalog Editor</h1>
           <p className={styles.lede}>
-            Find a product, review its operational state, and open its unified
-            draft editor.
+            Find a Product, review its operational state, and open its unified
+            Catalog Draft editor.
           </p>
         </div>
       </header>
@@ -186,12 +191,12 @@ export default function CatalogProductGrid() {
 
       {loading ? (
         <section className={styles.statePanel} aria-busy="true">
-          <h2>Loading catalog</h2>
-          <p>Retrieving the narrow product summary list…</p>
+          <h2>Loading helix Catalog</h2>
+          <p>Retrieving the Product summary list…</p>
         </section>
       ) : error ? (
         <section className={styles.statePanel} role="alert">
-          <h2>Catalog unavailable</h2>
+          <h2>helix Catalog unavailable</h2>
           <p>{error}</p>
           <button
             className={styles.button}
@@ -203,8 +208,8 @@ export default function CatalogProductGrid() {
         </section>
       ) : products.length === 0 ? (
         <section className={styles.statePanel}>
-          <h2>No products found</h2>
-          <p>Adjust the search or filters to see more catalog products.</p>
+          <h2>No Catalog Products found</h2>
+          <p>Adjust the search or filters to see more of the helix Catalog.</p>
         </section>
       ) : (
         <>
@@ -224,7 +229,13 @@ export default function CatalogProductGrid() {
                       alt={product.primaryMedia.alt}
                     />
                   ) : (
-                    <span aria-label="No product image">MEI PELLE</span>
+                    <span
+                      className={styles.cardMediaFallback}
+                      role="img"
+                      aria-label="helix Product image unavailable"
+                    >
+                      <HelixIdentity variant="symbol" decorative />
+                    </span>
                   )}
                 </div>
                 <div className={styles.cardBody}>

@@ -1,0 +1,129 @@
+{
+  "searchScroll": {
+    "before": 6904.5,
+    "after": {
+      "focus": {
+        "name": "SEARCH",
+        "rect": {
+          "bottom": 53.5,
+          "height": 44,
+          "left": 286,
+          "right": 330,
+          "top": 9.5,
+          "width": 44,
+          "x": 286,
+          "y": 9.5
+        },
+        "tag": "BUTTON"
+      },
+      "lock": "visible",
+      "scrollY": 6904.5
+    }
+  },
+  "menuResizeToDesktop": {
+    "focus": {
+      "name": "SEARCH",
+      "rect": {
+        "bottom": 49.21875,
+        "height": 35.4453125,
+        "left": 677.3984375,
+        "right": 732.859375,
+        "top": 13.7734375,
+        "width": 55.4609375,
+        "x": 677.3984375,
+        "y": 13.7734375
+      }
+    },
+    "lock": "visible",
+    "scrollY": 6674,
+    "width": 921
+  },
+  "cookieScrollY": 7485,
+  "correctedSearchControls": {
+    "buttons": [
+      {
+        "rect": {
+          "bottom": 60,
+          "height": 44,
+          "left": 300.125,
+          "right": 374,
+          "top": 16,
+          "width": 73.875,
+          "x": 300.125,
+          "y": 16
+        },
+        "text": "Close"
+      },
+      {
+        "rect": {
+          "bottom": 124,
+          "height": 44,
+          "left": 305.984375,
+          "right": 366,
+          "top": 80,
+          "width": 60.015625,
+          "x": 305.984375,
+          "y": 80
+        },
+        "text": "Clear"
+      }
+    ],
+    "input": [
+      {
+        "font": "16px",
+        "rect": {
+          "bottom": 128,
+          "height": 52,
+          "left": 17,
+          "right": 374,
+          "top": 76,
+          "width": 357,
+          "x": 17,
+          "y": 76
+        }
+      }
+    ]
+  },
+  "repairVerification": {
+    "keyboardWrap": {
+      "sourceStatus": "Both internal wrap branches now call native focus()",
+      "independentBrowserRetest": "Blocked: in-app Browser service unavailable after interruption",
+      "requiredRegression": "e2e/home-navbar.spec.ts: short mobile menu scrolls wrapped keyboard focus into view without moving the page",
+      "status": "Resolved: production Chromium geometry regression passed",
+      "regressionResult": "Passed both short-menu wrap directions with focused targets fully in viewport and exact page-scroll restoration"
+    },
+    "cookieKeyboardWrap": "Not visually retested after repair; earlier panel reachability and Escape restoration passed",
+    "lightHeaderContrast": "Source adds SVG drop-shadow and cart count text-shadow; actual bright-frame appearance not recaptured",
+    "emptyCartAction": "48px phone minimum confirmed in source; corrected geometry not recaptured",
+    "viewportOverride": "Reset before interruption; resumption established no override",
+    "preview": "Released to root for supported production verification",
+    "productionVerification": {
+      "commit": "9c8fbbbe003cb979ea8a2453df2c492890f40908",
+      "command": "CI=1 pnpm e2e",
+      "buildId": "_5Ryp8v3Z6bLKm-gLZgDb",
+      "passed": 61,
+      "existingOfferConditionalSkipped": 9,
+      "flaky": 0,
+      "browserSeconds": 38.4,
+      "workflowSeconds": 57.259,
+      "log": "/private/tmp/helix-mobile-m1-e2e-3.log",
+      "logInspectedByConsultant": true,
+      "newMobileRegressionsRunAsReportedByRoot": [
+        "Search initial focus through both opening paths",
+        "Short-menu keyboard wrapping and page scroll preservation",
+        "198-item header count at320px",
+        "Footer viewport matrix",
+        "Controlled cart loading, populated, update error and retry at390x844 and320x480"
+      ],
+      "unitTestsPassedAsReportedByRoot": 965,
+      "deltaReviewAsReportedByRoot": "Both axes passed"
+    },
+    "cartLayoutRepair": {
+      "cause": "Inherited align-items:start prevented populated drawer items from stretching into the constrained grid row",
+      "change": "Phone .cart-layout--drawer explicitly uses align-items:stretch",
+      "verification": "Final production Chromium controlled cart tests passed",
+      "actualMediaRecapture": false
+    },
+    "auditDisposition": "M1 composition accepted and blocking keyboard finding resolved through production Chromium verification; physical-device and post-fix actual-media recapture limits retained"
+  }
+}

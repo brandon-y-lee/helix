@@ -4,7 +4,7 @@ import { CheckoutCancellationCleanup } from "@/components/cart/CheckoutCancellat
 import { isCheckoutCancelledSearchParams } from "@/lib/orders/checkout-cancel";
 
 export const metadata: Metadata = {
-  title: "Cart | Mei Pelle",
+  title: "Cart | helix",
 };
 
 type CartPageProps = {
@@ -15,20 +15,18 @@ type CartPageProps = {
 
 export default async function CartPage({ searchParams }: CartPageProps) {
   const params = searchParams ? await searchParams : {};
-  const checkoutCancelled = isCheckoutCancelledSearchParams(params);
+  const returnedFromCheckout = isCheckoutCancelledSearchParams(params);
 
   return (
-    <div className="container">
+    <div className="container public-utility-page">
       <div className="page-head">
-        <h1>Cart</h1>
+        <h1 className="cart-page-title">Your <strong>CART</strong></h1>
       </div>
-      {checkoutCancelled && (
-        <>
-          <div className="cart-notice" role="status" aria-live="polite">
-            Sandbox checkout was cancelled. Your cart is still here.
-          </div>
+      {returnedFromCheckout && (
+        <div className="cart-notice">
+          <p>You returned from checkout. Your cart is still here.</p>
           <CheckoutCancellationCleanup active />
-        </>
+        </div>
       )}
       <CartView />
     </div>

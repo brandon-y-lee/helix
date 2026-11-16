@@ -1,5 +1,8 @@
+import { LifecycleProductVisit } from "@/components/marketing/LifecycleProductVisit";
+import { PublicReviewFeed } from '@/components/reviews/PublicReviewFeed';
+import { readReviewPage, reviewsEnabled } from '@/lib/reviews/server';
 import type { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ProductDetail } from "@/components/product-detail/ProductDetail";
 import { ProductCarousel } from "@/components/product/ProductCarousel";
 import {
@@ -7,7 +10,6 @@ import {
   getCachedDiscoveryProductCards,
   getCachedPdpProduct,
   getCachedProductMetadata,
-  getCachedProductSlugResolution,
 } from "@/lib/catalog-cache";
 import { stripeMessagingPublishableKey } from "@/lib/checkout/config";
 import type { CoreRoutineSummary } from "@/lib/catalog/models";
@@ -18,16 +20,11 @@ import {
   serializeStructuredData,
 } from "@/lib/catalog/product-structured-data";
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
+import { getPdpPresentation } from "@/components/product-detail/pdp-presentation";
 
-const siteUrl = new URL(
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-);
-
-// Product aliases are governed data and may be published after a deployment.
-// Keep the route request-time while its public Catalog projections remain
-// independently cached, so every current or future alias can resolve without
-// a rebuild and preserve the incoming query string.
-export const dynamic = "force-dynamic";
+const siteUrl = new URL(resolvePublicSiteOrigin());
 
 export async function generateMetadata({
   params,
@@ -35,69 +32,31 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const resolution = isValidProductSlug(slug)
-    ? await getCachedProductSlugResolution(slug)
+  const product = isValidProductSlug(slug)
+    ? await getCachedProductMetadata(slug)
     : undefined;
-  const product = resolution
-    ? await getCachedProductMetadata(resolution.targetSlug)
-    : undefined;
-  return {
-    title: product
-      ? product.seoTitle ??
-        `${composeProductTitle(product.displayName, product.productType)} | Mei Pelle`
-      : "Product | Mei Pelle",
-    description: product?.seoDescription ?? product?.editorialDescription,
-    alternates: product
-      ? { canonical: `/products/${product.slug}` }
-      : undefined,
-  };
-}
-
-type ProductSearchParams = Record<
-  string,
-  string | string[] | undefined
->;
-
-function productRedirectDestination(
-  targetSlug: string,
-  searchParams: ProductSearchParams,
-): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams)) {
-    if (Array.isArray(value)) {
-      for (const item of value) query.append(key, item);
-    } else if (value !== undefined) {
-      query.append(key, value);
-    }
-  }
-  const serialized = query.toString();
-  return `/products/${targetSlug}${serialized ? `?${serialized}` : ""}`;
+  const title = product
+    ? product.seoTitle ??
+      `${composeProductTitle(product.displayName, product.productType)} | helix`
+    : "Product | helix";
+  const description = product?.seoDescription ?? product?.editorialDescription;
+  return createPublicSiteMetadata({
+    title,
+    description,
+    canonical: product ? `/products/${product.slug}` : undefined,
+  });
 }
 
 export default async function ProductDetailPage({
   params,
-  searchParams = Promise.resolve({}),
 }: {
   params: Promise<{ slug: string }>;
-  searchParams?: Promise<ProductSearchParams>;
 }) {
   const { slug } = await params;
   if (!isValidProductSlug(slug)) {
     notFound();
   }
-  const resolution = await getCachedProductSlugResolution(slug);
-
-  if (!resolution) {
-    notFound();
-  }
-
-  if (resolution.targetSlug !== slug) {
-    permanentRedirect(
-      productRedirectDestination(resolution.targetSlug, await searchParams),
-    );
-  }
-
-  const product = await getCachedPdpProduct(resolution.targetSlug);
+  const product = await getCachedPdpProduct(slug);
 
   if (!product) {
     notFound();
@@ -118,6 +77,8 @@ export default async function ProductDetailPage({
   }
   const related = await relatedPromise;
   const structuredData = buildProductStructuredData(product, siteUrl);
+  const presentation = getPdpPresentation(product.slug);
+  const reviewPage = reviewsEnabled() ? await readReviewPage(slug).catch(() => null) : undefined;
 
   return (
     <>
@@ -127,10 +88,14 @@ export default async function ProductDetailPage({
           __html: serializeStructuredData(structuredData),
         }}
       />
-      <div className="storefront-shell" data-layout-shell="storefront">
+      <div className="storefront-shell" data-layout-shell="storefront" data-pdp-presentation={presentation}>
+        {process.env.HELIX_LIFECYCLE_ENABLED === "true" && <LifecycleProductVisit productSlug={slug} />}
         <ProductDetail
           key={product.slug}
           product={product}
+          subtitle={product.slug === "super-serum" ? "the daily skin concentrate" : undefined}
+          presentation={presentation}
+          reviewContent={reviewPage !== undefined ? <PublicReviewFeed slug={slug} productName={product.displayName} initial={reviewPage}/> : undefined}
           coreProducts={coreProducts}
           stripePublishableKey={stripeMessagingPublishableKey()}
         />

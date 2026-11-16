@@ -8,8 +8,8 @@ import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
 import { normalizeCartQuantity } from "@/lib/cart/validation";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import { composeProductTitle } from "@/lib/products";
+import { GUEST_CART_COOKIE } from "@/lib/customer-state-identifiers";
 
-const GUEST_CART_COOKIE = "mei_pelle_guest_cart";
 const GUEST_CART_DAYS = 60;
 
 type CartRow = {

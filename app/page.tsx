@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import "./home.css";
 import Link from "next/link";
 import { HomeBeyondCoreShowcase } from "@/components/home/HomeBeyondCoreShowcase";
 import { HomeBackgroundVideo } from "@/components/home/HomeBackgroundVideo";
 import { HomeCoreShowcase } from "@/components/home/HomeCoreShowcase";
-import { HomePrinciplesPortrait } from "@/components/home/HomePrinciplesPortrait";
+import { HomeIngredientPreview } from "@/components/home/HomeIngredientPreview";
+import { HomeSuperSerumSpotlight } from "@/components/home/HomeSuperSerumSpotlight";
 import { HomeThreePrinciples } from "@/components/home/HomeThreePrinciples";
 import {
   getCachedIngredientIndexProducts,
@@ -13,47 +15,30 @@ import {
   CORE_ROUTINE_PRODUCT_SLUGS,
   type ProductCard,
 } from "@/lib/catalog/models";
-import { homeThreePrinciples } from "@/lib/content/home";
 import {
-  buildIngredientIndex,
-  ingredientAnchorId,
-  type IngredientIndexCard,
-  type MethodProductSlug,
-} from "@/lib/content/system";
+  HOME_BEYOND_CORE_PRODUCT_SLUGS,
+  homeThreePrinciples,
+} from "@/lib/content/home";
+import { buildIngredientIndex } from "@/lib/content/system";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-export const metadata: Metadata = {
-  title: "Mei Pelle | Men's Skincare",
+export const metadata: Metadata = createPublicSiteMetadata({
+  title: "helix | Men's Skincare",
   description:
     "A simple daily system for skin that looks better now—and stays smooth, even, and resilient over time.",
-};
+  canonical: "/",
+});
 
-const CORE_PRODUCT_SLUGS =
-  CORE_ROUTINE_PRODUCT_SLUGS satisfies readonly MethodProductSlug[];
-
-const BEYOND_CORE_PRODUCT_SLUGS = [
-  "balancing-prep",
-  "frame-04-pdrn-eye-cream",
-  "lift-06-pdrn-mask-system",
-] as const satisfies readonly MethodProductSlug[];
-
-const INGREDIENT_LINK_LABELS: Record<string, string> = {
-  pdrn: "PDRN",
-  peptides: "Peptides",
-  niacinamide: "Niacinamide",
-};
+const CORE_PRODUCT_SLUGS = CORE_ROUTINE_PRODUCT_SLUGS;
 
 function productsForSlugs(
   productsBySlug: ReadonlyMap<string, ProductCard>,
-  slugs: readonly MethodProductSlug[],
+  slugs: readonly string[],
 ): ProductCard[] {
   return slugs.flatMap((slug) => {
     const product = productsBySlug.get(slug);
     return product ? [product] : [];
   });
-}
-
-function ingredientPreviewLabel(card: IngredientIndexCard) {
-  return `Read about ${INGREDIENT_LINK_LABELS[card.id] ?? card.name} in the System`;
 }
 
 export default async function HomePage() {
@@ -62,17 +47,18 @@ export default async function HomePage() {
     getCachedIngredientIndexProducts(),
   ]);
   const productsBySlug = new Map(products.map((product) => [product.slug, product]));
+  const superSerum = productsBySlug.get("super-serum");
   const coreProducts = productsForSlugs(productsBySlug, CORE_PRODUCT_SLUGS);
   const ingredientCards = buildIngredientIndex(ingredientProducts).slice(0, 3);
   const beyondCoreProducts = productsForSlugs(
     productsBySlug,
-    BEYOND_CORE_PRODUCT_SLUGS,
+    HOME_BEYOND_CORE_PRODUCT_SLUGS,
   );
 
   return (
     <>
       <section
-        className="home-video-hero"
+        className="home-video-hero home-lander-hero"
         data-header-layout="overlay"
         data-header-theme="light"
         aria-labelledby="home-hero-heading"
@@ -81,7 +67,7 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">Mei Pelle</p>
+            <p className="home-video-hero__eyebrow">helix</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
               Your skin starts with three steps.
             </h1>
@@ -100,22 +86,9 @@ export default async function HomePage() {
 
       <HomeCoreShowcase products={coreProducts} />
 
-      <section
-        className="home-section home-section--principles"
-        aria-labelledby="home-three-principles-heading"
-      >
-        <div className="home-three-principles-panel">
-          <HomeThreePrinciples
-            headingId="home-three-principles-heading"
-            principles={homeThreePrinciples}
-          />
-        </div>
-        <div className="home-three-principles-visual">
-          <HomePrinciplesPortrait />
-        </div>
-      </section>
+      {superSerum && <HomeSuperSerumSpotlight product={superSerum} />}
 
-      <section className="home-section home-section--core-support" aria-labelledby="plug-play-heading">
+      <section className="home-section home-section--core-support home-lander-plug" aria-labelledby="plug-play-heading">
         <div className="home-plug-split">
           <div className="home-plug-media">
             <HomeBackgroundVideo placement="plug" />
@@ -148,16 +121,16 @@ export default async function HomePage() {
 
       <HomeBeyondCoreShowcase products={beyondCoreProducts} />
 
-      <section className="home-band home-section" aria-labelledby="ingredients-heading">
+      <section className="home-section home-lander-ingredients" aria-labelledby="ingredients-heading">
         <div
-          className="storefront-shell home-split home-split--ingredients"
+          className="home-lander-ingredients__panel"
           data-layout-shell="storefront"
         >
-          <div className="storefront-reading">
-            <h2 id="ingredients-heading">Know what you are using.</h2>
+          <div className="home-lander-ingredients__intro">
+            <h2 id="ingredients-heading">Research-backed Ingredients</h2>
             <p>
-              Learn how our formulas nourish your skin--instantly, and years down the line. <br />
-              Our index explains what an ingredient is, where it appears, and how its formula supports your skin.
+              See how our formulas nourish your skin--instantly, and years down the line.
+              Our index explains what an ingredient is, where it appears, and how it supports your skin.
             </p>
             <Link href="/system#system-ingredients" className="btn btn--ghost btn--editorial-rounded">
               READ THE INDEX
@@ -165,39 +138,19 @@ export default async function HomePage() {
           </div>
 
           {ingredientCards.length > 0 && (
-            <div className="home-ingredient-list" aria-label="Ingredient literacy preview">
-              {ingredientCards.map((card) => (
-                <Link
-                  key={card.id}
-                  href={`/system#${ingredientAnchorId(card.id)}`}
-                  className="home-ingredient-card"
-                  aria-label={ingredientPreviewLabel(card)}
-                >
-                  <p>{card.ingredientClass}</p>
-                  <h3>{card.name}</h3>
-                  <span>{card.skinRelevance}</span>
-                </Link>
-              ))}
-            </div>
+            <HomeIngredientPreview cards={ingredientCards} />
           )}
         </div>
       </section>
 
-      <section className="home-section home-section--final" aria-labelledby="final-heading">
-        <HomeBackgroundVideo placement="final" />
-        <div className="home-final">
-          <h2 id="final-heading" className="display-secondary home-final__title">
-            Invest in your skin.
-          </h2>
-          <p className="home-final__copy">
-            Three steps, one order, repeatable morning or night.
-          </p>
-          <div className="hero__actions home-video-hero__actions home-final__actions">
-            <Link href="#core-three" className="home-final__cta home-final__cta--primary">
-              Shop The Core
-            </Link>
-          </div>
-        </div>
+      <section
+        className="home-section home-section--principles home-lander-principles"
+        aria-labelledby="home-three-principles-heading"
+      >
+        <HomeThreePrinciples
+          headingId="home-three-principles-heading"
+          principles={homeThreePrinciples}
+        />
       </section>
     </>
   );

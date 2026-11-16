@@ -19,8 +19,8 @@ function normalizeInci(value: string | null | undefined): string | null {
 
 /**
  * Resolve the canonical complete INCI without promoting highlights or notes.
- * Phase 1 backfills verified legacy `sourceFullInci` values into this field, so
- * runtime rendering has one source and never reads the compatibility JSON.
+ * Runtime rendering uses the governed canonical INCI field. Historical import
+ * evidence remains in Catalog history and does not supply a runtime fallback.
  */
 export function resolveFullInci(
   product: Pick<PdpProduct, "ingredients">,

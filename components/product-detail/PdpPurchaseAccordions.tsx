@@ -73,7 +73,7 @@ export function PdpPurchaseAccordions({
       className="pdp-accordions"
       aria-label={`${productName} purchase details`}
     >
-      <section className="pdp-accordion">
+      {steps.length > 0 && <section className="pdp-accordion">
         <h2 className="pdp-accordion__heading">
           <button
             type="button"
@@ -110,7 +110,7 @@ export function PdpPurchaseAccordions({
             )}
           </div>
         </div>
-      </section>
+      </section>}
 
       <section className="pdp-accordion">
         <h2 className="pdp-accordion__heading">

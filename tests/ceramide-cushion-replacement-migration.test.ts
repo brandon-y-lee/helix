@@ -63,7 +63,8 @@ describe("Ceramide Cushion replacement publication", () => {
   it("ships a read-only exact post-publication verification contract", () => {
     expect(integrationSql).toContain("begin;");
     expect(integrationSql).toContain("rollback;");
-    expect(integrationSql).toContain("replacement:ceramide-cushion");
+    expect(integrationSql).toContain("Green Collagen private replacement provenance is missing or chained");
+    expect(integrationSql).not.toContain("public.resolve_product_slug");
     expect(integrationSql).toContain("expected_green_history_hash");
     expect(integrationSql).toContain("Ceramide Cushion inbound Routine Complement graph drifted");
     expect(integrationSql).toContain("unsupported claim entered published Ceramide Cushion content");

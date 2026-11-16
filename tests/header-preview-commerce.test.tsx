@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 const headerMocks = vi.hoisted(() => ({
   pathname: "/admin/catalog/preview/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -50,10 +51,45 @@ beforeEach(() => {
 });
 
 describe("Header draft preview commerce", () => {
+  it("renders one accessible helix home link with the canonical wordmark", () => {
+    const { container } = render(<Header />);
+
+    const homeLink = screen.getByRole("link", { name: "helix home" });
+    expect(homeLink).toHaveAttribute("href", "/");
+    expect(homeLink.querySelector('[data-helix-identity="wordmark"]')).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(container).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+  });
+
+  it("renders the standalone symbol for the compact mobile menu context", () => {
+    render(<Header />);
+
+    expect(screen.getByRole("img", { name: "helix" })).toHaveAttribute(
+      "data-helix-identity",
+      "symbol",
+    );
+  });
+
+  it("makes both shopping groups and support directly reachable from the menu", () => {
+    render(<Header />);
+
+    expect(screen.getByRole("link", { name: "Core" })).toHaveAttribute(
+      "href", "/collections/core",
+    );
+    expect(screen.getByRole("link", { name: "Beyond The Core" })).toHaveAttribute(
+      "href", "/collections/beyond-the-core",
+    );
+    expect(screen.getByRole("link", { name: "Support" })).toHaveAttribute(
+      "href", "/faq",
+    );
+  });
+
   it("keeps the cart control visible but prevents the drawer from opening", () => {
     render(<Header commerceDisabled />);
     const cart = screen.getByRole("button", {
-      name: "Cart unavailable in draft preview",
+      name: "Cart unavailable in Catalog Preview",
     });
 
     expect(cart).toBeDisabled();
@@ -62,7 +98,7 @@ describe("Header draft preview commerce", () => {
   });
 
   it("does not change public header cart behavior", () => {
-    headerMocks.pathname = "/products/cleanse-01-calming-gel-cleanser";
+    headerMocks.pathname = "/products/biotic-reset";
     render(<Header />);
     const cart = screen.getByRole("button", { name: /CART \(2\)/ });
 

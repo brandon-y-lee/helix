@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "./mobile-services.css";
+import { WelcomePopup } from "@/components/marketing/WelcomePopup";
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -18,9 +22,22 @@ const marcellus = Marcellus({
 });
 
 export const metadata: Metadata = {
-  title: "Mei Pelle — Prestige Skincare for Men",
-  description:
-    "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+  ...createPublicSiteMetadata({
+    title: "helix — Prestige Skincare for Men",
+    description:
+      "An original, focused men's skincare routine. Cleanse, treat, hydrate, and protect.",
+    canonical: "/",
+  }),
+  metadataBase: new URL(resolvePublicSiteOrigin()),
+  applicationName: "helix",
+  icons: {
+    icon: [
+      {
+        url: "/brand/helix-symbol-black.svg",
+        type: "image/svg+xml",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -28,6 +45,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${manrope.variable} ${marcellus.variable}`}>
       <body>
         <ApplicationChrome>{children}</ApplicationChrome>
+        <WelcomePopup />
       </body>
     </html>
   );

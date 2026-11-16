@@ -3,6 +3,8 @@ import { ProductEndorsementRail } from "@/components/product-detail/ProductEndor
 import { ProductReviewsSection } from "@/components/product-detail/ProductReviewsSection";
 import { PdpApplicationCarousel } from "@/components/product-detail/PdpApplicationCarousel";
 import { PdpCoreRoutineSection } from "@/components/product-detail/PdpCoreRoutineSection";
+import { PdpDesktopMotion } from "@/components/product-detail/PdpDesktopMotion";
+import { PdpEffectsSection } from "@/components/product-detail/PdpEffectsSection";
 import { PdpGalleryIsland } from "@/components/product-detail/PdpGalleryIsland";
 import { PdpIngredientsSplit } from "@/components/product-detail/PdpIngredientsSplit";
 import { PdpOutcomeSplit } from "@/components/product-detail/PdpOutcomeSplit";
@@ -14,6 +16,7 @@ import { PdpProfileSplit } from "@/components/product-detail/PdpProfileSplit";
 import { PdpPurchaseAccordions } from "@/components/product-detail/PdpPurchaseAccordions";
 import { PdpPurchaseIsland } from "@/components/product-detail/PdpPurchaseIsland";
 import { PdpRoutineVideo } from "@/components/product-detail/PdpRoutineVideo";
+import { PdpRoutineLinks } from "@/components/product-detail/PdpRoutineLinks";
 import {
   applicationIslandProps,
   galleryIslandProps,
@@ -22,7 +25,6 @@ import {
   purchaseIslandProps,
 } from "@/components/product-detail/ProductDetail.adapters";
 import {
-  resolveHowToUseSteps,
   type ProductPdpContent,
 } from "@/lib/catalog/product-content";
 import type {
@@ -32,11 +34,16 @@ import type {
 import { resolveFullInci } from "@/lib/catalog/product-ingredients";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import {
-  getProductReviews,
+  EMPTY_PRODUCT_REVIEWS,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
 import { getCorePdpPresentation } from "@/lib/content/core-pdp";
 import { productEndorsementMedia } from "@/lib/content/product-endorsements";
+import { SERUM_EFFECTS_PRODUCT_ID } from "@/lib/content/serum-effects";
+import type { PdpPresentation } from "./pdp-presentation";
+import { PdpEducationFocus } from "./PdpEducationFocus";
+import "./pdp-mobile-education.css";
+import "./pdp-hero.css";
 
 function compactDescription(value: string) {
   const sentences = value
@@ -132,25 +139,28 @@ export function ProductDetail({
   product,
   coreProducts = [],
   content = product.pdpContent ?? null,
-  reviews = getProductReviews(product.slug),
+  reviews = EMPTY_PRODUCT_REVIEWS,
+  reviewContent,
   stripePublishableKey = null,
   commerceDisabled = false,
+  presentation = "default",
+  subtitle,
 }: {
   product: PdpProduct;
   coreProducts?: CoreRoutineSummary[];
   content?: ProductPdpContent | null;
   reviews?: ProductReviews;
+  reviewContent?: ReactNode;
   stripePublishableKey?: string | null;
   commerceDisabled?: boolean;
+  presentation?: PdpPresentation;
+  subtitle?: string;
 }) {
   const routineLabel = routineDisplayLabelForProduct(product);
   const leadDescription = compactDescription(
     product.description || product.productType,
   );
-  const howToUse = resolveHowToUseSteps(
-    content?.howToUseSteps,
-    product.howToUse,
-  ).steps;
+  const howToUse = content?.howToUseSteps ?? [];
   const resolvedFullInci = resolveFullInci(product);
   const fullIngredientsText =
     resolvedFullInci?.text ||
@@ -213,17 +223,31 @@ export function ProductDetail({
     howToUse,
     corePresentation,
   );
+  const productIntro = (
+    <>
+      <p className="pdp__collection">{routineLabel}</p>
+      <h1>{product.displayName}</h1>
+      {subtitle?.trim() && <p className="pdp__tagline">{subtitle.trim()}</p>}
+      <p className="pdp__description">{leadDescription}</p>
+    </>
+  );
 
   return (
     <>
-      <div className="pdp" data-pdp-primary-section>
+      <div className="pdp" data-pdp-primary-section data-product-slug={product.slug}>
         <PdpGalleryIsland
           key={`gallery:${product.slug}`}
           {...galleryProps}
+          presentation={presentation}
         />
         <PdpPurchaseIsland
           key={`purchase:${product.slug}`}
           {...purchaseProps}
+          showPrice={product.slug !== "super-serum" && purchaseProps.showPrice}
+          presentation={presentation}
+          routine={product.slug === "super-serum" ? (
+            <PdpRoutineLinks products={coreProducts} currentSlug={product.slug} />
+          ) : null}
           accordions={
             <PdpPurchaseAccordions
               key={`accordions:${product.slug}`}
@@ -231,10 +255,9 @@ export function ProductDetail({
             />
           }
         >
-          <p className="pdp__collection">{routineLabel}</p>
-          <h1>{product.displayName}</h1>
-          <p className="pdp__tagline">{product.productType}</p>
-          <p className="pdp__description">{leadDescription}</p>
+          {product.slug === "super-serum" ? (
+            <div className="pdp__intro">{productIntro}</div>
+          ) : productIntro}
         </PdpPurchaseIsland>
       </div>
 
@@ -253,23 +276,26 @@ export function ProductDetail({
             video={routineVideo}
             poster={routinePoster}
             swatch={product.swatch}
+            pdpPresentation={presentation}
           />
         ) : null
       ) : (
         <ProductEndorsementRail items={productEndorsementMedia} />
       )}
 
-      <section
-        className="pdp-sections"
-        aria-label={`${product.displayName} details`}
-        data-pdp-panel-sequence
+      <PdpDesktopMotion
+        productSlug={product.slug}
+        label={`${product.displayName} details`}
       >
+        {presentation === "mobile-pilot" && <PdpEducationFocus />}
+        {product.id === SERUM_EFFECTS_PRODUCT_ID && <PdpEffectsSection />}
         {corePresentation && profileMedia && coreProfileReady ? (
           <>
             <PdpProfileSplit
               product={product}
               presentation={corePresentation}
               media={profileMedia}
+              pdpPresentation={presentation}
             />
             <PdpOutcomeSplit
               key={`outcomes:${product.slug}`}
@@ -278,6 +304,7 @@ export function ProductDetail({
             <PdpApplicationCarousel
               key={`application:${product.slug}`}
               {...applicationIslandProps(product, corePresentation)}
+              pdpPresentation={presentation}
             />
             {content?.ingredientStory && (
               <PdpIngredientsSplit
@@ -289,6 +316,7 @@ export function ProductDetail({
                 swatch={product.swatch}
                 fullInci={resolvedFullInci}
                 mediaPosition={corePresentation.ingredientsMediaPosition}
+                pdpPresentation={presentation}
               />
             )}
           </>
@@ -301,7 +329,7 @@ export function ProductDetail({
 
         {!corePresentation && (
           <>
-            <PdpEditorialPair
+            {howToUseItems.length > 0 && <PdpEditorialPair
               headingId="pdp-use-heading"
               eyebrow="Application"
               heading="HOW TO USE"
@@ -313,7 +341,7 @@ export function ProductDetail({
                 label="How to use"
                 items={howToUseItems}
               />
-            </PdpEditorialPair>
+            </PdpEditorialPair>}
 
             <PdpEditorialPair
               headingId="pdp-inside-heading"
@@ -353,16 +381,18 @@ export function ProductDetail({
             key={`core-routine:${product.slug}`}
             products={coreProducts}
             currentSlug={product.slug}
+            pdpPresentation={presentation}
           />
         )}
-      </section>
+      </PdpDesktopMotion>
 
-      <ProductReviewsSection
+      {reviewContent ?? (<ProductReviewsSection
         key={`reviews:${product.slug}`}
         productName={product.displayName}
         productSlug={product.slug}
         reviews={reviews}
-      />
+        pdpPresentation={presentation}
+      />)}
     </>
   );
 }

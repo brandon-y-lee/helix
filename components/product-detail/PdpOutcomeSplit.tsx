@@ -145,6 +145,7 @@ export function PdpOutcomeSplit({
       className="pdp-outcome-split"
       aria-labelledby="pdp-outcome-heading"
       data-pdp-panel-row="outcome"
+      data-pdp-reveal-row
       data-pdp-panel-mode="connected"
       data-pdp-outcome-split
     >
@@ -230,7 +231,6 @@ export function PdpOutcomeSplit({
               aria-pressed={active === index}
               onClick={() => setActive(index)}
               onMouseEnter={() => setActive(index)}
-              onPointerEnter={() => setActive(index)}
               onKeyDown={(event) => moveSelection(event, index)}
             >
               <span className="sr-only">{option.label}</span>

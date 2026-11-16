@@ -1,0 +1,152 @@
+{
+  "candidate": "e61b301845899bbb13ffafcb58b205e3cbb1478d",
+  "checks": [
+    {
+      "activePrinciplesColor": "rgb(0, 0, 0)",
+      "heading": "Research-backed Ingredients",
+      "overflow": false,
+      "principlesColors": [
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)"
+      ],
+      "serum": {
+        "alignItems": "center",
+        "bodyText": "A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.",
+        "childCenters": [
+          {
+            "name": "P",
+            "offsetX": -0.00390625,
+            "width": 116.953125
+          },
+          {
+            "name": "H2",
+            "offsetX": 0,
+            "width": 507.2890625
+          },
+          {
+            "name": "DIV",
+            "offsetX": 0,
+            "width": 393.4453125
+          },
+          {
+            "name": "A",
+            "offsetX": -0.00390625,
+            "width": 132.28125
+          }
+        ],
+        "columns": "788.914px 571.289px",
+        "copyWidth": 571.2890625,
+        "cta": "/products/super-serum",
+        "groupCenterOffsetY": 0,
+        "image": "/_next/image?url=%2Fmedia%2Fhome%2Fsuper-serum-editorial-v3.webp&w=3840&q=75",
+        "imageLoaded": true,
+        "justifyContent": "center",
+        "padding": "32px",
+        "textAlign": "center"
+      },
+      "viewport": [
+        1440,
+        900
+      ]
+    },
+    {
+      "activePrinciplesColor": "rgb(0, 0, 0)",
+      "heading": "Research-backed Ingredients",
+      "overflow": false,
+      "principlesColors": [
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)"
+      ],
+      "serum": {
+        "alignItems": "center",
+        "bodyText": "A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.",
+        "childCenters": [
+          {
+            "name": "P",
+            "offsetX": 0,
+            "width": 116.953125
+          },
+          {
+            "name": "H2",
+            "offsetX": 0,
+            "width": 303
+          },
+          {
+            "name": "DIV",
+            "offsetX": 0,
+            "width": 303
+          },
+          {
+            "name": "A",
+            "offsetX": 0,
+            "width": 132.28125
+          }
+        ],
+        "columns": "343px",
+        "copyWidth": 343,
+        "cta": "/products/super-serum",
+        "groupCenterOffsetY": 0,
+        "image": "/_next/image?url=%2Fmedia%2Fhome%2Fsuper-serum-editorial-v3.webp&w=3840&q=75",
+        "imageLoaded": true,
+        "justifyContent": "center",
+        "padding": "20px",
+        "textAlign": "center"
+      },
+      "viewport": [
+        390,
+        844
+      ]
+    },
+    {
+      "activePrinciplesColor": "rgb(0, 0, 0)",
+      "heading": "Research-backed Ingredients",
+      "overflow": false,
+      "principlesColors": [
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)",
+        "rgb(0, 0, 0)"
+      ],
+      "serum": {
+        "alignItems": "center",
+        "bodyText": "A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin.",
+        "childCenters": [
+          {
+            "name": "P",
+            "offsetX": 0,
+            "width": 116.953125
+          },
+          {
+            "name": "H2",
+            "offsetX": 0,
+            "width": 233
+          },
+          {
+            "name": "DIV",
+            "offsetX": 0,
+            "width": 233
+          },
+          {
+            "name": "A",
+            "offsetX": 0,
+            "width": 132.28125
+          }
+        ],
+        "columns": "273px",
+        "copyWidth": 273,
+        "cta": "/products/super-serum",
+        "groupCenterOffsetY": 0,
+        "image": "/_next/image?url=%2Fmedia%2Fhome%2Fsuper-serum-editorial-v3.webp&w=3840&q=75",
+        "imageLoaded": true,
+        "justifyContent": "center",
+        "padding": "20px",
+        "textAlign": "center"
+      },
+      "viewport": [
+        320,
+        568
+      ]
+    }
+  ]
+}

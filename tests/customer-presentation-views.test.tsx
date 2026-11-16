@@ -1,0 +1,145 @@
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { AccountDashboardView } from "@/components/account/AccountDashboardView";
+import { OrderConfirmationView } from "@/components/cart/OrderConfirmationView";
+
+describe("customer presentation views", () => {
+  it("does not display paid order details when payment status is unverified", () => {
+    render(<OrderConfirmationView confirmation={null} />);
+
+    expect(screen.getByRole("heading", { name: "Order status", level: 1 })).toBeVisible();
+    expect(screen.getByText("We could not verify this payment status.")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Return to cart" })).toHaveAttribute("href", "/cart");
+    expect(screen.queryByRole("region", { name: "Paid Order details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Payment verified" })).not.toBeInTheDocument();
+  });
+
+  it("shows supplied historical order amounts and the pending confirmation notice", () => {
+    render(
+      <OrderConfirmationView
+        confirmation={{
+          notice: "Sandbox order notice.",
+          state: "pending",
+          retryAfterSeconds: 5,
+          shipping: null,
+          order: {
+            order_number: "HLX-1001",
+            status: "pending",
+            reward_points_earned: 0,
+            reward_points_redeemed: 500,
+            merchandise_subtotal_cents: 6800,
+            discount_cents: 500,
+            shipping_cents: 600,
+            tax_cents: 552,
+            total_cents: 7452,
+          },
+          items: [
+            {
+              product_name: "Super Serum",
+              variant_label: "30 mL",
+              quantity: 2,
+              line_subtotal_cents: 6800,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Awaiting payment confirmation", level: 1 })).toBeVisible();
+    expect(screen.queryByText("Payment verified")).not.toBeInTheDocument();
+    const details = screen.getByRole("region", { name: "Pending Order details" });
+    expect(within(details).getByText("HLX-1001")).toBeVisible();
+    expect(within(details).getByText("Awaiting confirmation")).toBeVisible();
+    expect(within(details).getByRole("status"))
+      .toHaveTextContent("Payment has not been verified yet.");
+    const items = screen.getByRole("region", { name: "Order items" });
+    expect(within(items).getByText("Super Serum")).toBeVisible();
+    expect(within(items).getByText("Qty 2")).toBeVisible();
+    const totals = screen.getByRole("region", { name: "Order totals" });
+    expect(within(totals).getByText("Merchandise").nextElementSibling).toHaveTextContent("$68.00");
+    expect(within(totals).getByText("Discount").nextElementSibling).toHaveTextContent("-$5.00");
+    expect(within(totals).getByText("Total").nextElementSibling).toHaveTextContent("$74.52");
+  });
+
+  it("shows supplied account history and form controls without loading account data", () => {
+    render(
+      <AccountDashboardView
+        email="customer@example.test"
+        verified={false}
+        orders={[
+          {
+            id: "order-1",
+            order_number: "HLX-1001",
+            status: "paid",
+            total_cents: 6800,
+            reward_points_earned: 68,
+          },
+        ]}
+        rewards={{
+          pointsBalance: 425,
+          lifetimePoints: 725,
+          referralCode: "HELIX25",
+          feedbackRequests: [
+            {
+              id: "feedback-1",
+              order_id: "order-1",
+              order_number: "HLX-1001",
+              points: 300,
+            },
+          ],
+        }}
+        profileForm={<label>First name<input defaultValue="Alex" /></label>}
+        signOutControl={<button type="button">Sign out</button>}
+        renderFeedback={(request) => (
+          <button type="button">Feedback for {request.order_number}</button>
+        )}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Your account", level: 1 })).toBeVisible();
+    expect(screen.getAllByText("customer@example.test")[0]).toBeVisible();
+    expect(screen.getByText("Pending email verification")).toBeVisible();
+    expect(screen.getByLabelText("First name")).toHaveValue("Alex");
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+    const labels = ["Account settings", "Order history", "Address book", "Payment methods", "Rewards", "Reviews", "Auto-replenishment"];
+    expect(Array.from(document.querySelectorAll("summary > span:first-child"), (node) => node.textContent)).toEqual(labels);
+    const orderHeading = screen.getByText("Order history", { exact: true });
+    fireEvent.click(orderHeading.closest("summary")!);
+    const orders = orderHeading.closest("details")!;
+    expect(within(orders).getByText("HLX-1001")).toBeVisible();
+    expect(within(orders).getByText("$68.00")).toBeVisible();
+    expect(within(orders).getByText("68 pts")).toBeVisible();
+    fireEvent.click(screen.getByText("Reviews").closest("summary")!);
+    expect(screen.getByRole("button", { name: "Feedback for HLX-1001" })).toBeVisible();
+    expect(screen.getByText(/Feedback shared here is private/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Your public product reviews" })).toHaveAttribute("href", "/account/reviews");
+    fireEvent.click(screen.getByText("Rewards", { exact: true }).closest("summary")!);
+    expect(screen.getByText("Available Points Balance").nextElementSibling)
+      .toHaveTextContent("425");
+  });
+
+  it("keeps unavailable rewards distinct from a zero balance and unsupported capabilities honest", () => {
+    render(
+      <AccountDashboardView
+        email="customer@example.test"
+        verified
+        orders={[]}
+        rewards={null}
+        profileForm={null}
+        signOutControl={null}
+        renderFeedback={() => null}
+      />,
+    );
+
+    expect(screen.getByText("Verified")).toBeVisible();
+    for (const summary of document.querySelectorAll("details:not([open]) > summary")) fireEvent.click(summary);
+    expect(screen.getByText(/Guest orders do not appear in account history/)).toBeVisible();
+    expect(screen.getByText("Rewards are unavailable right now.")).toBeVisible();
+    expect(screen.queryByText("Available Points Balance")).not.toBeInTheDocument();
+    expect(screen.getByText("Feedback requests are unavailable.")).toBeVisible();
+    expect(screen.getByText(/Saving addresses to your account is not available yet/)).toBeVisible();
+    expect(screen.getByText(/Saved payment methods are not available/)).toBeVisible();
+    expect(screen.getByText(/Auto-replenishment is not available yet/)).toBeVisible();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+});

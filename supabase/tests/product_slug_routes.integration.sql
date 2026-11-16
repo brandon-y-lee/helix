@@ -1,362 +1,165 @@
--- Run against the linked approved non-production project:
--- pnpm dlx supabase db query --linked \
---   --file supabase/tests/product_slug_routes.integration.sql
---
--- Every fixture and mutation is enclosed in one transaction and rolled back.
-
+-- Disposable local current-schema checkpoint only. Never run against linked data.
 begin;
-
-do $product_slug_routes_test$
-declare
-  v_actor_id uuid := '00000000-0000-4000-8000-000000000092';
-  v_source_product_id uuid;
-  v_source_slug text;
-  v_renamed_slug text;
-  v_target_product_id uuid;
-  v_target_slug text;
-  v_draft_result jsonb;
-  v_draft_id uuid;
-  v_document jsonb;
-  v_result jsonb;
-  v_revision_count integer;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+do $boundary$
+declare role_name text;
 begin
-  if (
-    select count(*)
-    from public.product_slug_routes
-    where route_kind = 'canonical'
-  ) <> (select count(*) from public.products) then
-    raise exception 'canonical Product slug routes were not completely backfilled';
+  if current_database() not like 'helix_product_url_%' then
+    raise exception 'Product URL tests require a disposable synthetic database';
   end if;
-
-  if not exists (
-    select 1
-    from public.product_slug_routes r
-    join public.products p on p.id = r.target_product_id
-    where r.source_slug = 'reset-01-calming-gel-cleanser'
-      and r.route_kind = 'rename'
-      and p.slug = 'cleanse-01-calming-gel-cleanser'
-  ) or not exists (
-    select 1
-    from public.product_slug_routes r
-    join public.products p on p.id = r.target_product_id
-    where r.source_slug = 'recode-03-pdrn-5-ampoule'
-      and r.route_kind = 'rename'
-      and p.slug = 'treat-03-pdrn-5-ampoule'
-  ) then
-    raise exception 'static Product redirects were not backfilled';
+  if to_regprocedure('public.resolve_product_slug(text)') is not null then
+    raise exception 'Public Product slug resolver still exists';
   end if;
-
-  if not (
-    select relrowsecurity
-    from pg_class
-    where oid = 'public.product_slug_routes'::regclass
-  ) or not has_table_privilege(
-    'anon', 'public.product_slug_routes', 'select'
-  ) or has_table_privilege(
-    'anon', 'public.product_slug_routes', 'insert'
-  ) or has_table_privilege(
-    'authenticated', 'public.product_slug_routes', 'update'
-  ) or has_table_privilege(
-    'service_role', 'public.product_slug_routes', 'delete'
-  ) then
-    raise exception 'Product slug route privileges are unsafe';
+  foreach role_name in array array['anon','authenticated'] loop
+    if has_table_privilege(role_name,'public.product_slug_routes','SELECT')
+       or has_any_column_privilege(role_name,'public.product_slug_routes','SELECT') then
+      raise exception 'Public slug history remains readable by %', role_name;
+    end if;
+    execute format('set local role %I', role_name);
+    begin
+      perform source_slug from public.product_slug_routes;
+      raise exception 'Public role read private history';
+    exception when insufficient_privilege then null;
+    end;
+    begin
+      perform * from public.resolve_product_slug('super-serum');
+      raise exception 'Public role called retired resolver';
+    exception when undefined_function then null;
+    end;
+    reset role;
+  end loop;
+  set local role service_role;
+  if (select count(*) from public.product_slug_routes) <> 2 then
+    raise exception 'Service role lost private reservation reads';
   end if;
-
-  if not has_function_privilege(
-    'anon', 'public.resolve_product_slug(text)', 'execute'
-  ) or has_function_privilege(
-    'anon',
-    'public.replace_catalog_product_slug(uuid,uuid,uuid)',
-    'execute'
-  ) or not has_function_privilege(
-    'service_role',
-    'public.replace_catalog_product_slug(uuid,uuid,uuid)',
-    'execute'
-  ) then
-    raise exception 'Product slug route function grants are unsafe';
+  reset role;
+  if not (select relrowsecurity from pg_class where oid='public.product_slug_routes'::regclass)
+     or has_table_privilege('service_role','public.product_slug_routes','INSERT,UPDATE,DELETE,TRUNCATE')
+     or has_function_privilege('anon','public.replace_catalog_product_slug(uuid,uuid,uuid)','EXECUTE')
+     or not has_function_privilege('service_role','public.replace_catalog_product_slug(uuid,uuid,uuid)','EXECUTE') then
+    raise exception 'Private ledger permissions changed';
   end if;
+  raise notice 'PASS public table/RPC denial and service-only ledger read';
+end $boundary$;
 
+do $publication$
+#variable_conflict use_variable
+declare
+  source_id constant uuid := '10000000-0000-4000-8000-000000000101';
+  target_id constant uuid := '10000000-0000-4000-8000-000000000102';
+  actor_id constant uuid := '10000000-0000-4000-8000-000000000901';
+  draft_id uuid;
+  result jsonb;
+  document jsonb;
+  state_before jsonb;
+  historical_revision jsonb;
+begin
+  select to_jsonb(r) into historical_revision from public.catalog_product_revisions r
+    where product_id=source_id and revision_number=1;
+  result := public.create_catalog_product_draft(source_id, actor_id);
+  draft_id := (result #>> '{draft,id}')::uuid;
+  document := jsonb_set(result #> '{draft,document}', '{product,slug}', '"future-serum"');
+  perform public.save_catalog_product_draft(draft_id,1,document,actor_id,'admin');
+  perform public.transition_catalog_product_draft(draft_id,2,'ready','[]',actor_id);
+  result := public.publish_catalog_product_draft(draft_id,3,actor_id,'admin','[]');
+  if result #>> '{revision,document,product,slug}' is distinct from 'future-serum'
+     or result #>> '{changedTables,productSlugRoutes}' is distinct from 'true'
+     or not exists(select 1 from public.product_slug_routes where source_slug='super-serum'
+       and source_product_id=source_id and target_product_id=source_id and route_kind='rename')
+     or not exists(select 1 from public.product_slug_routes where source_slug='future-serum'
+       and source_product_id=source_id and target_product_id=source_id and route_kind='canonical')
+     or not exists(select 1 from public.catalog_editor_audit_log audit where audit.draft_id=draft_id
+       and action='slug.rename.published'
+       and metadata #>> '{changedTables,product_slug_routes}'='true') then
+    raise exception 'Current publication did not retain private rename provenance';
+  end if;
+  set local role anon;
+  if not exists(select 1 from public.products where slug='future-serum')
+     or exists(select 1 from public.products where slug='super-serum') then
+    raise exception 'Future canonical Product is not discoverable directly';
+  end if;
+  reset role;
+  raise notice 'PASS future rename publication, canonical Product visibility, audit';
+
+  result := public.create_catalog_product_draft(source_id,actor_id);
+  draft_id := (result #>> '{draft,id}')::uuid;
+  document := jsonb_set(result #> '{draft,document}', '{product,slug}', '"synthetic-cleanser"');
+  perform public.save_catalog_product_draft(draft_id,1,document,actor_id,'admin');
+  perform public.transition_catalog_product_draft(draft_id,2,'ready','[]',actor_id);
+  state_before := pg_temp.catalog_identity_state();
   begin
-    update public.products
-    set slug = repeat('a', 121)
-    where id = (
-      select id from public.products order by id limit 1
-    );
-    raise exception 'oversized Product slug unexpectedly succeeded';
-  exception
-    when check_violation then null;
-  end;
-
-  insert into auth.users (
-    id, instance_id, aud, role, email, encrypted_password,
-    email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
-  ) values (
-    v_actor_id,
-    '00000000-0000-0000-0000-000000000000',
-    'authenticated',
-    'authenticated',
-    'product-slug-routes-test@example.invalid',
-    '',
-    now(),
-    '{}'::jsonb,
-    '{}'::jsonb,
-    now(),
-    now()
-  );
-
-  v_result := public.bootstrap_catalog_admin_membership(v_actor_id, 'admin');
-  if v_result ->> 'action' <> 'created' then
-    raise exception 'slug route test admin was not created';
-  end if;
-
-  select id, slug
-  into v_source_product_id, v_source_slug
-  from public.products
-  where catalog_status = 'active'
-    and slug not in (
-      'cleanse-01-calming-gel-cleanser',
-      'treat-03-pdrn-5-ampoule'
-    )
-  order by created_at
-  limit 1;
-
-  select id, slug
-  into v_target_product_id, v_target_slug
-  from public.products
-  where catalog_status = 'active'
-    and id <> v_source_product_id
-  order by created_at desc
-  limit 1;
-
-  if v_source_product_id is null or v_target_product_id is null then
-    raise exception 'slug route test requires two active Products';
-  end if;
-
-  v_renamed_slug := v_source_slug || '-durable-test';
-  v_draft_result := public.create_catalog_product_draft(
-    v_source_product_id,
-    v_actor_id
-  );
-  v_draft_id := (v_draft_result #>> '{draft,id}')::uuid;
-  v_document := jsonb_set(
-    v_draft_result #> '{draft,document}',
-    '{product,slug}',
-    to_jsonb(v_renamed_slug)
-  );
-
-  v_result := public.save_catalog_product_draft(
-    v_draft_id,
-    1,
-    v_document,
-    v_actor_id,
-    'admin'
-  );
-  perform public.transition_catalog_product_draft(
-    v_draft_id,
-    2,
-    'ready',
-    '[]'::jsonb,
-    v_actor_id
-  );
-  v_result := public.publish_catalog_product_draft(
-    v_draft_id,
-    3,
-    v_actor_id,
-    'admin',
-    jsonb_build_array(jsonb_build_object(
-      'table', 'products',
-      'field', 'slug',
-      'before', v_source_slug,
-      'after', v_renamed_slug
-    ))
-  );
-
-  if v_result #>> '{revision,document,product,slug}' <> v_renamed_slug
-     or v_result #>> '{changedTables,productSlugRoutes}' <> 'true'
-     or not exists (
-       select 1
-       from public.product_slug_routes
-       where source_slug = v_source_slug
-         and source_product_id = v_source_product_id
-         and target_product_id = v_source_product_id
-         and route_kind = 'rename'
-     ) or not exists (
-       select 1
-       from public.product_slug_routes
-       where source_slug = v_renamed_slug
-         and source_product_id = v_source_product_id
-         and target_product_id = v_source_product_id
-         and route_kind = 'canonical'
-     ) then
-    raise exception 'Catalog publication did not atomically preserve the prior slug';
-  end if;
-
-  if (
-    select route_kind || ':' || target_slug
-    from public.resolve_product_slug(v_source_slug)
-  ) <> ('rename:' || v_renamed_slug) then
-    raise exception 'historical rename did not resolve directly to the canonical slug';
-  end if;
-
-  if not exists (
-    select 1
-    from public.catalog_editor_audit_log
-    where draft_id = v_draft_id
-      and action = 'slug.rename.published'
-      and metadata #>> '{changedTables,product_slug_routes}' = 'true'
-  ) then
-    raise exception 'slug route publication was not included in Catalog audit';
-  end if;
-
-  select count(*) into v_revision_count
-  from public.catalog_product_revisions
-  where product_id = v_source_product_id;
-
-  v_draft_result := public.create_catalog_product_draft(
-    v_source_product_id,
-    v_actor_id
-  );
-  v_draft_id := (v_draft_result #>> '{draft,id}')::uuid;
-  v_document := jsonb_set(
-    v_draft_result #> '{draft,document}',
-    '{product,slug}',
-    to_jsonb('reset-01-calming-gel-cleanser'::text)
-  );
-  perform public.save_catalog_product_draft(
-    v_draft_id, 1, v_document, v_actor_id, 'admin'
-  );
-  perform public.transition_catalog_product_draft(
-    v_draft_id, 2, 'ready', '[]'::jsonb, v_actor_id
-  );
-  begin
-    perform public.publish_catalog_product_draft(
-      v_draft_id, 3, v_actor_id, 'admin', '[]'::jsonb
-    );
+    perform public.publish_catalog_product_draft(draft_id,3,actor_id,'admin','[]');
     set constraints all immediate;
-    raise exception 'reserved slug publication unexpectedly succeeded';
-  exception
-    when unique_violation or check_violation then null;
+    raise exception 'Reserved slug publication succeeded';
+  exception when unique_violation or check_violation then null;
   end;
-
-  if (select slug from public.products where id = v_source_product_id)
-       <> v_renamed_slug
-     or (
-       select count(*)
-       from public.catalog_product_revisions
-       where product_id = v_source_product_id
-     ) <> v_revision_count then
-    raise exception 'failed slug publication was not atomic';
+  if pg_temp.catalog_identity_state() is distinct from state_before then
+    raise exception 'Failed publication changed Catalog facts or history';
   end if;
-
-  perform public.transition_catalog_product_draft(
-    v_draft_id, 3, 'discard', '[]'::jsonb, v_actor_id
-  );
-
+  perform public.transition_catalog_product_draft(draft_id,3,'discard','[]',actor_id);
   begin
-    perform public.replace_catalog_product_slug(
-      v_source_product_id,
-      v_source_product_id,
-      v_actor_id
-    );
-    raise exception 'self replacement unexpectedly succeeded';
-  exception
-    when check_violation then null;
+    update public.products set slug='super-serum' where id=target_id;
+    raise exception 'Retired slug was reassigned';
+  exception when unique_violation or check_violation then null;
   end;
-
   begin
-    perform public.replace_catalog_product_slug(
-      v_source_product_id,
-      gen_random_uuid(),
-      v_actor_id
-    );
-    raise exception 'missing replacement target unexpectedly succeeded';
-  exception
-    when foreign_key_violation then null;
+    update public.products set slug=repeat('a',121) where id=target_id;
+    raise exception 'Oversized slug was accepted';
+  exception when check_violation then null;
   end;
-
-  update public.products
-  set catalog_status = 'archived'
-  where id = v_source_product_id;
-
+  raise notice 'PASS slug collisions fail atomically and length guard remains';
   begin
-    perform public.replace_catalog_product_slug(
-      v_source_product_id,
-      v_target_product_id,
-      null
-    );
-    raise exception 'replacement with a NULL actor unexpectedly succeeded';
-  exception
-    when insufficient_privilege then null;
+    update public.product_slug_routes set source_slug='altered-history' where source_slug='super-serum';
+    raise exception 'Provenance was rewritten';
+  exception when object_not_in_prerequisite_state then null;
   end;
-
   begin
-    perform public.replace_catalog_product_slug(
-      v_source_product_id,
-      v_target_product_id,
-      gen_random_uuid()
-    );
-    raise exception 'replacement without an Admin membership unexpectedly succeeded';
-  exception
-    when insufficient_privilege then null;
+    delete from public.product_slug_routes where source_slug='super-serum';
+    raise exception 'History was deleted';
+  exception when object_not_in_prerequisite_state then null;
   end;
-
-  v_result := public.replace_catalog_product_slug(
-    v_source_product_id,
-    v_target_product_id,
-    v_actor_id
-  );
-  if v_result ->> 'ok' <> 'true'
-     or v_result ->> 'targetSlug' <> v_target_slug
-     or exists (
-       select 1
-       from public.product_slug_routes
-       where target_product_id = v_source_product_id
-     ) or not exists (
-       select 1
-       from public.product_slug_routes
-       where source_product_id = v_source_product_id
-         and target_product_id = v_target_product_id
-         and route_kind = 'replacement'
-     ) then
-    raise exception 'explicit replacement did not flatten every source route';
+  begin
+    perform public.replace_catalog_product_slug(source_id,target_id,actor_id);
+    raise exception 'Active source was replaced';
+  exception when check_violation then null;
+  end;
+  update public.products set catalog_status='archived' where id=source_id;
+  begin
+    perform public.replace_catalog_product_slug(source_id,target_id,null);
+    raise exception 'Replacement accepted a missing actor';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.replace_catalog_product_slug(source_id,source_id,actor_id);
+    raise exception 'Self replacement succeeded';
+  exception when check_violation then null;
+  end;
+  begin
+    perform public.replace_catalog_product_slug(source_id,gen_random_uuid(),actor_id);
+    raise exception 'Missing replacement target succeeded';
+  exception when foreign_key_violation then null;
+  end;
+  result := public.replace_catalog_product_slug(source_id,target_id,actor_id);
+  if result ->> 'ok' is distinct from 'true'
+     or (select count(*) from public.product_slug_routes where source_product_id=source_id
+       and target_product_id=target_id and route_kind='replacement') <> 2 then
+    raise exception 'Replacement failed to preserve and flatten both reservations';
   end if;
-
-  if (
-    select route_kind || ':' || target_slug
-    from public.resolve_product_slug(v_source_slug)
-  ) <> ('replacement:' || v_target_slug) then
-    raise exception 'replacement route did not resolve directly to the active target';
-  end if;
-
   begin
-    update public.products
-    set catalog_status = 'active'
-    where id = v_source_product_id;
-    raise exception 'replaced Product was reactivated';
-  exception
-    when check_violation then null;
+    update public.products set catalog_status='active' where id=source_id;
+    raise exception 'Replaced Product was reactivated';
+  exception when check_violation then null;
   end;
-
-  if (
-    select catalog_status
-    from public.products
-    where id = v_source_product_id
-  ) <> 'archived' then
-    raise exception 'failed reactivation changed the replaced Product';
-  end if;
-
   begin
-    delete from public.product_slug_routes
-    where source_slug = v_source_slug;
-    raise exception 'slug route history was silently deleted';
-  exception
-    when object_not_in_prerequisite_state then
-      if sqlerrm <> 'product_slug_routes is append-only' then
-        raise;
-      end if;
+    update public.product_slug_routes set route_kind='rename' where source_slug='super-serum';
+    raise exception 'Replacement provenance was reverted';
+  exception when object_not_in_prerequisite_state then null;
   end;
-end;
-$product_slug_routes_test$;
-
+  if (select to_jsonb(r) from public.catalog_product_revisions r where product_id=source_id and revision_number=1)
+     is distinct from historical_revision then
+    raise exception 'Historical revision changed';
+  end if;
+  raise notice 'PASS provenance, deletion guard, governed replacement, reactivation denial, revision preservation';
+end $publication$;
 rollback;

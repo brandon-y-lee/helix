@@ -1,0 +1,54 @@
+{
+  "lifecycle_review_winback": {
+    "subject": "How is your helix routine?",
+    "text": "helix\nHow did you like your product?\nShare your experience. All honest feedback is welcome.\nShare your review: {{{HELIX_REVIEW_URL}}}\n\nA thank-you for being a customer\n{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.\n{{{HELIX_OFFER_TERMS}}}\nOffer expires: {{{HELIX_OFFER_EXPIRES_AT}}}\nShop with your offer: {{{HELIX_SHOP_URL}}}\n\nEmail preferences and unsubscribe: {{{HELIX_PREFERENCES_URL}}}\n{{{HELIX_POSTAL_ADDRESS}}}",
+    "words": "helixhelixHow did you like your product?Share your experience with helix. All honest feedback is welcome.Share your reviewA thank-you for being a customer{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.{{{HELIX_OFFER_TERMS}}}Offer expires: {{{HELIX_OFFER_EXPIRES_AT}}}Shop with your offerEmail preferences and unsubscribe{{{HELIX_POSTAL_ADDRESS}}}",
+    "variables": [
+      "{{{HELIX_REVIEW_URL}}}",
+      "{{{HELIX_OFFER_PERCENT}}}",
+      "{{{HELIX_OFFER_TERMS}}}",
+      "{{{HELIX_OFFER_EXPIRES_AT}}}",
+      "{{{HELIX_SHOP_URL}}}",
+      "{{{HELIX_PREFERENCES_URL}}}",
+      "{{{HELIX_POSTAL_ADDRESS}}}"
+    ]
+  },
+  "lifecycle_welcome": {
+    "subject": "Welcome to helix: your first-purchase offer",
+    "text": "helix\nStart with your skin. Your welcome offer is ready.\n{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.\n{{{HELIX_OFFER_TERMS}}}\nOffer expires: {{{HELIX_OFFER_EXPIRES_AT}}}\nView your cart: {{{HELIX_CART_URL}}}\n\nEmail preferences and unsubscribe: {{{HELIX_PREFERENCES_URL}}}\n{{{HELIX_POSTAL_ADDRESS}}}",
+    "words": "helixhelixStart with your skin.Your welcome offer is ready.{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.{{{HELIX_OFFER_TERMS}}}Offer expires: {{{HELIX_OFFER_EXPIRES_AT}}}View your cartEmail preferences and unsubscribe{{{HELIX_POSTAL_ADDRESS}}}",
+    "variables": [
+      "{{{HELIX_OFFER_PERCENT}}}",
+      "{{{HELIX_OFFER_TERMS}}}",
+      "{{{HELIX_OFFER_EXPIRES_AT}}}",
+      "{{{HELIX_CART_URL}}}",
+      "{{{HELIX_PREFERENCES_URL}}}",
+      "{{{HELIX_POSTAL_ADDRESS}}}"
+    ]
+  },
+  "lifecycle_cart": {
+    "subject": "Your helix routine is waiting",
+    "text": "helix\nYou left something in your cart.\n{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.\n{{{HELIX_OFFER_TERMS}}}\nOffer expires: {{{HELIX_OFFER_EXPIRES_AT}}}\nView your cart: {{{HELIX_CART_URL}}}\n\nEmail preferences and unsubscribe: {{{HELIX_PREFERENCES_URL}}}\n{{{HELIX_POSTAL_ADDRESS}}}",
+    "words": "helixhelixMake room for your routine.You left something in your cart.{{{HELIX_OFFER_PERCENT}}}% off your next eligible purchase.{{{HELIX_OFFER_TERMS}}}Offer expires: {{{HELIX_OFFER_EXPIRES_AT}}}View your cartEmail preferences and unsubscribe{{{HELIX_POSTAL_ADDRESS}}}",
+    "variables": [
+      "{{{HELIX_OFFER_PERCENT}}}",
+      "{{{HELIX_OFFER_TERMS}}}",
+      "{{{HELIX_OFFER_EXPIRES_AT}}}",
+      "{{{HELIX_CART_URL}}}",
+      "{{{HELIX_PREFERENCES_URL}}}",
+      "{{{HELIX_POSTAL_ADDRESS}}}"
+    ]
+  },
+  "lifecycle_browse": {
+    "subject": "Take another look at {{{HELIX_PRODUCT_NAME}}}",
+    "text": "helix\n{{{HELIX_PRODUCT_NAME}}}\nThe product you viewed is available.\nExplore: {{{HELIX_PRODUCT_URL}}}\n\nEmail preferences and unsubscribe: {{{HELIX_PREFERENCES_URL}}}\n{{{HELIX_POSTAL_ADDRESS}}}",
+    "words": "helixhelix{{{HELIX_PRODUCT_NAME}}}The product you viewed is available.Explore {{{HELIX_PRODUCT_NAME}}}Email preferences and unsubscribe{{{HELIX_POSTAL_ADDRESS}}}",
+    "variables": [
+      "{{{HELIX_PRODUCT_NAME}}}",
+      "{{{HELIX_PRODUCT_URL}}}",
+      "{{{HELIX_PRODUCT_NAME}}}",
+      "{{{HELIX_PREFERENCES_URL}}}",
+      "{{{HELIX_POSTAL_ADDRESS}}}"
+    ]
+  }
+}

@@ -106,7 +106,7 @@ describe("catalog editor field metadata", () => {
       catalogFieldsForTable("products").find((field) => field.field === "slug"),
     ).toMatchObject({
       disruptive: true,
-      importWarning: expect.stringMatching(/permanent redirect/i),
+      importWarning: expect.stringMatching(/old public URL will become unavailable/i),
     });
     expect(canCatalogRoleEditField("catalog_editor", "products", "display_name")).toBe(true);
     expect(canCatalogRoleEditField("catalog_publisher", "products", "display_name")).toBe(true);

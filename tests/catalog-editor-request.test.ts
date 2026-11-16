@@ -15,25 +15,30 @@ describe("catalog editor request boundary", () => {
   it("requires exact same-origin mutations", () => {
     expect(() =>
       assertSameOrigin(
-        new Request("https://mei-pelle.test/api/admin/catalog/drafts/1", {
+        new Request("https://helix.test/api/admin/catalog/drafts/1", {
           method: "PATCH",
-          headers: { origin: "https://mei-pelle.test" },
+          headers: { origin: "https://helix.test" },
         }),
       ),
     ).not.toThrow();
     expect(() =>
       assertSameOrigin(
-        new Request("https://mei-pelle.test/api/admin/catalog/drafts/1", {
+        new Request("https://helix.test/api/admin/catalog/drafts/1", {
           method: "PATCH",
           headers: { origin: "https://attacker.test" },
         }),
       ),
-    ).toThrowError(expect.objectContaining({ code: "same_origin_required" }));
+    ).toThrowError(
+      expect.objectContaining({
+        code: "same_origin_required",
+        message: "This request must originate from helix Admin.",
+      }),
+    );
   });
 
   it("bounds and parses JSON bodies without accepting stale versions", async () => {
     const request = new Request(
-      "https://mei-pelle.test/api/admin/catalog/drafts/1",
+      "https://helix.test/api/admin/catalog/drafts/1",
       {
         method: "PATCH",
         body: JSON.stringify({ expectedVersion: 2 }),

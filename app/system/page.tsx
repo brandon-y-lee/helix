@@ -1,86 +1,63 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { EditorialHueField } from "@/components/content/EditorialHueField";
-import { MethodExperience } from "@/components/system/MethodExperience";
+import Image from "next/image";
+import { SystemExperience } from "@/components/system/SystemExperience";
 import {
   buildIngredientIndex,
-  getMethodProductState,
+  groupSystemProducts,
 } from "@/lib/content/system";
-import { getCachedProducts } from "@/lib/catalog-cache";
+import {
+  getCachedIngredientIndexProducts,
+  getCachedProductCards,
+} from "@/lib/catalog-cache";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
-export const metadata: Metadata = {
-  metadataBase: siteUrl,
-  title: "The Mei Pelle System | Men's Skincare Routine",
+export const metadata: Metadata = createPublicSiteMetadata({
+  title: "The System | helix",
   description:
     "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-  alternates: {
-    canonical: "/system",
-  },
-  openGraph: {
-    title: "The Mei Pelle System | Men's Skincare Routine",
-    description:
-      "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-    url: "/system",
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "The Mei Pelle System | Men's Skincare Routine",
-    description:
-      "A clear step-by-step skincare system covering cleansing, treatment, hydration, eye care, weekly care, and daily SPF.",
-  },
-};
+  canonical: "/system",
+});
 
 export default async function SystemPage() {
-  const products = await getCachedProducts();
-  const { methodProducts, missingSlugs } = getMethodProductState(products);
-  const ingredientCards = buildIngredientIndex(methodProducts);
+  const [products, ingredientProducts] = await Promise.all([
+    getCachedProductCards(),
+    getCachedIngredientIndexProducts(),
+  ]);
+  const groups = groupSystemProducts(products);
+  const ingredientsBySlug = new Map(
+    ingredientProducts.map((product) => [product.slug, product]),
+  );
+  const ingredientCards = buildIngredientIndex(
+    [...groups.core, ...groups.beyond].flatMap(({ product }) => {
+      const source = ingredientsBySlug.get(product.slug);
+      return source ? [source] : [];
+    }),
+  );
 
   return (
-    <div className="method-page">
+    <div className="system-page">
       <section
         id="system-overview"
-        className="method-hero"
+        className="storefront-shell system-hero"
         aria-labelledby="system-heading"
+        data-layout-shell="storefront"
       >
-        <span id="method-overview" className="method-anchor-alias" aria-hidden="true" />
-        <EditorialHueField
-          className="method-hero__field"
-          tone="method"
-          decorated={false}
-        />
-        <div className="method-hero__copy">
-          <p className="eyebrow">Mei Pelle</p>
-          <h1 id="system-heading">THE SYSTEM.</h1>
-          <p>A system for clearer, healthier, beautiful skin</p>
-          <div className="hero__actions">
-            <Link href="/collections/shop" className="btn btn--editorial-rounded">
-              Start the system
-            </Link>
-            <Link href="#system-routine" className="btn btn--ghost btn--editorial-rounded">
-              View the routine
-            </Link>
+        <div className="system-hero__surface">
+          <Image
+            src="/media/system/a-new-philosophy-hero-01.webp"
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 720px) calc(100vw - 32px), calc(100vw - 60px)"
+            className="system-hero__image"
+          />
+          <div className="system-hero__copy">
+            <h1 id="system-heading">a new philosophy on male skincare</h1>
           </div>
         </div>
       </section>
 
-      {missingSlugs.length > 0 && (
-        <section className="container method-missing" aria-labelledby="system-missing-heading">
-          <h2 id="system-missing-heading">System catalog incomplete</h2>
-          <p>
-            The System needs live catalog records for every approved step. Missing:
-            {" "}
-            {missingSlugs.join(", ")}.
-          </p>
-        </section>
-      )}
-
-      {methodProducts.length > 0 && (
-        <MethodExperience methodProducts={methodProducts} ingredientCards={ingredientCards} />
-      )}
+      <SystemExperience groups={groups} ingredientCards={ingredientCards} />
     </div>
   );
 }

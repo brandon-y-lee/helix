@@ -6,21 +6,33 @@ import { CartDrawerHost } from "@/components/cart/CartDrawer";
 import { CartProvider } from "@/components/cart/CartProvider";
 import { Header } from "@/components/shell/Header";
 import { SiteFooter } from "@/components/shell/SiteFooter";
+import { PrivacyMeasurement } from "@/components/privacy/PrivacyMeasurement";
 import { applicationRouteMode } from "@/lib/admin/routes";
 
 export function ApplicationChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const mode = applicationRouteMode(pathname);
+  const isPdpVerification = pathname === "/helix-verification/pdp-purchase";
+  const isCustomerVerification = [
+    "/helix-verification/customer/account",
+    "/helix-verification/customer/rewards",
+    "/helix-verification/customer/auth",
+    "/helix-verification/customer/order",
+  ].includes(pathname);
+  const commerceDisabled = mode === "catalog-preview" || isPdpVerification || isCustomerVerification;
   const frameStorefrontPage =
     mode === "storefront" &&
     pathname !== "/" &&
-    !pathname.startsWith("/products/");
+    !pathname.startsWith("/products/") &&
+    !isPdpVerification;
 
-  if (mode === "standard-admin") return children;
+  // Capability fragments must never reach analytics or commerce effects.
+  if (pathname === "/reviews/guest" || pathname === "/helix-verification/guest-reviews" || mode === "standard-admin") return children;
 
   return (
-    <CartProvider key={mode} disabled={mode === "catalog-preview"}>
-      <Header commerceDisabled={mode === "catalog-preview"} />
+    <CartProvider key={`${mode}:${commerceDisabled}`} disabled={commerceDisabled}>
+      <PrivacyMeasurement />
+      <Header commerceDisabled={commerceDisabled} />
       <main
         id="content"
         tabIndex={-1}
@@ -35,7 +47,7 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
         )}
       </main>
       <SiteFooter />
-      {mode !== "catalog-preview" && <CartDrawerHost />}
+      {!commerceDisabled && <CartDrawerHost />}
     </CartProvider>
   );
 }

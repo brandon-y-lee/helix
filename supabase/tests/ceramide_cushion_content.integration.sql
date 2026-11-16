@@ -51,7 +51,7 @@ begin
     'application_steps', to_jsonb(array[
       'After TREAT, smooth a thin layer over face and neck.',
       'Press in gently, using a little more where skin feels dry or tight.',
-      'Use as the final Mei Pelle cream step at night. In the morning, follow with sunscreen.'
+      'Use as the final helix cream step at night. In the morning, follow with sunscreen.'
     ]::text[]),
     'ingredient_cards', jsonb_build_array(
       jsonb_build_object(
@@ -95,7 +95,7 @@ begin
       ),
       'supportingIngredients', 'also made with OAT KERNEL EXTRACT, CENTELLA ASIATICA, PEPTIDES'
     ),
-    'routine_guidance', 'Use after TREAT as the final Mei Pelle cream step. In the morning, follow with sunscreen.'
+    'routine_guidance', 'Use after TREAT as the final helix cream step. In the morning, follow with sunscreen.'
   );
 
   select to_jsonb(content) - 'product_id' - 'created_at' - 'updated_at'

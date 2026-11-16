@@ -171,7 +171,7 @@ function frameProduct(
       "eye area cream",
       "Sodium DNA eye cream",
     ],
-    seo_title: "Peptide Eye Cream — PDRN eye cream | Mei Pelle",
+    seo_title: "Peptide Eye Cream — PDRN eye cream | helix",
     seo_description:
       "A cushiony PDRN eye cream with Sodium DNA and separately declared cosmetic peptides for a smooth, supple, rested-looking finish.",
   };
@@ -282,7 +282,7 @@ function liftProduct(
       "nourishing face mask",
       "Hydrolyzed Collagen mask",
     ],
-    seo_title: "Peptide Nourish Mask — PDRN sheet mask | Mei Pelle",
+    seo_title: "Peptide Nourish Mask — PDRN sheet mask | helix",
     seo_description:
       "A serum-rich PDRN sheet mask with Sodium DNA and separately declared Hydrolyzed Collagen for a fresh, supple, cushioned look.",
   };

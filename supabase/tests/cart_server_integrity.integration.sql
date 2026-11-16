@@ -85,9 +85,9 @@ select has_function(
 );
 select has_function(
   'public',
-  'release_loyalty_redemptions_for_order',
+  'release_rewards_reservations_for_order',
   array['uuid', 'uuid', 'text'],
-  'reward release is transactional'
+  'Points Reservation release is transactional'
 );
 select has_function(
   'public',
@@ -107,11 +107,11 @@ select has_function(
   array['uuid', 'uuid', 'text', 'boolean'],
   'checkout attempt failure is a compare-and-set transaction'
 );
-select has_function(
+select hasnt_function(
   'public',
   'fail_checkout_order_from_stripe',
   array['uuid', 'text'],
-  'trusted Stripe failures are transactional'
+  'obsolete session-free Stripe failures are unavailable'
 );
 select has_function(
   'public',

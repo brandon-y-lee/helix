@@ -5,7 +5,7 @@ import {
   footerStatusModules,
   type FooterServiceCard,
 } from "@/content/footer";
-import { CookiePreferencesDialog } from "@/components/privacy/CookiePreferencesDialog";
+import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
 import { FooterWordmark } from "@/components/shell/FooterWordmark";
 
 function FooterServiceIcon({ name }: { name: FooterServiceCard["icon"] }) {
@@ -53,6 +53,40 @@ export function SiteFooter() {
         <FooterWordmark />
 
         <div className="site-footer__body">
+          <div className="site-footer__navigation">
+            <nav className="site-footer__nav" aria-label="Footer navigation">
+              {footerLinkGroups.map((group) => (
+                <section key={group.id} aria-labelledby={`footer-${group.id}`}>
+                  <h3 id={`footer-${group.id}`}>{group.label}</h3>
+                  <ul>
+                    {group.links.map((link) => (
+                      <li key={`${group.id}-${link.href}`}>
+                        <Link href={link.href}>{link.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </nav>
+
+            <div className="site-footer__mobile-groups" aria-label="Footer links">
+              {footerLinkGroups.map((group) => (
+                <details key={group.id} className="site-footer__accordion">
+                  <summary className="site-footer__accordion-trigger">
+                    {group.label}
+                  </summary>
+                  <ul>
+                    {group.links.map((link) => (
+                      <li key={`${group.id}-${link.href}`}>
+                        <Link href={link.href}>{link.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </div>
+
           <aside className="site-footer__services" aria-label="Footer service links">
             {footerServiceCards.map((card) => (
               <Link
@@ -97,40 +131,6 @@ export function SiteFooter() {
             </ul>
           </section>
 
-          <div className="site-footer__navigation">
-            <nav className="site-footer__nav" aria-label="Footer navigation">
-              {footerLinkGroups.map((group) => (
-                <section key={group.id} aria-labelledby={`footer-${group.id}`}>
-                  <h3 id={`footer-${group.id}`}>{group.label}</h3>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-            </nav>
-
-            <div className="site-footer__mobile-groups" aria-label="Footer links">
-              {footerLinkGroups.map((group) => (
-                <details key={group.id} className="site-footer__accordion">
-                  <summary className="site-footer__accordion-trigger">
-                    {group.label}
-                  </summary>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ))}
-            </div>
-          </div>
-
           <section
             className="site-footer__review-status"
             aria-labelledby="site-footer-reviews-heading"
@@ -165,12 +165,11 @@ export function SiteFooter() {
         <div className="site-footer__utility">
           <p className="site-footer__locale">{footerStatusModules.locale}</p>
           <div className="site-footer__utility-links">
-            <CookiePreferencesDialog triggerClassName="site-footer__utility-button" />
-            <Link href="/privacy-choices">Your Privacy Choices</Link>
+            <PrivacyChoicesDialog triggerClassName="site-footer__utility-button" />
             <Link href="/cookie-policy">Cookie Policy</Link>
           </div>
           <p className="site-footer__copyright">
-            &copy; {year} Mei Pelle. All rights reserved.
+            &copy; {year}. All rights reserved.
           </p>
         </div>
       </div>

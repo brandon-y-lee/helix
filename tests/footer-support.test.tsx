@@ -1,22 +1,43 @@
 import { render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import { FAQAccordion } from "@/components/content/FAQAccordion";
+import { describe, expect, it, vi } from "vitest";
+import FAQPage from "@/app/faq/page";
+import CookiePolicyPage from "@/app/cookie-policy/page";
 import { SiteFooter } from "@/components/shell/SiteFooter";
-import { accessibilityStatement } from "@/content/legal/accessibility";
 import { cookieCategories, cookiePolicy } from "@/content/legal/cookies";
 import { privacyChoices } from "@/content/legal/privacy-choices";
 import { privacyPolicy } from "@/content/legal/privacy";
 import { termsOfService } from "@/content/legal/terms";
-import { contactIntakeStatus } from "@/content/support/contact";
 import { faqCategories } from "@/content/support/faq";
+import {
+  FORMER_BRAND_PATTERN,
+  FORMER_BRAND_SNAKE,
+  LEGACY_REWARDS_PATTERN,
+} from "@/tests/helpers/former-identifiers";
 import {
   FREE_STANDARD_SHIPPING_THRESHOLD_CENTS,
   formatFreeShippingThreshold,
   qualifiesForFreeStandardShipping,
   remainingForFreeStandardShipping,
+  returnsPolicy,
 } from "@/content/support/policy";
 import ContactPage from "@/app/contact/page";
+import PrivacyChoicesPage from "@/app/privacy-choices/page";
+import { metadata as accessibilityMetadata } from "@/app/accessibility/page";
+import { metadata as contactMetadata } from "@/app/contact/page";
+import { metadata as cookiePolicyMetadata } from "@/app/cookie-policy/page";
+import { metadata as faqMetadata } from "@/app/faq/page";
+import { metadata as privacyChoicesMetadata } from "@/app/privacy-choices/page";
+import { metadata as privacyMetadata } from "@/app/privacy/page";
+import { metadata as termsMetadata } from "@/app/terms/page";
+import {
+  CHECKOUT_RECEIPT_COOKIE,
+  COOKIE_ACKNOWLEDGEMENT_COOKIE,
+  GUEST_CART_COOKIE,
+  PENDING_CHECKOUT_COOKIE,
+  REFERRAL_COOKIE,
+} from "@/lib/customer-state-identifiers";
 
 function documentText(values: unknown): string {
   return JSON.stringify(values);
@@ -28,8 +49,17 @@ describe("global footer", () => {
 
     const footer = screen.getByRole("contentinfo");
     expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
-    expect(screen.getByRole("heading", { name: "Mei Pelle" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Mei Pelle" })).toHaveAttribute("href", "/");
+    expect(footer).toHaveTextContent(/© \d{4}\. All rights reserved\./);
+    expect(footer).not.toHaveTextContent(/© \d{4} helix/i);
+    expect(footer).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    const identityLink = screen.getByRole("link", { name: "helix" });
+    expect(screen.getByRole("heading", { name: "helix" })).toBeInTheDocument();
+    expect(identityLink).toHaveAttribute("href", "/");
+    expect(
+      identityLink.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(identityLink).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    expect(identityLink).not.toHaveTextContent(/helix/);
     expect(screen.queryByText("Stay in the system.")).not.toBeInTheDocument();
     expect(screen.queryByText("Email updates are not open")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
@@ -37,7 +67,7 @@ describe("global footer", () => {
     for (const [name, href] of [
       ["Shop", "/collections/shop"],
       ["System", "/system"],
-      ["Rewards", "/rewards"],
+      ["helix rewards", "/rewards"],
       ["Account overview", "/account"],
       ["Sign in", "/account/sign-in"],
       ["Create account", "/account/sign-up"],
@@ -67,7 +97,7 @@ describe("global footer", () => {
       .not.toBeInTheDocument();
     expect(within(accountGroup).getByRole("link", { name: "Account overview" }))
       .toHaveAttribute("href", "/account");
-    expect(within(accountGroup).getByRole("link", { name: "Rewards" }))
+    expect(within(accountGroup).getByRole("link", { name: "helix rewards" }))
       .toHaveAttribute("href", "/rewards");
 
     const serviceLinks = within(footer).getByRole("complementary", {
@@ -75,7 +105,7 @@ describe("global footer", () => {
     });
     expect(
       within(serviceLinks).getByRole("link", {
-        name: "Contact status: Public support intake pending",
+        name: "Contact status: Check Support Intake availability",
       }),
     ).toHaveAttribute("href", "/contact");
     expect(
@@ -87,13 +117,13 @@ describe("global footer", () => {
     const reviews = within(footer).getByRole("region", {
       name: "Customer reviews",
     });
-    expect(within(reviews).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(reviews).getByText("Not available")).toBeInTheDocument();
     expect(within(reviews).getByText("No public rating is published.")).toBeInTheDocument();
 
     const social = within(footer).getByRole("region", {
       name: "Social channels",
     });
-    expect(within(social).getByText("Coming soon")).toBeInTheDocument();
+    expect(within(social).getByText("Not published")).toBeInTheDocument();
     expect(within(social).queryByRole("link")).not.toBeInTheDocument();
     expect(within(social).queryByRole("button")).not.toBeInTheDocument();
 
@@ -110,7 +140,7 @@ describe("global footer", () => {
     expect(screen.queryByRole("link", { name: /instagram/i })).not.toBeInTheDocument();
   });
 
-  it("toggles mobile groups and opens cookie preferences", async () => {
+  it("toggles mobile groups and opens privacy choices", async () => {
     const user = userEvent.setup();
     render(<SiteFooter />);
 
@@ -137,38 +167,81 @@ describe("global footer", () => {
     expect(within(mobileGroups).getByRole("link", { name: "Create account" }))
       .toHaveAttribute("href", "/account/sign-up");
 
-    await user.click(screen.getByRole("button", { name: "Cookie Preferences" }));
-    const dialog = screen.getByRole("dialog", { name: "Cookie Preferences" });
-    expect(dialog).toHaveTextContent("Essential cookies");
-    expect(dialog).toHaveTextContent("Payment messaging");
-    expect(dialog).toHaveTextContent("Active when eligible");
-    await user.click(within(dialog).getByRole("button", { name: /save current preference/i }));
-    expect(within(dialog).getByRole("status")).toHaveTextContent(
-      "Current preference saved.",
-    );
+    await user.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
+    const dialog = screen.getByRole("dialog", { name: "Your Privacy Choices" });
+    expect(dialog).toHaveTextContent("Essential");
+    expect(dialog).toHaveTextContent("Always Active");
+    expect(within(dialog).getByRole("link", { name: "Cookie Policy" })).toHaveAttribute("href", "/cookie-policy");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm my choices" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cookie notice" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Your Privacy Choices" })).not.toBeInTheDocument();
   });
 });
 
 describe("legal and support content", () => {
+  it("renders a consumer cookie policy in the current legal layout", () => {
+    render(<CookiePolicyPage />);
+    expect(screen.getByRole("article", { name: "Cookie Policy" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Cookie Policy" })).toBeInTheDocument();
+    expect(screen.queryByText("Not in effect")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No Legal Operator/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("table", {name:"Required cookies"})).toHaveTextContent("Duration");
+    expect(screen.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
+  });
+
+  it("uses helix metadata across trust, support, and policy routes", () => {
+    expect([
+      faqMetadata,
+      contactMetadata,
+      accessibilityMetadata,
+      privacyMetadata,
+      privacyChoicesMetadata,
+      cookiePolicyMetadata,
+      termsMetadata,
+    ].map((value) => ({
+      title: value.title,
+      siteName: value.openGraph && "siteName" in value.openGraph
+        ? value.openGraph.siteName
+        : undefined,
+    }))).toEqual([
+      { title: "FAQ | helix", siteName: "helix" },
+      { title: "Contact | helix", siteName: "helix" },
+      { title: "Accessibility | helix", siteName: "helix" },
+      { title: "Privacy Policy | helix", siteName: "helix" },
+      { title: "Your Privacy Choices | helix", siteName: "helix" },
+      { title: "Cookie Policy | helix", siteName: "helix" },
+      { title: "Terms & Conditions | helix", siteName: "helix" },
+    ]);
+  });
+
   it("matches actual data practices and avoids unresolved public placeholders", () => {
     const combined = documentText({
-      privacyPolicy,
-      termsOfService,
       cookiePolicy,
       privacyChoices,
-      accessibilityStatement,
     });
 
     expect(combined).not.toMatch(/\[INSERT|INSERT COMPANY|hello@rhodeskin|afterpay/i);
     expect(combined).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
     expect(combined).not.toMatch(/mandatory arbitration|class-action waiver|jury-trial waiver/i);
     expect(combined).not.toMatch(/real payments are available|returns are accepted/i);
-    expect(combined).toMatch(/sandbox Checkout/i);
-    expect(combined).toMatch(/MEI PELLE REWARDS/i);
-    expect(combined).toMatch(/does not submit or store messages/i);
-    expect(combined).toMatch(/WCAG 2\.2 AA/i);
+    expect(combined).not.toMatch(/prelaunch|not an operative|No Legal Operator/i);
+    expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
+    expect(combined).not.toMatch(LEGACY_REWARDS_PATTERN);
+    expect(combined).not.toMatch(FORMER_BRAND_PATTERN);
+    expect(combined).not.toMatch(/helix (?:is responsible|will be liable|disclaims)/i);
+    const publicSentences = [
+      ...[cookiePolicy, privacyChoices].flatMap((document) => [
+        document.intro,
+        ...document.sections.flatMap((section) => section.body),
+      ]),
+      ...faqCategories.flatMap((category) =>
+        category.items.map((item) => item.answer),
+      ),
+    ].join("\n");
+    expect(publicSentences).not.toMatch(/^helix (?:is|rewards)/m);
     expect(privacyPolicy.canonical).toBe("/privacy");
     expect(termsOfService.canonical).toBe("/terms");
   });
@@ -177,11 +250,38 @@ describe("legal and support content", () => {
     expect(cookieCategories).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ category: "Essential", active: true, optional: false }),
-        expect.objectContaining({ category: "Functional", active: true, optional: false }),
         expect.objectContaining({ category: "Analytics", active: false }),
         expect.objectContaining({ category: "Advertising", active: false }),
       ]),
     );
+
+    const essential = cookieCategories.find(
+      (category) => category.category === "Essential",
+    );
+    expect(essential?.examples).toEqual(
+      expect.arrayContaining([
+        GUEST_CART_COOKIE,
+        PENDING_CHECKOUT_COOKIE,
+        CHECKOUT_RECEIPT_COOKIE,
+        REFERRAL_COOKIE,
+        COOKIE_ACKNOWLEDGEMENT_COOKIE,
+      ]),
+    );
+    expect(
+      documentText({ cookieCategories, cookiePolicy, privacyChoices }),
+    ).not.toMatch(
+      new RegExp(
+        `${FORMER_BRAND_SNAKE}`,
+        "i",
+      ),
+    );
+  });
+
+  it("keeps the privacy choices route useful with the same dialog", async () => {
+    render(<PrivacyChoicesPage />);
+    expect(screen.queryByText("Not in effect")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
+    expect(screen.getByRole("dialog", { name: "Your Privacy Choices" })).toHaveTextContent("Your choices are stored in this browser");
   });
 
   it("defines and applies the shared free standard shipping threshold", () => {
@@ -198,7 +298,7 @@ describe("legal and support content", () => {
 
   it("renders FAQ categories with canonical anchors and native disclosures", async () => {
     const user = userEvent.setup();
-    render(<FAQAccordion categories={faqCategories} />);
+    render(<FAQPage />);
 
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute(
       "href",
@@ -220,21 +320,52 @@ describe("legal and support content", () => {
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
+    const hero = document.querySelector<HTMLElement>(".system-hero")!;
+    expect(within(hero).getByRole("heading", { level: 1 })).toHaveTextContent("In case you were wondering...");
+    expect(hero.querySelector("img")).toHaveAttribute("alt", "");
+    expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
-    expect(faqText).toContain("$50+");
+    expect(faqText).toContain("free standard shipping to delivery addresses within the United States");
+    expect(faqText).toContain("on orders of $50 or more after discounts and before taxes");
+    expect(faqText).toContain("Most orders ship 5–7 business days after being placed.");
+    expect(faqText).toContain("within 2 business days");
+    expect(faqText).toContain("7–12 business days after they are issued");
+    expect(faqText).toContain("noon Pacific");
+    expect(faqText).toContain("up to 7 years");
+    expect(faqText).toContain("WCAG 2.1 Level AA");
+    const returnAnswer = faqCategories.find((category) => category.id === "returns")!
+      .items.find((item) => item.id === "return-window")!.answer;
+    const returnWindow = `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt.`;
+    expect(returnsPolicy.returnWindowDays).toBe(30);
+    expect(returnAnswer).toContain(returnWindow);
+    expect(returnAnswer).toContain(returnsPolicy.condition);
+    expect(returnAnswer).toContain("acceptance is not guaranteed");
+    expect(returnAnswer).not.toMatch(/unopened|unused|planning assumption|not in effect/i);
+    const legalTerms = renderToStaticMarkup(termsOfService.content);
+    expect(legalTerms).toContain(returnWindow);
+    expect(legalTerms).toContain(returnsPolicy.condition);
+    expect(faqText).toContain("Terms & Conditions");
+    expect(faqText).not.toMatch(/Terms status page|No real shipping or Fulfillment capability is available|not an operative Terms of Service|no operative refund rule|requires a Legal Operator|unavailable feedback channel/i);
+    expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
-      /development storefront|development platform|demo|test store|placeholder/i,
+      /development storefront|development platform|test store|placeholder/i,
     );
+    expect(faqText).toMatch(/When development email is enabled, demo order confirmations can be sent to approved test recipients only/i);
   });
 
-  it("renders contact routing without a nonfunctional submission form", () => {
-    render(<ContactPage />);
-
-    expect(screen.getByRole("heading", { level: 1, name: "CONTACT" })).toBeInTheDocument();
-    expect(screen.getByText(contactIntakeStatus.heading)).toBeInTheDocument();
-    expect(screen.getByText(/does not include a message form/i)).toBeInTheDocument();
-    expect(screen.queryByRole("form")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /send|submit|check message/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
+  it("renders preparation guidance while unavailable intake stays closed", async () => {
+    const fetcher = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ available: false })));
+    try {
+      render(<ContactPage />);
+      expect(screen.getByRole("heading", { level: 1, name: "We'll get back to you within the next weekday reply target: noon Pacific" })).toBeInTheDocument();
+      expect(await screen.findByText(/Support Intake is currently unavailable/i)).toBeInTheDocument();
+      expect(screen.queryByRole("form")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /submit inquiry/i })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText("Before you send"));
+      expect(screen.getByRole("heading", { name: "Helpful details" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
+      expect(screen.queryByText(/Planned support hours|Development service|Local design preview/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
+    } finally { fetcher.mockRestore(); }
   });
 });

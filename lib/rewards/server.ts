@@ -4,17 +4,22 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  MEI_PELLE_REWARDS_NAME,
+  HELIX_REWARDS_NAME,
   PRIVATE_FEEDBACK_POINTS,
   WELCOME_REWARD_POINTS,
   affordableRewardTiers,
   calculatePurchasePoints,
+  type PointsLedgerEntryType,
 } from "@/lib/rewards/rules";
+import {
+  RewardsRequestError,
+  RewardsServiceUnavailableError,
+} from "@/lib/rewards/errors";
 
 export type RewardsSummary = {
   authenticated: boolean;
   emailConfirmed: boolean;
-  programName: typeof MEI_PELLE_REWARDS_NAME;
+  programName: typeof HELIX_REWARDS_NAME;
   pointsBalance: number;
   lifetimePoints: number;
   estimatedPurchasePoints: number;
@@ -22,7 +27,7 @@ export type RewardsSummary = {
   referralCode: string | null;
   recentLedger: Array<{
     id: string;
-    entry_type: string;
+    entry_type: PointsLedgerEntryType;
     points: number;
     description: string;
     created_at: string;
@@ -43,17 +48,25 @@ async function ensureCurrentUserRewards(): Promise<{
   if (!user) return { userId: null, emailConfirmed: false };
 
   const admin = createSupabaseAdminClient();
-  await admin.rpc("ensure_loyalty_account", { p_user_id: user.id });
+  const { error: ensureError } = await admin.rpc("ensure_rewards_account", {
+    p_user_id: user.id,
+  });
+  if (ensureError) {
+    throw new RewardsServiceUnavailableError();
+  }
   if (user.email_confirmed_at) {
-    await admin.rpc("award_loyalty_points", {
+    const { error: welcomeError } = await admin.rpc("award_rewards_points", {
       p_user_id: user.id,
       p_points: WELCOME_REWARD_POINTS,
       p_entry_type: "welcome",
       p_source_key: `welcome:${user.id}`,
-      p_description: "Welcome to MEI PELLE REWARDS.",
+      p_description: "Welcome to helix rewards.",
       p_order_id: null,
       p_metadata: { email_confirmed: true },
     });
+    if (welcomeError) {
+      throw new RewardsServiceUnavailableError();
+    }
   }
 
   return { userId: user.id, emailConfirmed: Boolean(user.email_confirmed_at) };
@@ -67,7 +80,7 @@ export async function getRewardsSummaryForCurrentUser(
     return {
       authenticated: false,
       emailConfirmed: false,
-      programName: MEI_PELLE_REWARDS_NAME,
+      programName: HELIX_REWARDS_NAME,
       pointsBalance: 0,
       lifetimePoints: 0,
       estimatedPurchasePoints: 0,
@@ -81,7 +94,7 @@ export async function getRewardsSummaryForCurrentUser(
   const admin = createSupabaseAdminClient();
   const [accountResult, referralResult, ledgerResult, feedbackResult] = await Promise.all([
     admin
-      .from("loyalty_accounts")
+      .from("rewards_accounts")
       .select("points_balance, lifetime_points")
       .eq("user_id", userId)
       .single(),
@@ -91,7 +104,7 @@ export async function getRewardsSummaryForCurrentUser(
       .eq("user_id", userId)
       .maybeSingle(),
     admin
-      .from("loyalty_ledger_entries")
+      .from("rewards_ledger_entries")
       .select("id, entry_type, points, description, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -105,7 +118,16 @@ export async function getRewardsSummaryForCurrentUser(
   ]);
 
   if (accountResult.error) {
-    throw new Error(`[rewards] Failed to load loyalty account: ${accountResult.error.message}`);
+    throw new RewardsServiceUnavailableError();
+  }
+  if (referralResult.error) {
+    throw new RewardsServiceUnavailableError();
+  }
+  if (ledgerResult.error) {
+    throw new RewardsServiceUnavailableError();
+  }
+  if (feedbackResult.error) {
+    throw new RewardsServiceUnavailableError();
   }
   const account = accountResult.data as { points_balance?: number; lifetime_points?: number };
   const balance = Number(account.points_balance ?? 0);
@@ -114,7 +136,7 @@ export async function getRewardsSummaryForCurrentUser(
   return {
     authenticated: true,
     emailConfirmed,
-    programName: MEI_PELLE_REWARDS_NAME,
+    programName: HELIX_REWARDS_NAME,
     pointsBalance: balance,
     lifetimePoints: Number(account.lifetime_points ?? 0),
     estimatedPurchasePoints: calculatePurchasePoints(subtotal),
@@ -144,49 +166,29 @@ export async function submitPrivateFeedbackForCurrentUser(input: {
 }): Promise<{ ok: true; pointsAwarded: number }> {
   const { userId, emailConfirmed } = await ensureCurrentUserRewards();
   if (!userId || !emailConfirmed) {
-    throw new Error("Sign in with a confirmed account to submit private feedback.");
+    throw new RewardsRequestError(
+      "Sign in with a confirmed account to submit private feedback.",
+    );
   }
   const rating = Math.trunc(input.rating);
-  if (rating < 1 || rating > 5) throw new Error("Choose a feedback rating from 1 to 5.");
+  if (rating < 1 || rating > 5) {
+    throw new RewardsRequestError("Choose a feedback rating from 1 to 5.");
+  }
   const comments = input.comments.trim().slice(0, 2000);
 
   const admin = createSupabaseAdminClient();
-  const { data: feedback, error } = await admin
-    .from("private_feedback")
-    .select("id, order_id, status")
-    .eq("id", input.feedbackId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(`[rewards] Failed to load feedback request: ${error.message}`);
-  const row = feedback as { id: string; order_id: string; status: string } | null;
-  if (!row || row.status !== "available") {
-    throw new Error("This private feedback request is no longer available.");
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await admin
-    .from("private_feedback")
-    .update({
-      status: "rewarded",
-      rating,
-      comments: comments || null,
-      points_awarded: PRIVATE_FEEDBACK_POINTS,
-      submitted_at: now,
-    })
-    .eq("id", row.id)
-    .eq("status", "available");
-  if (updateError) throw new Error(`[rewards] Failed to save private feedback: ${updateError.message}`);
-
-  const { error: awardError } = await admin.rpc("award_loyalty_points", {
+  const { error } = await admin.rpc("submit_private_feedback_reward", {
     p_user_id: userId,
-    p_points: PRIVATE_FEEDBACK_POINTS,
-    p_entry_type: "private_feedback",
-    p_source_key: `private-feedback:${row.order_id}`,
-    p_description: "Private post-purchase feedback reward.",
-    p_order_id: row.order_id,
-    p_metadata: { sentiment_neutral_reward: true },
+    p_feedback_id: input.feedbackId,
+    p_rating: rating,
+    p_comments: comments,
   });
-  if (awardError) throw new Error(`[rewards] Failed to award feedback points: ${awardError.message}`);
+  if (error?.code === "P0001" && error.message === "feedback request unavailable") {
+    throw new RewardsRequestError(
+      "This private feedback request is no longer available.",
+    );
+  }
+  if (error) throw new RewardsServiceUnavailableError();
 
   revalidatePath("/account");
   revalidatePath("/rewards");

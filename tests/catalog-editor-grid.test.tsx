@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import CatalogProductGrid from "@/components/admin/catalog-editor/CatalogProductGrid";
 import { catalogEditorApi } from "@/lib/admin/catalog-editor/client";
 import { catalogProduct } from "./fixtures/catalog-editor";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 vi.mock("@/lib/admin/catalog-editor/client", async (importOriginal) => {
   const original =
@@ -23,6 +24,13 @@ describe("CatalogProductGrid", () => {
     listProducts.mockReset();
   });
 
+  it("uses a supplied presentation client without requesting the real catalog", async () => {
+    const api = { listProducts: vi.fn().mockResolvedValue({ items: [], nextCursor: null }) };
+    render(<CatalogProductGrid api={api} />);
+    expect(await screen.findByRole("heading", { name: "No Catalog Products found" })).toBeVisible();
+    expect(listProducts).not.toHaveBeenCalled();
+  });
+
   it("shows loading, product summaries, editor links, filters, and pagination", async () => {
     let resolveFirst:
       | ((
@@ -39,7 +47,13 @@ describe("CatalogProductGrid", () => {
     );
 
     render(<CatalogProductGrid />);
-    expect(screen.getByRole("heading", { name: "Loading catalog" })).toBeVisible();
+    expect(screen.getByText("helix Admin · Catalog")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Catalog Editor" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Loading helix Catalog" }),
+    ).toBeVisible();
 
     resolveFirst?.({ items: [catalogProduct], nextCursor: "cursor-2" });
     expect(
@@ -48,6 +62,13 @@ describe("CatalogProductGrid", () => {
       "href",
       `/admin/catalog/products/${catalogProduct.id}`,
     );
+    const mediaFallback = screen.getByRole("img", {
+      name: "helix Product image unavailable",
+    });
+    expect(
+      mediaFallback.querySelector('[data-helix-identity="symbol"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(mediaFallback).not.toHaveTextContent(FORMER_BRAND_PATTERN);
     expect(screen.getByText("$22.00")).toBeVisible();
 
     listProducts.mockResolvedValueOnce({
@@ -67,7 +88,12 @@ describe("CatalogProductGrid", () => {
         expect.any(AbortSignal),
       ),
     );
-    expect(await screen.findByRole("heading", { name: "No products found" })).toBeVisible();
+    expect(
+      await screen.findByRole("heading", {
+        name: "No Catalog Products found",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/helix Catalog/)).toBeVisible();
   });
 
   it("submits search terms and offers an honest retry after API failure", async () => {
@@ -75,7 +101,9 @@ describe("CatalogProductGrid", () => {
     render(<CatalogProductGrid />);
 
     expect(
-      await screen.findByRole("heading", { name: "Catalog unavailable" }),
+      await screen.findByRole("heading", {
+        name: "helix Catalog unavailable",
+      }),
     ).toBeVisible();
     listProducts.mockResolvedValueOnce({
       items: [catalogProduct],

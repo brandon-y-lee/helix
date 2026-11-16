@@ -1,0 +1,101 @@
+{
+  "screenshots": [
+    {
+      "file_name": "privacy-desktop-top.png",
+      "library_file_id": "libfile_7f04cd28ec1081919968e4fb77ed836b",
+      "file_id": "file_000000005e1481f89ce20ddc2400adeb",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/privacy-desktop-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "privacy-mobile-top.png",
+      "library_file_id": "libfile_5b60469f58208191ad88b4555ade8e7a",
+      "file_id": "file_000000006cd081f5b26b6de9635c99a4",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/privacy-mobile-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "terms-desktop-top.png",
+      "library_file_id": "libfile_ae3963952f788191ad63042e65f36219",
+      "file_id": "file_000000005bf081f4b3362238728c6b5e",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/terms-desktop-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "terms-mobile-top.png",
+      "library_file_id": "libfile_ef25374219dc8191b03a52ee34c2f0e5",
+      "file_id": "file_00000000cc98820dba13c294cd28a28e",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/terms-mobile-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "accessibility-desktop-top.png",
+      "library_file_id": "libfile_cb590464f1b88191a0c252c478ec7d7f",
+      "file_id": "file_0000000014a481fb9f83f7bae7f20f16",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/accessibility-desktop-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "accessibility-mobile-top.png",
+      "library_file_id": "libfile_1ff9bc7a44e0819183632ba0a3f8eb0c",
+      "file_id": "file_00000000d53481fbb50a49f8b071ecbb",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/accessibility-mobile-top.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "privacy-desktop-full.png",
+      "library_file_id": "libfile_631ab1fe76808191b8a232db4e646cf0",
+      "file_id": "file_00000000bb28820ca63b36abd0be992a",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/privacy-desktop-full.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "privacy-mobile-full.png",
+      "library_file_id": "libfile_0bb48a7950d881919e5ed5c6a637072d",
+      "file_id": "file_00000000d0f081f489196e2e576cc8d2",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/privacy-mobile-full.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "terms-desktop-full.png",
+      "library_file_id": "libfile_cb90c5a5e2008191afb2455f2ed081f5",
+      "file_id": "file_00000000e40081fba6a89e1bf2c6235a",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/terms-desktop-full.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "terms-mobile-full.png",
+      "library_file_id": "libfile_df893477a29c81918e05ed11592e6ec0",
+      "file_id": "file_000000002770820c95ad8e90ebca28d5",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/terms-mobile-full.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "accessibility-desktop-full.png",
+      "library_file_id": "libfile_c46c01f4008c8191ab9f9df04f30898f",
+      "file_id": "file_00000000bdd4820ca0e16dc609502ecd",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/accessibility-desktop-full.png",
+      "status": "succeeded"
+    },
+    {
+      "file_name": "accessibility-mobile-full.png",
+      "library_file_id": "libfile_712a48f93be881918446629e0d8e1a90",
+      "file_id": "file_00000000242081f5844541a15813d70a",
+      "version": 0,
+      "local_path": "/tmp/helix-legal-artifacts/implementation/accessibility-mobile-full.png",
+      "status": "succeeded"
+    }
+  ],
+  "warnings": []
+}

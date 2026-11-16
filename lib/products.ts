@@ -1,11 +1,9 @@
 // Catalog domain types and shared formatting helpers.
 //
-// The catalog data itself lives in Supabase (see lib/catalog.ts and the
-// "catalog"/"seed_catalog" migrations) — there is no static product list here.
+// Catalog data lives in Supabase and is read through purpose-specific
+// projections in lib/catalog/storefront.ts. There is no static product list.
 
-import type { ProductPdpContent } from "@/lib/catalog/product-content";
 import type { ProductMediaRole } from "@/lib/catalog/media-roles";
-import type { SystemStepName } from "@/lib/catalog/system-steps";
 
 export type { ProductMediaRole } from "@/lib/catalog/media-roles";
 
@@ -63,60 +61,6 @@ export type ProductMedia = {
   sortOrder: number;
   paletteId: string | null;
   palette: PlaceholderPalette | null;
-};
-
-export type Product = {
-  id: string;
-  slug: string;
-  /** Short authored storefront Product Display Name. */
-  displayName: string;
-  productType: string;
-  routineGroup: CommerceRoutineGroup;
-  systemStepName: SystemStepName | null;
-  systemStepPosition: number | null;
-  routineSort: number;
-  badge: string | null;
-  currency: "USD";
-  sortOrder: number;
-  /** Longer description shown on the detail page. */
-  description: string;
-  /** Key benefits / "what it does" bullets. */
-  benefits: string[];
-  /** How-to-use guidance. */
-  howToUse: string;
-  formulaNotes: string[];
-  variants: Variant[];
-  /** Decorative gradient stops used in place of product photography. */
-  swatch: [string, string];
-  media: ProductMedia[];
-  cardMedia: ProductMedia | null;
-  cardHoverMedia: ProductMedia | null;
-  heroMedia: ProductMedia | null;
-  detailMedia: ProductMedia | null;
-  cartMedia: ProductMedia | null;
-  searchMedia: ProductMedia | null;
-  /** Availability state. */
-  status: ProductStatus;
-  catalogStatus: CatalogStatus;
-  /** Non-claim placeholder metadata for the PDP "made for / good for / texture" grid. */
-  madeFor: string | null;
-  goodFor: string | null;
-  texture: string | null;
-  keyIngredients: string[];
-  ingredients: string | null;
-  cautions: string[];
-  finish: string | null;
-  volume: string | null;
-  skinTypes: string[];
-  concerns: string[];
-  usageTime: string[];
-  seoTitle: string | null;
-  seoDescription: string | null;
-  searchKeywords: string[];
-  /** Validated product-specific PDP editorial content from Supabase. */
-  pdpContent?: ProductPdpContent | null;
-  /** ISO timestamp; used for the "Newest first" sort. */
-  createdAt: string;
 };
 
 export function composeProductTitle(

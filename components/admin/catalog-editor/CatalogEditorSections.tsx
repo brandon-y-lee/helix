@@ -416,6 +416,26 @@ function MetadataField({
           error={error}
         />
         <FieldContext metadata={metadata} />
+        {table === "product_pdp_content" && field === "how_to_use_steps" ? (
+          <>
+            <p className={styles.help}>
+              {value === null
+                ? "Usage instructions have not been reviewed."
+                : Array.isArray(value) && value.length === 0
+                  ? "No How to Use section is intended."
+                  : "Only reviewed structured instructions appear on the Product page."}
+            </p>
+            {value === null ? (
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                type="button"
+                onClick={() => onChange([])}
+              >
+                Confirm no How to Use section
+              </button>
+            ) : null}
+          </>
+        ) : null}
         {metadata.nullable && value !== null ? (
           <button
             className={`${styles.button} ${styles.buttonSecondary}`}
@@ -539,6 +559,7 @@ function FieldGroup({
   errors = 0,
   countLabel,
   readOnly = false,
+  grouping = false,
 }: {
   id: string;
   title: string;
@@ -548,6 +569,7 @@ function FieldGroup({
   errors?: number;
   countLabel?: string;
   readOnly?: boolean;
+  grouping?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -567,7 +589,9 @@ function FieldGroup({
           {readOnly ? <span>Read only</span> : null}
         </span>
       </summary>
-      <div className={styles.fieldGroupBody}>
+      <div
+        className={`${styles.fieldGroupBody}${grouping ? ` ${styles.fieldGroupBodyGrouping}` : ""}`}
+      >
         {description ? <p className={styles.help}>{description}</p> : null}
         {children}
       </div>
@@ -962,6 +986,7 @@ function ProductFamilySection({
       >
         <FieldGroup
           id="group-product-family-memberships"
+          grouping
           title="Ordered family members"
           description="Every member is a separate Product. Exactly one member is the family entry."
           countLabel={`${aggregate.memberships.length} rows`}
@@ -1084,6 +1109,33 @@ function PdpSection({
         errors={errorCount(issues, "product_pdp_content")}
       >
         <p className={styles.help}>No PDP content row exists for this product.</p>
+        {canCatalogRoleEditField(role, "product_pdp_content", "how_to_use_steps") ? (
+          <button
+            id={catalogFieldId("product_pdp_content", "how_to_use_steps")}
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            type="button"
+            onClick={() => onChange({
+              ...document,
+              productPdpContent: {
+                product_id: document.productId,
+                schema_version: 1,
+                profile_title_tokens: null,
+                routine_overlay: null,
+                outcome_heading: null,
+                outcome_labels: null,
+                how_to_use_steps: null,
+                application_steps: null,
+                ingredient_cards: null,
+                ingredient_story: null,
+                routine_guidance: null,
+                created_at: document.product.created_at,
+                updated_at: document.product.updated_at,
+              },
+            })}
+          >
+            Add PDP content for review
+          </button>
+        ) : null}
       </TableSection>
     );
   }
@@ -1199,6 +1251,7 @@ function VariantsSection({
     >
       <FieldGroup
         id="group-variant-records"
+        grouping
         title="Variant records"
         description="Prices are edited in dollars and stored as integer cents. Variant lifecycle and commerce fields require an admin."
         countLabel={`${document.variants.length} ${document.variants.length === 1 ? "row" : "rows"}`}
@@ -1305,6 +1358,7 @@ function MediaSection(props: CatalogEditorSectionsProps) {
       {document.product.routine_group === "core" ? (
         <FieldGroup
           id="group-core-routine-media"
+          grouping
           title="Core routine media"
           description="Fixed media slots used by the shared Core routine experience."
           countLabel={`${CORE_ROUTINE_MEDIA_SLOTS.length} slots`}
@@ -1329,6 +1383,7 @@ function MediaSection(props: CatalogEditorSectionsProps) {
       />
       <FieldGroup
         id="group-media-records"
+        grouping
         title="Media records"
         description="Edit associations, roles, ordering, alt text, and supported presentation metadata."
         countLabel={`${document.media.length} ${document.media.length === 1 ? "row" : "rows"}`}
@@ -1460,6 +1515,7 @@ function RelationshipsSection({ document, role, issues, changes, relationshipTar
     >
       <FieldGroup
         id="group-relationship-records"
+        grouping
         title="Relationship records"
         description="Related products and routine ordering used by storefront recommendations."
         countLabel={`${document.relationships.length} ${document.relationships.length === 1 ? "row" : "rows"}`}
@@ -1572,7 +1628,7 @@ function SystemMetadataSection({ metadata }: { metadata: CatalogEditorResponse["
       readOnly
     >
       <p className={styles.help}>
-        Workflow, revision, audit, and Product URL redirect records are displayed for inspection only. Redirect history is append-only and cannot be silently deleted.
+        Workflow, revision, audit, and private Product URL history are displayed for inspection only. Reserved URLs and replacement provenance cannot be deleted.
       </p>
       <MetadataRows table="product_content_drafts" rows={metadata.drafts} />
       <MetadataRows table="catalog_product_revisions" rows={metadata.revisions} />
@@ -1587,6 +1643,7 @@ function MetadataRows({ table, rows }: { table: CatalogEditorTable; rows: Array<
   return (
     <FieldGroup
       id={`group-system-${table.replaceAll("_", "-")}`}
+      grouping
       title={table}
       countLabel={`${rows.length} ${rows.length === 1 ? "record" : "records"}`}
       readOnly
@@ -1744,6 +1801,7 @@ function IngredientCardsEditor({ cards, readOnly, onChange, changed, errors }: {
   return (
     <FieldGroup
       id="group-pdp-ingredient-cards"
+      grouping
       title="Ingredient cards"
       countLabel={`${cards.length} ${cards.length === 1 ? "card" : "cards"}`}
       changed={changed}
@@ -1776,6 +1834,7 @@ function IngredientStoryEditor({ story, readOnly, onChange, changed, errors }: {
   return (
     <FieldGroup
       id="group-pdp-ingredient-story"
+      grouping
       title="Ingredient story"
       countLabel={`${story.highlights.length} highlights`}
       changed={changed}

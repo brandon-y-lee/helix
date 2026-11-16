@@ -8,7 +8,7 @@ import {
 } from "@/lib/catalog/real-product-media-verification";
 
 const mediaOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
-const imageUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.png`;
+const imageUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/card.png`;
 
 function body(
   bytes: Uint8Array,
@@ -50,7 +50,7 @@ function policy(
     approvedLocations: [
       {
         origin: mediaOrigin,
-        pathPrefix: "/storage/v1/object/public/mei-pelle-catalog/",
+        pathPrefix: "/storage/v1/object/public/helix-catalog/",
       },
     ],
     maxRedirects: 2,
@@ -157,7 +157,7 @@ describe("Real Product Media verification", () => {
 
   it("rejects an initial URL containing credentials before making a request", async () => {
     const credentialedUrl =
-      "https://customer:secret@erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/mei-pelle-catalog/card.png";
+      "https://customer:secret@erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/card.png";
     const request = vi.fn<ProductMediaHttpClient["request"]>();
 
     const report = await verifyRealProductMedia({
@@ -183,7 +183,7 @@ describe("Real Product Media verification", () => {
   });
 
   it("follows a bounded redirect only when the destination remains approved", async () => {
-    const redirectedUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/final.png`;
+    const redirectedUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/final.png`;
     const png = Uint8Array.from([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
     ]);
@@ -402,7 +402,7 @@ describe("Real Product Media verification", () => {
   });
 
   it("reports a network error without leaking it and still completes other URLs", async () => {
-    const secondUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/second.png`;
+    const secondUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/second.png`;
     const png = Uint8Array.from([
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
     ]);
@@ -492,7 +492,7 @@ describe("Real Product Media verification", () => {
   }, 500);
 
   it("does not treat a longer sibling path as an approved path prefix", async () => {
-    const siblingUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalogue/card.png`;
+    const siblingUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalogue/card.png`;
     const request = vi.fn<ProductMediaHttpClient["request"]>();
 
     const report = await verifyRealProductMedia({
@@ -501,7 +501,7 @@ describe("Real Product Media verification", () => {
         approvedLocations: [
           {
             origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/public/mei-pelle-catalog",
+            pathPrefix: "/storage/v1/object/public/helix-catalog",
           },
         ],
         maxRedirects: 0,
@@ -683,8 +683,8 @@ describe("Real Product Media verification", () => {
   });
 
   it("accepts WebP and MP4 signatures while deduplicating exact URLs and budgets dynamically", async () => {
-    const webpUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/card.webp`;
-    const videoUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/routine.mp4`;
+    const webpUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/card.webp`;
+    const videoUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/routine.mp4`;
     const webp = Uint8Array.from([
       0x52, 0x49, 0x46, 0x46, 0x04, 0x00, 0x00, 0x00,
       0x57, 0x45, 0x42, 0x50,
@@ -746,9 +746,9 @@ describe("Real Product Media verification", () => {
   it("fails closed for unsafe protocols, private paths, signed substitutions, path escapes, and invalid URLs", async () => {
     const unsafeUrls = [
       imageUrl.replace("https:", "http:"),
-      `${mediaOrigin}/storage/v1/object/sign/mei-pelle-catalog/card.png`,
-      `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/%2e%2e/private/card.png`,
-      `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/%25252e%25252e/private.png`,
+      `${mediaOrigin}/storage/v1/object/sign/helix-catalog/card.png`,
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/%2e%2e/private/card.png`,
+      `${mediaOrigin}/storage/v1/object/public/helix-catalog/%25252e%25252e/private.png`,
       `${imageUrl}?token=secret-token`,
       `${imageUrl}?access_token=secret-token`,
       "not-a-url-with-secret-token",
@@ -795,7 +795,7 @@ describe("Real Product Media verification", () => {
   });
 
   it("rejects a known authenticated Storage endpoint even if a caller approves its prefix", async () => {
-    const authenticatedUrl = `${mediaOrigin}/storage/v1/object/authenticated/mei-pelle-catalog/card.png`;
+    const authenticatedUrl = `${mediaOrigin}/storage/v1/object/authenticated/helix-catalog/card.png`;
     const request = vi.fn<ProductMediaHttpClient["request"]>();
 
     const report = await verifyRealProductMedia({
@@ -804,7 +804,7 @@ describe("Real Product Media verification", () => {
         approvedLocations: [
           {
             origin: mediaOrigin,
-            pathPrefix: "/storage/v1/object/authenticated/mei-pelle-catalog/",
+            pathPrefix: "/storage/v1/object/authenticated/helix-catalog/",
           },
         ],
         maxRedirects: 0,
@@ -846,7 +846,7 @@ describe("Real Product Media verification", () => {
   });
 
   it("stops before following a redirect beyond the configured limit", async () => {
-    const redirectedUrl = `${mediaOrigin}/storage/v1/object/public/mei-pelle-catalog/final.png`;
+    const redirectedUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/final.png`;
     const request = vi.fn<ProductMediaHttpClient["request"]>(async () => ({
       status: 307,
       headers: { location: redirectedUrl },

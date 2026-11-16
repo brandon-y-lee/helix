@@ -19,11 +19,13 @@ export function AdminNavigation({
   modules,
   onNavigate,
   collapsed = false,
+  navigationEnabled = true,
 }: {
   pathname: string;
   modules: readonly AdminModule[];
   onNavigate?: () => void;
   collapsed?: boolean;
+  navigationEnabled?: boolean;
 }) {
   return (
     <nav
@@ -31,18 +33,30 @@ export function AdminNavigation({
       aria-label="Admin modules"
       data-collapsed={collapsed || undefined}
     >
-      <Link
-        href="/admin"
-        className="admin-navigation__item"
-        aria-current={pathname === "/admin" ? "page" : undefined}
-        aria-label={collapsed ? "Overview" : undefined}
-        title={collapsed ? "Overview" : undefined}
-        onClick={onNavigate}
-      >
-        <span aria-hidden={collapsed || undefined}>{collapsed ? "OV" : "Overview"}</span>
-      </Link>
+      {navigationEnabled ? (
+        <Link
+          href="/admin"
+          className="admin-navigation__item"
+          aria-current={pathname === "/admin" ? "page" : undefined}
+          aria-label={collapsed ? "Overview" : undefined}
+          title={collapsed ? "Overview" : undefined}
+          onClick={onNavigate}
+        >
+          <span aria-hidden={collapsed || undefined}>{collapsed ? "OV" : "Overview"}</span>
+        </Link>
+      ) : (
+        <span
+          className="admin-navigation__item"
+          aria-disabled="true"
+          aria-current={pathname === "/admin" ? "page" : undefined}
+          aria-label={collapsed ? "Overview, unavailable" : undefined}
+          title={collapsed ? "Overview, unavailable" : undefined}
+        >
+          <span aria-hidden={collapsed || undefined}>{collapsed ? "OV" : "Overview"}</span>
+        </span>
+      )}
       {modules.map((module) =>
-        module.status === "active" ? (
+        navigationEnabled && module.status === "active" ? (
           <Link
             key={module.id}
             href={module.route}

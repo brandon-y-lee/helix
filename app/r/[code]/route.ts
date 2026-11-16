@@ -9,6 +9,25 @@ function normalizeReferralCode(value: string): string {
   return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
 }
 
+function unavailableResponse(): NextResponse {
+  return NextResponse.json(
+    {
+      error: {
+        code: "REFERRAL_SERVICE_UNAVAILABLE",
+        message: "Referral Code validation is temporarily unavailable.",
+        retryable: true,
+      },
+    },
+    {
+      status: 503,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Retry-After": "5",
+      },
+    },
+  );
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ code: string }> },
@@ -30,7 +49,8 @@ export async function GET(
     .eq("active", true)
     .maybeSingle();
 
-  if (error || !data) {
+  if (error) return unavailableResponse();
+  if (!data) {
     url.searchParams.set("referral", "invalid");
     return NextResponse.redirect(url);
   }

@@ -1,0 +1,622 @@
+{
+  "scrollWidth": 390,
+  "sections": [
+    {
+      "cls": "Header product Header__hidden Header__sticky",
+      "id": "",
+      "media": [
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 60,
+            "w": 60,
+            "x": 40,
+            "y": 10744
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 60,
+            "w": 60,
+            "x": 40,
+            "y": 10838
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 61,
+            "w": 61,
+            "x": 39,
+            "y": 10931
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 62,
+            "w": 62,
+            "x": 39,
+            "y": 11025
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 63,
+            "w": 63,
+            "x": 38,
+            "y": 11118
+          }
+        }
+      ],
+      "rect": {
+        "h": 90,
+        "w": 358,
+        "x": 16,
+        "y": 10587
+      },
+      "tag": "HEADER",
+      "text": "Skip to Main Content\n0"
+    },
+    {
+      "cls": "shopify-section Product-main js-product-main-section skip-animation",
+      "id": "shopify-section-template--23462698713326__main",
+      "media": [
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 459,
+            "w": 337,
+            "x": 16,
+            "y": 131
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 459,
+            "w": 358,
+            "x": 357,
+            "y": 131
+          }
+        },
+        {
+          "alt": "",
+          "cls": "Product-video",
+          "fit": "cover",
+          "rect": {
+            "h": 459,
+            "w": 358,
+            "x": 719,
+            "y": 131
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation lazyload",
+          "fit": "cover",
+          "rect": {
+            "h": 459,
+            "w": 358,
+            "x": 1081,
+            "y": 131
+          }
+        }
+      ],
+      "rect": {
+        "h": 1152,
+        "w": 358,
+        "x": 16,
+        "y": 131
+      },
+      "tag": "SECTION",
+      "text": "peptide glazing fluid\nDEWY GEL SERUM\nRATED 4.4 OUT OF 5 STARS\n3,960\nCLICK TO SCROLL TO REVIEWS\n\nThe "
+    },
+    {
+      "cls": "shopify-section",
+      "id": "shopify-section-template--23462698713326__17229769779f0d6228",
+      "media": [
+        {
+          "alt": "",
+          "cls": "_video_1vub0_13 tolstoy-tile-video",
+          "fit": "cover",
+          "rect": {
+            "h": 636,
+            "w": 358,
+            "x": 16,
+            "y": 1303
+          }
+        },
+        {
+          "alt": "",
+          "cls": "_image_1vub0_34 tolstoy-tile-image",
+          "fit": "cover",
+          "rect": {
+            "h": 636,
+            "w": 358,
+            "x": 16,
+            "y": 1303
+          }
+        }
+      ],
+      "rect": {
+        "h": 636,
+        "w": 358,
+        "x": 16,
+        "y": 1303
+      },
+      "tag": "DIV",
+      "text": "See how HAILEY uses the GLAZE in her DAILY SKIN ROUTINE.\n\n[cc]"
+    },
+    {
+      "cls": "shopify-section",
+      "id": "shopify-section-template--23462698713326__164986185514f630f5",
+      "media": [
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 1959
+          }
+        }
+      ],
+      "rect": {
+        "h": 848,
+        "w": 358,
+        "x": 16,
+        "y": 1959
+      },
+      "tag": "DIV",
+      "text": "The SIGNATURE step for GLAZED skin.\n\nGOOD FOR:\n\nAll skin types\n\nFEELS LIKE:\n\nLightweight, quick-abso"
+    },
+    {
+      "cls": "shopify-section js-highlights-section",
+      "id": "shopify-section-template--23462698713326__16498630632f51b44c",
+      "media": [
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 2827
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 3217
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 3607
+          }
+        }
+      ],
+      "rect": {
+        "h": 691,
+        "w": 358,
+        "x": 16,
+        "y": 2827
+      },
+      "tag": "DIV",
+      "text": "GLAZE YOUR SKIN WITH:\nhydration\nhydration\nhydration\nradiance\nradiance\nradiance\ndewiness\ndewiness\ndew"
+    },
+    {
+      "cls": "shopify-section js-tabbed-section",
+      "id": "shopify-section-template--23462698713326__74f47a3e-1c7c-43c6-836d-93f2d81704d9",
+      "media": [
+        {
+          "alt": "Left: Before Using Peptide Glazing Fluid; Right: After Using Peptide Glazing Fluid for 30 Days",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 3148
+          }
+        },
+        {
+          "alt": "customer with glazed skin",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 3538
+          }
+        }
+      ],
+      "rect": {
+        "h": 927,
+        "w": 358,
+        "x": 16,
+        "y": 3538
+      },
+      "tag": "SECTION",
+      "text": "92%\n\nAGREED SKIN FELT HYDRATED AFTER ONE USE\n\n87%\n\nAGREED IT ABSORBED QUICKLY UPON APPLICATION\n\n87%\n"
+    },
+    {
+      "cls": "shopify-section js-educational-section",
+      "id": "shopify-section-template--23462698713326__ingredients_educational_kGGKmj",
+      "media": [
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 314,
+            "w": 358,
+            "x": 16,
+            "y": 4485
+          }
+        }
+      ],
+      "rect": {
+        "h": 734,
+        "w": 358,
+        "x": 16,
+        "y": 4485
+      },
+      "tag": "DIV",
+      "text": "Get to know the ingredients that help your skin look bright and radiant.\n\npeptide\n\na short chain of "
+    },
+    {
+      "cls": "shopify-section js-selector-content-slider-section",
+      "id": "shopify-section-template--23462698713326__1649930643e2e4d31c",
+      "media": [
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 155,
+            "w": 155,
+            "x": 32,
+            "y": 5255
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 155,
+            "w": 155,
+            "x": 203,
+            "y": 5255
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 163,
+            "w": 326,
+            "x": 32,
+            "y": 5426
+          }
+        }
+      ],
+      "rect": {
+        "h": 616,
+        "w": 358,
+        "x": 16,
+        "y": 5239
+      },
+      "tag": "DIV",
+      "text": "APPLICATION\n(01) \n\n After morning/evening cleansing, glaze face, neck, and décolleté with 2-3 pumps."
+    },
+    {
+      "cls": "shopify-section js-slider-with-content-section",
+      "id": "shopify-section-template--23462698713326__fd98da97-4f76-45c8-be1c-59840ab4b5d3",
+      "media": [
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": -342,
+            "y": 5875
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 16,
+            "y": 5875
+          }
+        },
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 390,
+            "w": 358,
+            "x": 374,
+            "y": 5875
+          }
+        }
+      ],
+      "rect": {
+        "h": 1045,
+        "w": 358,
+        "x": 16,
+        "y": 5875
+      },
+      "tag": "DIV",
+      "text": "glazing milk\nCERAMIDE FACIAL ESSENCE\nBENEFITS\n\n• Provides all-day hydration • Preps skin for better "
+    },
+    {
+      "cls": "shopify-section js-slider-with-navigation-section",
+      "id": "shopify-section-template--23462698713326__slider_with_navigation_qzhLXa",
+      "media": [
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 140,
+            "w": 326,
+            "x": 32,
+            "y": 7431
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 140,
+            "w": 326,
+            "x": 358,
+            "y": 7431
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 140,
+            "w": 326,
+            "x": 684,
+            "y": 7431
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation lazyload",
+          "fit": "contain",
+          "rect": {
+            "h": 140,
+            "w": 326,
+            "x": 1010,
+            "y": 7431
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation lazyload",
+          "fit": "contain",
+          "rect": {
+            "h": 140,
+            "w": 326,
+            "x": 1336,
+            "y": 7431
+          }
+        }
+      ],
+      "rect": {
+        "h": 721,
+        "w": 358,
+        "x": 16,
+        "y": 6940
+      },
+      "tag": "DIV",
+      "text": "The rhode ROUTINE for GLAZED skin.\n\nYour morning and evening skincare steps.\n\npineapple refresh\n\nPGA"
+    },
+    {
+      "cls": "shopify-section js-slider-with-video",
+      "id": "shopify-section-template--23462698713326__slider_with_video_VPryWk",
+      "media": [
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 439,
+            "w": 152,
+            "x": 43,
+            "y": 7828
+          }
+        },
+        {
+          "alt": "peptide glazing fluid",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 163,
+            "w": 326,
+            "x": 32,
+            "y": 8870
+          }
+        }
+      ],
+      "rect": {
+        "h": 720,
+        "w": 358,
+        "x": 16,
+        "y": 7681
+      },
+      "tag": "SECTION",
+      "text": "less harm, more glaze.\n\nPeptide Glazing Fluid packaging is made with post-consumer recycled (PCR) ma"
+    },
+    {
+      "cls": "shopify-section",
+      "id": "shopify-section-template--23462698713326__1650018376ebbf5186",
+      "media": [],
+      "rect": {
+        "h": 1573,
+        "w": 358,
+        "x": 16,
+        "y": 8421
+      },
+      "tag": "DIV",
+      "text": "4.4\nRated 4.4 out of 5 stars\nBased on 3,960 reviews\nFILTERS\nMost Recent\nOldest\nMost Helpful\nPhotos &"
+    },
+    {
+      "cls": "shopify-section js-collection-slider",
+      "id": "shopify-section-template--23462698713326__1649865195c05eb40a",
+      "media": [
+        {
+          "alt": "Glazing Milk",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 440,
+            "w": 295,
+            "x": 16,
+            "y": 10014
+          }
+        },
+        {
+          "alt": "HB holding glazing milk",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 440,
+            "w": 295,
+            "x": 16,
+            "y": 10014
+          }
+        },
+        {
+          "alt": "Glazing Milk Allure Badge",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "contain",
+          "rect": {
+            "h": 37,
+            "w": 37,
+            "x": 262,
+            "y": 10030
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 440,
+            "w": 295,
+            "x": 331,
+            "y": 10014
+          }
+        },
+        {
+          "alt": "",
+          "cls": "skip-animation ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 440,
+            "w": 295,
+            "x": 331,
+            "y": 10014
+          }
+        }
+      ],
+      "rect": {
+        "h": 468,
+        "w": 358,
+        "x": 16,
+        "y": 10014
+      },
+      "tag": "SECTION",
+      "text": "swipe\nprep\n\nGLAZING MILK\n\n$32.00\n\nCeramide facial essence\n\nBUY GLAZING MILK\n - $32.00\nFOR GLAZING MI"
+    },
+    {
+      "cls": "Footer",
+      "id": "",
+      "media": [
+        {
+          "alt": "",
+          "cls": " ls-is-cached lazyloaded",
+          "fit": "cover",
+          "rect": {
+            "h": 117,
+            "w": 358,
+            "x": 16,
+            "y": 10502
+          }
+        },
+        {
+          "alt": "Afterpay",
+          "cls": "Footer-afterpay-logo",
+          "fit": "fill",
+          "rect": {
+            "h": 20,
+            "w": 80,
+            "x": 155,
+            "y": 11400
+          }
+        }
+      ],
+      "rect": {
+        "h": 1047,
+        "w": 358,
+        "x": 16,
+        "y": 10502
+      },
+      "tag": "FOOTER",
+      "text": "Join us on the rhode to an effortless glow.\n\nGlaze your inbox with tips, tricks & exclusive content "
+    }
+  ],
+  "viewport": [
+    390,
+    844
+  ]
+}

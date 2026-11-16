@@ -6,7 +6,7 @@ import { safeReturnTo } from "@/lib/auth/redirect";
 import { getCurrentUserForPublicPage } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
-  title: "Sign in | Mei Pelle",
+  title: "Sign in | helix",
 };
 
 const LINK_ERRORS: Record<string, string> = {

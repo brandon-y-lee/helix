@@ -10,16 +10,17 @@ import {
 } from "motion/react";
 import * as m from "motion/react-m";
 import {
-  useCallback,
   useEffect,
   useId,
   useRef,
+  useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useModalLayer } from "@/components/overlays/modal-state";
 
-type SheetSide = "left" | "right";
+type SheetSide = "left" | "right" | "bottom";
 type SheetEase = [number, number, number, number];
 
 export type SheetMotionTransition = {
@@ -34,61 +35,10 @@ export const PERSISTENT_SHEET_MOTION_TRANSITION: SheetMotionTransition = {
   backdropDuration: 0.14,
 };
 
-function lockBodyScroll(): () => void {
-  const body = document.body;
-  const previousOverflow = body.style.overflow;
-  const previousPaddingRight = body.style.paddingRight;
-  const previousScrollbarWidth = body.style.getPropertyValue(
-    "--sheet-scrollbar-width",
-  );
-  const hadScrollLockAttribute = body.hasAttribute("data-sheet-scroll-lock");
-  const scrollbarWidth =
-    window.innerWidth - document.documentElement.clientWidth;
-
-  if (scrollbarWidth > 0) {
-    const computedPaddingRight = Number.parseFloat(
-      window.getComputedStyle(body).paddingRight,
-    );
-    body.style.paddingRight = `${
-      (Number.isFinite(computedPaddingRight) ? computedPaddingRight : 0) +
-      scrollbarWidth
-    }px`;
-    body.style.setProperty("--sheet-scrollbar-width", `${scrollbarWidth}px`);
-  }
-
-  body.setAttribute("data-sheet-scroll-lock", "");
-  body.style.overflow = "hidden";
-
-  return () => {
-    body.style.overflow = previousOverflow;
-    body.style.paddingRight = previousPaddingRight;
-    if (previousScrollbarWidth) {
-      body.style.setProperty(
-        "--sheet-scrollbar-width",
-        previousScrollbarWidth,
-      );
-    } else {
-      body.style.removeProperty("--sheet-scrollbar-width");
-    }
-    if (!hadScrollLockAttribute) {
-      body.removeAttribute("data-sheet-scroll-lock");
-    }
-  };
-}
-
-function focusableIn(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ),
-  ).filter((element) => {
-    const style = window.getComputedStyle(element);
-    return style.display !== "none" && style.visibility !== "hidden";
-  });
-}
-
 type SheetLayerProps = {
+  closeVariant: "text" | "icon";
   open: boolean;
+  active: boolean;
   persistent: boolean;
   side: SheetSide;
   title: string;
@@ -102,6 +52,7 @@ type SheetLayerProps = {
   overlayClassName: string;
   overlayStyle?: CSSProperties;
   panelStyle?: CSSProperties;
+  layerRef: React.RefObject<HTMLDivElement | null>;
   panelRef: React.RefObject<HTMLDivElement | null>;
   motionTransition?: SheetMotionTransition;
   onMotionComplete?: () => void;
@@ -111,7 +62,9 @@ function SheetLayer(props: SheetLayerProps) {
   const isPresent = useIsPresent();
   const shouldReduceMotion = useReducedMotion();
   const {
+    closeVariant,
     open,
+    active,
     persistent,
     side,
     title,
@@ -125,6 +78,7 @@ function SheetLayer(props: SheetLayerProps) {
     overlayClassName,
     overlayStyle,
     panelStyle,
+    layerRef,
     panelRef,
     motionTransition,
     onMotionComplete,
@@ -136,7 +90,9 @@ function SheetLayer(props: SheetLayerProps) {
   const backdropDuration = shouldReduceMotion
     ? 0.01
     : (motionTransition?.backdropDuration ?? motionTransition?.duration);
-  const closedTransform = `translate3d(${side === "right" ? "100%" : "-100%"}, 0, 0)`;
+  const closedTransform = side === "bottom"
+    ? "translate3d(0, 100%, 0)"
+    : `translate3d(${side === "right" ? "100%" : "-100%"}, 0, 0)`;
   const state = persistent
     ? open
       ? "open"
@@ -156,18 +112,20 @@ function SheetLayer(props: SheetLayerProps) {
 
   return (
     <m.div
+      ref={layerRef}
       className={`sheet sheet--${side} ${overlayClassName}`}
       data-motion-sheet={animated ? "" : undefined}
       data-state={state}
+      data-modal-active={active ? "true" : "false"}
       role="dialog"
       aria-modal="true"
-      aria-hidden={state === "open" ? undefined : true}
-      inert={state === "open" ? undefined : true}
+      aria-hidden={state === "open" && active ? undefined : true}
+      inert={state === "open" && active ? undefined : true}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       style={overlayStyle}
       onMouseDown={(event) => {
-        if (state === "open" && event.target === event.currentTarget) onClose();
+        if (state === "open" && active && event.target === event.currentTarget) onClose();
       }}
     >
       {motionTransition && (
@@ -217,8 +175,17 @@ function SheetLayer(props: SheetLayerProps) {
               </p>
             )}
           </div>
-          <button type="button" className="sheet__close" onClick={onClose}>
-            Close
+          <button
+            type="button"
+            className={`sheet__close${closeVariant === "icon" ? " sheet__close--icon" : ""}`}
+            aria-label="Close"
+            onClick={onClose}
+          >
+            {closeVariant === "icon" ? (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            ) : "Close"}
           </button>
         </div>
         {children}
@@ -228,6 +195,7 @@ function SheetLayer(props: SheetLayerProps) {
 }
 
 export function Sheet({
+  closeVariant = "text",
   open,
   side = "right",
   title,
@@ -244,6 +212,7 @@ export function Sheet({
   motionTransition,
   persistent = false,
 }: {
+  closeVariant?: "text" | "icon";
   open: boolean;
   side?: SheetSide;
   title: string;
@@ -260,94 +229,33 @@ export function Sheet({
   motionTransition?: SheetMotionTransition;
   persistent?: boolean;
 }) {
+  const layerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const releaseScrollLockRef = useRef<(() => void) | null>(null);
-  const openRef = useRef(open);
-  openRef.current = open;
   const id = useId();
   const titleId = `${id}-sheet-title`;
   const descriptionId = `${id}-sheet-description`;
   const animated = motionTransition !== undefined;
   const keepMounted = persistent && animated;
-
-  const releaseScrollLock = useCallback(() => {
-    releaseScrollLockRef.current?.();
-    releaseScrollLockRef.current = null;
-  }, []);
-
-  const completeAnimatedClose = useCallback(() => {
-    if (openRef.current || releaseScrollLockRef.current === null) return;
-    releaseScrollLock();
-    returnFocus();
-  }, [releaseScrollLock, returnFocus]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    setMounted(true);
+  }, []);
 
-    releaseScrollLockRef.current ??= lockBodyScroll();
-
-    const panel = panelRef.current;
-    const focusTimeout = window.setTimeout(() => {
-      if (panel?.contains(document.activeElement)) return;
-      const preferred = initialFocus?.();
-      const first =
-        preferred && panel?.contains(preferred)
-          ? preferred
-          : panel
-            ? focusableIn(panel)[0]
-            : null;
-      first?.focus({ preventScroll: true });
-    }, 0);
-
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (e.key === "Tab" && panelRef.current) {
-        const focusable = focusableIn(panelRef.current);
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        const active = document.activeElement;
-        if (e.shiftKey && active === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && active === last) {
-          e.preventDefault();
-          first.focus();
-        } else if (!panelRef.current.contains(active)) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      window.clearTimeout(focusTimeout);
-      document.removeEventListener("keydown", onKeyDown);
-      if (!animated) {
-        releaseScrollLock();
-        returnFocus();
-      }
-    };
-  }, [
-    animated,
-    initialFocus,
-    open,
+  const { active, completeClose } = useModalLayer({
+    open: mounted && open,
+    layerRef,
+    panelRef,
     onClose,
-    releaseScrollLock,
     returnFocus,
-  ]);
-
-  useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
+    initialFocus,
+    waitForExit: animated,
+  });
 
   const layerProps: SheetLayerProps = {
+    closeVariant,
     open,
+    active,
     persistent: keepMounted,
     side,
     title,
@@ -361,12 +269,13 @@ export function Sheet({
     overlayClassName,
     overlayStyle,
     panelStyle,
+    layerRef,
     panelRef,
     motionTransition,
-    onMotionComplete: completeAnimatedClose,
+    onMotionComplete: completeClose,
   };
 
-  if (typeof document === "undefined") return null;
+  if (!mounted) return null;
 
   return createPortal(
     <LazyMotion features={domAnimation} strict>
@@ -374,7 +283,7 @@ export function Sheet({
         {keepMounted ? (
           <SheetLayer {...layerProps} />
         ) : animated ? (
-          <AnimatePresence onExitComplete={completeAnimatedClose}>
+          <AnimatePresence onExitComplete={completeClose}>
             {open && <SheetLayer key={id} {...layerProps} />}
           </AnimatePresence>
         ) : (

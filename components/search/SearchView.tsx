@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import Link from "next/link";
 import { SearchResultCard } from "@/components/search/SearchResultCard";
 import { useProductSearch } from "@/components/search/useProductSearch";
 
@@ -22,20 +23,23 @@ const POPULAR_SEARCHES = [
  */
 export function SearchView({
   autoFocus = false,
+  inputRef: providedInputRef,
   onResultClick,
 }: {
   autoFocus?: boolean;
+  inputRef?: RefObject<HTMLInputElement | null>;
   onResultClick?: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const { status, result, errorMessage } = useProductSearch(query);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { status, result, retry } = useProductSearch(query);
+  const localInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = providedInputRef ?? localInputRef;
   const inputId = useId();
   const suggestionsId = useId();
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus({ preventScroll: true });
-  }, [autoFocus]);
+  }, [autoFocus, inputRef]);
 
   const term = query.trim();
 
@@ -52,8 +56,7 @@ export function SearchView({
   function suggestions() {
     return (
       <section className="search-suggestions" aria-labelledby={suggestionsId}>
-        <p className="search-suggestions__eyebrow">A useful place to begin</p>
-        <h3 id={suggestionsId}>Popular searches</h3>
+        <h3 id={suggestionsId}>Suggestions</h3>
         <div className="search-suggestions__list">
           {POPULAR_SEARCHES.map((suggestion) => (
             <button
@@ -80,7 +83,7 @@ export function SearchView({
           id={inputId}
           ref={inputRef}
           type="search"
-          placeholder="Search the collection…"
+          placeholder="Type here"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
@@ -109,30 +112,39 @@ export function SearchView({
       </div>
 
       <div className="search-body">
-        {status === "idle" && (
-          <>
-            <p className="search-message">
-              Search by product, routine step, texture, or concern.
-            </p>
-            {suggestions()}
-          </>
-        )}
+        {status === "idle" && suggestions()}
 
         {status === "unconfigured" && (
-          <p className="search-message" role="status">
-            Search isn&rsquo;t configured in this environment yet. Set the
-            <code> NEXT_PUBLIC_ALGOLIA_*</code> environment variables to enable
-            it.
-          </p>
+          <div className="search-unavailable">
+            <p className="search-message" role="status">
+              Search is temporarily unavailable. You can still browse the collection.
+            </p>
+            <Link
+              href="/collections/shop"
+              className="btn btn--editorial-rounded"
+              onClick={onResultClick}
+            >
+              Browse the collection
+            </Link>
+          </div>
         )}
 
         {status === "error" && (
-          <p className="search-message search-message--error" role="alert">
-            Something went wrong with search. Please try again.
-            {errorMessage ? (
-              <span className="search-message__detail"> ({errorMessage})</span>
-            ) : null}
-          </p>
+          <div className="search-unavailable">
+            <p className="search-message search-message--error" role="alert">
+              Search is temporarily unavailable. Please try again.
+            </p>
+            <button
+              type="button"
+              className="btn btn--editorial-rounded"
+              onClick={() => {
+                retry();
+                inputRef.current?.focus({ preventScroll: true });
+              }}
+            >
+              Try again
+            </button>
+          </div>
         )}
 
         {status === "loading" && (

@@ -1,24 +1,14 @@
 import type { Metadata } from "next";
-import { LegalDocumentLayout } from "@/components/content/LegalDocumentLayout";
+import { PolicyDocumentLayout } from "@/components/content/PolicyDocumentLayout";
 import { accessibilityStatement } from "@/content/legal/accessibility";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
-export const metadata: Metadata = {
-  metadataBase: siteUrl,
+export const metadata: Metadata = createPublicSiteMetadata({
   title: accessibilityStatement.metadataTitle,
   description: accessibilityStatement.description,
-  alternates: { canonical: accessibilityStatement.canonical },
-  openGraph: {
-    title: accessibilityStatement.metadataTitle,
-    description: accessibilityStatement.description,
-    url: accessibilityStatement.canonical,
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+  canonical: accessibilityStatement.canonical,
+});
 
 export default function AccessibilityPage() {
-  return <LegalDocumentLayout document={accessibilityStatement} />;
+  return <PolicyDocumentLayout document={accessibilityStatement} />;
 }
-

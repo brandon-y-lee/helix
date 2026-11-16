@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CheckoutConfigError } from "@/lib/checkout/config";
 import { resolveCheckoutOrigin } from "@/lib/checkout/origin";
 import {
   checkoutCancellationState,
   checkoutSessionIsPaid,
   orderCanTransitionToPaymentFailed,
   sanitizedStripeEventPayload,
-  stripeWebhookClaimIsFresh,
-  stripeWebhookProcessingMarker,
 } from "@/lib/checkout/stripe-state";
 
 describe("Stripe checkout state", () => {
@@ -38,26 +35,6 @@ describe("Stripe checkout state", () => {
     expect(orderCanTransitionToPaymentFailed("paid")).toBe(false);
     expect(orderCanTransitionToPaymentFailed("cancelled")).toBe(false);
     expect(orderCanTransitionToPaymentFailed("refunded")).toBe(false);
-  });
-
-  it("bounds duplicate webhook processing claims", () => {
-    const startedAt = new Date("2026-07-23T12:00:00.000Z");
-    const marker = stripeWebhookProcessingMarker(startedAt);
-
-    expect(marker).toBe("processing:2026-07-23T12:00:00.000Z");
-    expect(
-      stripeWebhookClaimIsFresh(
-        marker,
-        new Date("2026-07-23T12:04:59.999Z"),
-      ),
-    ).toBe(true);
-    expect(
-      stripeWebhookClaimIsFresh(
-        marker,
-        new Date("2026-07-23T12:05:00.000Z"),
-      ),
-    ).toBe(false);
-    expect(stripeWebhookClaimIsFresh("provider error", startedAt)).toBe(false);
   });
 
   it("stores a minimal event audit record without customer payload fields", () => {
@@ -92,20 +69,20 @@ describe("trusted checkout return origins", () => {
       resolveCheckoutOrigin({
         env: {
           NODE_ENV: "production",
-          NEXT_PUBLIC_SITE_URL: "https://mei-pelle.example/path",
+          NEXT_PUBLIC_SITE_URL: "https://helixskin.vercel.app",
         },
         requestOrigin: "https://attacker.example",
       }),
-    ).toBe("https://mei-pelle.example");
+    ).toBe("https://helixskin.vercel.app");
   });
 
-  it("allows only local HTTP request origins during development", () => {
+  it("does not derive a return origin from the browser even during development", () => {
     expect(
       resolveCheckoutOrigin({
         env: { NODE_ENV: "development" },
         requestOrigin: "http://127.0.0.1:3100",
       }),
-    ).toBe("http://127.0.0.1:3100");
+    ).toBe("http://localhost:3000");
     expect(
       resolveCheckoutOrigin({
         env: { NODE_ENV: "development" },
@@ -114,12 +91,58 @@ describe("trusted checkout return origins", () => {
     ).toBe("http://localhost:3000");
   });
 
-  it("fails closed in production when no trusted return origin exists", () => {
-    expect(() =>
+  it("uses the controlled hostname instead of a generated Vercel return origin", () => {
+    expect(
       resolveCheckoutOrigin({
-        env: { NODE_ENV: "production" },
+        env: {
+          NODE_ENV: "production",
+          VERCEL_URL: "helix-random-build.vercel.app",
+        },
         requestOrigin: "https://attacker.example",
       }),
-    ).toThrow(CheckoutConfigError);
+    ).toBe("https://helixskin.vercel.app");
+  });
+
+  it("uses an explicit server-configured checkout origin", () => {
+    expect(
+      resolveCheckoutOrigin({
+        env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "https://www.helixskin.us" },
+        requestOrigin: "https://attacker.example",
+      }),
+    ).toBe("https://www.helixskin.us");
+    expect(
+      resolveCheckoutOrigin({
+        env: { NODE_ENV: "development", CHECKOUT_ORIGIN: "http://127.0.0.1:3100" },
+      }),
+    ).toBe("http://127.0.0.1:3100");
+  });
+
+  it("treats an optional blank setting as unset", () => {
+    expect(
+      resolveCheckoutOrigin({ env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "  " } }),
+    ).toBe("https://helixskin.vercel.app");
+  });
+
+  it.each([
+    ["production", "http://localhost:3000"],
+    ["production", "https://staging.helix.test"],
+    ["production", "http://staging.helix.test"],
+    ["production", "https://staging.helix.test/path"],
+    ["production", "https://user:password@staging.helix.test"],
+    ["production", "https://staging.helix.test?redirect=other"],
+    ["production", "https://staging.helix.test#fragment"],
+    ["development", "http://attacker.example"],
+    ["development", "null"],
+  ])("fails closed for an invalid %s checkout origin %s", (nodeEnv, origin) => {
+    expect(() => resolveCheckoutOrigin({
+      env: { NODE_ENV: nodeEnv, CHECKOUT_ORIGIN: origin } as NodeJS.ProcessEnv,
+    })).toThrow("Checkout origin is not configured correctly.");
+  });
+
+  it("uses the configured public domain when no checkout override exists, retaining legacy request returns", () => {
+    const env = { NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "https://www.helixskin.us" } as NodeJS.ProcessEnv;
+    expect(resolveCheckoutOrigin({ env })).toBe("https://www.helixskin.us");
+    expect(resolveCheckoutOrigin({ env, requestOrigin: "https://helixskin.vercel.app" })).toBe("https://helixskin.vercel.app");
+    expect(resolveCheckoutOrigin({ env, requestOrigin: "https://attacker.example" })).toBe("https://www.helixskin.us");
   });
 });

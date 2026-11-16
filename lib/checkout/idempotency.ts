@@ -21,6 +21,7 @@ export type CheckoutFingerprintInput = {
     points: number;
   };
   referralCode: string | null;
+  offerId?: string;
   discountCents: number;
   shippingCents: number;
   freeShipping: boolean;
@@ -36,7 +37,6 @@ type CheckoutSessionState = {
 
 export type CheckoutSessionDisposition =
   | "reuse"
-  | "replace"
   | "paid"
   | "processing";
 
@@ -69,6 +69,7 @@ function checkoutFingerprint(input: CheckoutFingerprintInput): string {
       lines,
       reward: input.reward,
       referralCode: input.referralCode,
+      ...(input.offerId ? { offerId: input.offerId } : {}),
       discountCents: input.discountCents,
       shippingCents: input.shippingCents,
       freeShipping: input.freeShipping,
@@ -110,9 +111,6 @@ export function checkoutSessionDisposition(
   nowSeconds = Math.floor(Date.now() / 1000),
 ): CheckoutSessionDisposition {
   if (session.paymentStatus === "paid") return "paid";
-  if (session.orderStatus === "payment_failed" && session.status === "complete") {
-    return "replace";
-  }
   if (session.status === "complete") return "processing";
   if (
     session.status === "open" &&
@@ -121,5 +119,5 @@ export function checkoutSessionDisposition(
   ) {
     return "reuse";
   }
-  return "replace";
+  return "processing";
 }

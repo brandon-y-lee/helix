@@ -1,8 +1,16 @@
+import {
+  HOME_INNOVATION_IMAGE,
+  HOME_MISSION_IMAGE,
+  HOME_SUSTAINABILITY_IMAGE,
+} from "@/lib/content/home-principles-media";
+
 export type HomeThreePrinciple = {
   id: "mission" | "innovation" | "sustainability";
   label: string;
   titleLines: readonly string[];
   description: string;
+  cta: { label: string; href: string };
+  image: { src: string; position: string; fit?: "cover" | "contain" };
 };
 
 export type HomeCoreDescriptionKey = "cleanse" | "treat" | "seal";
@@ -21,6 +29,23 @@ export const homeCoreDescriptions = {
 };
 
 export type HomeBeyondCoreDescriptionKey = "refine" | "frame" | "protect" | "lift";
+
+export const HOME_BEYOND_CORE_PRODUCT_SLUGS = [
+  "balancing-prep",
+  "peptide-eye-cream",
+  "peptide-nourish-mask",
+] as const;
+
+export type HomeBeyondCoreProductSlug =
+  (typeof HOME_BEYOND_CORE_PRODUCT_SLUGS)[number];
+
+export const HOME_BEYOND_DESCRIPTION_KEY_BY_SLUG: Readonly<
+  Record<HomeBeyondCoreProductSlug, HomeBeyondCoreDescriptionKey>
+> = {
+  "balancing-prep": "refine",
+  "peptide-eye-cream": "frame",
+  "peptide-nourish-mask": "lift",
+};
 
 export const homeBeyondCoreDescriptions = {
   default: "For when your skin has a high baseline. Add what you need.",
@@ -41,7 +66,9 @@ export const homeThreePrinciples = [
     label: "mission",
     titleLines: ["Simple is", "not basic."],
     description:
-      "Restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
+      "To restore, protect, and nurture the skin you have now for lasting results that reveal themselves over time.",
+    cta: { label: "our values", href: "/about#about-men-heading" },
+    image: { src: HOME_MISSION_IMAGE, position: "50% 0%" },
   },
   {
     id: "innovation",
@@ -49,6 +76,8 @@ export const homeThreePrinciples = [
     titleLines: ["Formulated", "for longevity."],
     description:
       "Developed with award-winning dermatologists, chemists, and industry leaders.",
+    cta: { label: "our formulas", href: "/about#quality-heading" },
+    image: { src: HOME_INNOVATION_IMAGE, position: "50% 50%", fit: "contain" },
   },
   {
     id: "sustainability",
@@ -56,5 +85,7 @@ export const homeThreePrinciples = [
     titleLines: ["Mindful skincare,", "built in."],
     description:
       "From consciously-sourced ingredients to packaging made with post-consumer recycled materials.",
+    cta: { label: "our impact", href: "/about#sustainability-heading" },
+    image: { src: HOME_SUSTAINABILITY_IMAGE, position: "50% 50%" },
   },
 ] as const satisfies readonly HomeThreePrinciple[];

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CartProvider, useCartDrawer } from "@/components/cart/CartProvider";
 import { CartView } from "@/components/cart/CartView";
@@ -9,7 +10,7 @@ const knownCart: CartState = {
   lines: [
     {
       key: "line-1",
-      slug: "cleanse-01-calming-gel-cleanser",
+      slug: "biotic-reset",
       name: "CLEANSE",
       collection: "The Core",
       variantId: "default",
@@ -71,7 +72,7 @@ function DisabledCartProbe() {
         type="button"
         onClick={() =>
           void add({
-            slug: "cleanse-01-calming-gel-cleanser",
+            slug: "biotic-reset",
             name: "CLEANSE",
             variantId: "variant-1",
             variantLabel: "200 mL",
@@ -97,7 +98,56 @@ afterEach(() => {
 });
 
 describe("cart client outage recovery", () => {
-  it("preserves a known cart through a retryable 503 and recovers on retry", async () => {
+  it.each([
+    ["page", 2500, 2500, "Add $25.00 to reach $50.00 before discounts."],
+    ["drawer", 5000, 5000, "Subtotal is at least $50.00 before discounts."],
+    ["page", 7500, 5000, "Subtotal is at least $50.00 before discounts."],
+  ] as const)("shows bounded shipping progress in a %s cart at %i cents", async (mode, subtotal, progressValue, message) => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
+      response(String(input).startsWith("/api/rewards/summary")
+        ? { authenticated: false }
+        : { ...knownCart, subtotal }),
+    ));
+
+    render(<CartProvider><CartView mode={mode} /></CartProvider>);
+
+    const progress = await screen.findByRole("progressbar", { name: "Merchandise subtotal before discounts" });
+    expect(progress).toHaveAttribute("max", "5000");
+    expect(progress).toHaveAttribute("value", String(progressValue));
+    expect(progress).toHaveAttribute("aria-valuetext", expect.stringContaining("before discounts"));
+    const summary = screen.getByRole("complementary", { name: "Order summary" });
+    expect(summary).toHaveTextContent(message);
+    expect(summary).toHaveTextContent("Free standard US shipping applies at $50.00+ after discounts and before taxes.");
+    expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
+  });
+
+  it("lets keyboard users reach drawer items independently from the order summary", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
+      response(String(input).startsWith("/api/rewards/summary")
+        ? { authenticated: false }
+        : knownCart),
+    ));
+    const user = userEvent.setup();
+
+    render(
+      <CartProvider>
+        <CartView mode="drawer" />
+      </CartProvider>,
+    );
+
+    const items = await screen.findByRole("region", { name: "Cart items and updates" });
+    expect(within(items).getByRole("list", { name: "Cart items" })).toHaveTextContent("CLEANSE");
+    await user.tab();
+    expect(items).toHaveFocus();
+
+    const summary = screen.getByRole("complementary", { name: "Order summary" });
+    expect(items).not.toContainElement(summary);
+    expect(within(summary).getByRole("button", {
+      name: "Checkout $44.00",
+    })).toBeEnabled();
+  });
+
+  it.each(["page", "drawer"] as const)("preserves a known %s cart through a retryable 503 and recovers on retry", async (mode) => {
     let cartRequests = 0;
     const fetchMock = vi.fn<typeof fetch>((input) => {
       if (String(input).startsWith("/api/rewards/summary")) {
@@ -124,17 +174,17 @@ describe("cart client outage recovery", () => {
     render(
       <CartProvider>
         <CartStateProbe />
-        <CartView />
+        <CartView mode={mode} />
       </CartProvider>,
     );
 
     expect(await screen.findByText("known:2")).toBeInTheDocument();
     expect(cartRequests).toBe(1);
     expect(
-      screen.getByText("$6.00 away from the free standard shipping threshold."),
-    ).toBeInTheDocument();
+      screen.getByRole("complementary", { name: "Order summary" }),
+    ).toHaveTextContent("Add $6.00 to reach $50.00 before discounts.");
     expect(
-      screen.getByRole("button", { name: "Sandbox checkout $44.00" }),
+      screen.getByRole("button", { name: "Checkout $44.00" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("SANDBOX CHECKOUT - NO REAL CHARGE OR FULFILLMENT"),
@@ -158,7 +208,7 @@ describe("cart client outage recovery", () => {
     expect(cartRequests).toBe(3);
   });
 
-  it("shows a neutral retry state instead of claiming an unknown cart is empty", async () => {
+  it.each(["page", "drawer"] as const)("shows a neutral retry state instead of claiming an unknown %s cart is empty", async (mode) => {
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(() =>
       response(
         {
@@ -176,7 +226,7 @@ describe("cart client outage recovery", () => {
     render(
       <CartProvider>
         <CartStateProbe />
-        <CartView />
+        <CartView mode={mode} />
       </CartProvider>,
     );
 

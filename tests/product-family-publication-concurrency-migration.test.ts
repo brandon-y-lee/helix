@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FORMER_BRAND_SLUG } from "@/tests/helpers/former-identifiers";
 
 const migrationPath = resolve(
   process.cwd(),
@@ -11,7 +12,7 @@ const sql = readFileSync(migrationPath, "utf8");
 describe("Product Family publication concurrency migration", () => {
   it("serializes the shared aggregate before checking Product revisions", () => {
     expect(sql).toContain("pg_advisory_xact_lock");
-    expect(sql).toContain("mei-pelle-product-family:");
+    expect(sql).toContain(`${FORMER_BRAND_SLUG}-product-family:`);
     expect(sql).toContain("order by product.id");
     expect(sql).toContain("for update");
     expect(sql.indexOf("pg_advisory_xact_lock")).toBeLessThan(

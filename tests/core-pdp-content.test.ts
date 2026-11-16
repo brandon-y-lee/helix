@@ -7,7 +7,7 @@ import { normalizeProductPdpContent } from "@/lib/catalog/product-content";
 
 const cases = [
   {
-    slug: "cleanse-01-calming-gel-cleanser",
+    slug: "biotic-reset",
     title: "A daily GEL CLEANSER for a clean, BALANCED start.",
     overlay: "See how CLEANSE works in your skin routine.",
     heading: "YOUR DAILY CLEANSER THAT:",
@@ -25,15 +25,14 @@ const cases = [
     systemStepName: "CLEANSE",
   },
   {
-    slug: "treat-03-pdrn-5-ampoule",
-    title:
-      "A lightweight PDRN SERUM for HYDRATION, smoother-looking texture, and a steadier GLOW.",
+    slug: "super-serum",
+    title: "The SUPERCHARGED step for GLOWING skin.",
     overlay: "See how TREAT works in your skin routine.",
     heading: "YOUR DAILY TREATMENT THAT:",
-    options: ["hydrates", "smooths", "wakes up the finish"],
+    options: ["hydrates", "enhances", "replenishes"],
     application: [
-      "After CLEANSE—and toner or essence, if used—apply 2–3 drops across face and neck.",
-      "Press into skin for 30–60 seconds, letting the lightweight serum settle before the next layer.",
+      "After cleanser apply 2–3 drops across face and neck.",
+      "Press into skin for 30–60 seconds, letting the serum settle.",
       "Follow with SEAL. In the morning, finish with SPF.",
     ],
     ingredientNames: ["PDRN / SODIUM DNA 50,000 PPM", "NIACINAMIDE"],
@@ -44,7 +43,7 @@ const cases = [
     systemStepName: "TREAT",
   },
   {
-    slug: "seal-05-green-collagen-cream",
+    slug: "ceramide-cushion",
     title:
       "A CUSHIONING CREAM that holds HYDRATION close with a clean, COMPOSED finish.",
     overlay: "See how SEAL works in your skin routine.",
@@ -53,7 +52,7 @@ const cases = [
     application: [
       "After TREAT, smooth a small amount over face and neck.",
       "Press into skin, giving extra attention to areas that feel dry or tight.",
-      "Use as the final Mei Pelle step at night. In the morning, follow with SPF.",
+      "Use as the final helix step at night. In the morning, follow with SPF.",
     ],
     ingredientNames: ["GREEN COLLAGEN COMPLEX", "PANTHENOL"],
     goodFor: "Dryness, comfort, routine finish",

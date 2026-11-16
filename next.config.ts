@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
+import { CATALOG_MEDIA_BUCKET } from "./lib/catalog/media-storage";
 
 const DAYS_PER_YEAR = 365;
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * DAYS_PER_YEAR;
 const IMMUTABLE_MEDIA_CACHE_CONTROL =
   `public, max-age=${ONE_YEAR_SECONDS}, immutable`;
 const HOME_VIDEO_PATHS = [
-  "/media/home/mei-pelle-hero.webm",
-  "/media/home/mei-pelle-hero.mp4",
+  "/media/home/helix-hero.webm",
+  "/media/home/helix-hero.mp4",
   "/media/home/plug-and-play-loop.webm",
   "/media/home/plug-and-play-loop.mp4",
   "/media/home/final-cta-loop.webm",
@@ -16,23 +17,37 @@ const HOME_VIDEO_PATHS = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   async headers() {
-    return HOME_VIDEO_PATHS.map((source) => ({
-      source,
-      headers: [
-        {
-          key: "Cache-Control",
-          value: IMMUTABLE_MEDIA_CACHE_CONTROL,
-        },
-      ],
-    }));
+    return [
+      { source: "/fonts/marcellus-latin.woff2", headers: [{ key: "Access-Control-Allow-Origin", value: "*" }] },
+      ...HOME_VIDEO_PATHS.map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Cache-Control",
+            value: IMMUTABLE_MEDIA_CACHE_CONTROL,
+          },
+        ],
+      })),
+      {
+        source: "/cart/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      },
+      ...["/reviews/guest", "/api/reviews/guest/:path*", "/checkout/success", "/api/checkout/status", "/email-preferences", "/api/marketing/:path*", "/product-notifications", "/api/product-notifications/:path*"].map((source) => ({
+        source,
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        ],
+      })),
+    ];
   },
   async redirects() {
     return [
-      {
-        source: "/method",
-        destination: "/system",
-        permanent: true,
-      },
       {
         source: "/collections",
         destination: "/collections/shop",
@@ -50,7 +65,7 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/public/mei-pelle-catalog/**",
+        pathname: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/**`,
       },
     ],
   },

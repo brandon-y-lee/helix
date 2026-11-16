@@ -9,9 +9,11 @@ import {
 } from "react";
 import {
   reviewSummary,
-  type ProductReviewFixture,
+  type ProductReview,
   type ProductReviews,
 } from "@/lib/catalog/product-reviews";
+import type { PdpPresentation } from "./pdp-presentation";
+import { usePdpMobilePresentation } from "./usePdpMobilePresentation";
 
 export const INITIAL_VISIBLE_REVIEW_COUNT = 2;
 export const REVIEW_VISIBLE_INCREMENT = 5;
@@ -66,6 +68,7 @@ function StarRating({
 }
 
 function ReviewResponseMeter({ reviews }: { reviews: ProductReviews }) {
+  if (reviews.hideMeter) return null;
   const values = reviews.reviews.map((review) => review.meterValue);
   const value = values.length
     ? Math.round(values.reduce((sum, item) => sum + item, 0) / values.length)
@@ -94,7 +97,7 @@ function ReviewRow({
   review,
   hasDivider,
 }: {
-  review: ProductReviewFixture;
+  review: ProductReview;
   hasDivider: boolean;
 }) {
   const reviewerFacts = [
@@ -145,6 +148,8 @@ function ReviewRow({
             <time dateTime={review.date}>{formatReviewDate(review.date)}</time>
           )}
         </div>
+        {review.verifiedPurchase && <p>Verified purchase</p>}
+        {review.offerNotice && <p>Next-purchase offer provided; no review required.</p>}
         <h3>{review.title}</h3>
         <p className="storefront-reading">{review.body}</p>
         {reviewDetails.length > 0 && (
@@ -166,27 +171,30 @@ export function ProductReviewsSection({
   productName,
   productSlug,
   reviews,
+  pdpPresentation = "default",
 }: {
   productName: string;
   productSlug: string;
   reviews: ProductReviews;
+  pdpPresentation?: PdpPresentation;
 }) {
+  const isMobile = usePdpMobilePresentation(pdpPresentation);
   const reviewListId = useId();
   const collectionKey = useMemo(
     () => reviews.reviews.map((review) => review.id).join("|"),
     [reviews.reviews],
   );
   const [visibleCount, setVisibleCount] = useState(() =>
-    Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
+    reviews.aggregate ? reviews.reviews.length : Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
   );
 
   useEffect(() => {
     setVisibleCount(
-      Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
+      reviews.aggregate ? reviews.reviews.length : Math.min(INITIAL_VISIBLE_REVIEW_COUNT, reviews.reviews.length),
     );
-  }, [collectionKey, productSlug, reviews.reviews.length]);
+  }, [collectionKey, productSlug, reviews.reviews.length, reviews.aggregate]);
 
-  const summary = reviewSummary(reviews.reviews);
+  const summary = reviews.aggregate ?? reviewSummary(reviews.reviews);
   const visibleReviews = reviews.reviews.slice(0, visibleCount);
   const hasMore = visibleCount < reviews.reviews.length;
 
@@ -195,27 +203,30 @@ export function ProductReviewsSection({
       className="pdp-reviews"
       aria-labelledby="pdp-reviews-heading"
       data-review-section
+      data-review-empty={summary.count === 0}
     >
       <h2 id="pdp-reviews-heading" className="sr-only">
         {productName} customer reviews
       </h2>
 
-      <div className="pdp-reviews__overview" data-review-header>
-        <div className="pdp-reviews__rating-summary">
-          <strong>{summary.count > 0 ? summary.average.toFixed(1) : "—"}</strong>
-          <StarRating
-            value={summary.average}
-            label={
-              summary.count > 0
-                ? `${summary.average.toFixed(1)} average rating out of 5 stars`
-                : "No ratings yet"
-            }
-          />
-          <span>AVERAGE RATING</span>
-          <p>{reviewCountLabel(summary.count)}</p>
+      {(!isMobile || summary.count > 0) && (
+        <div className="pdp-reviews__overview" data-review-header>
+          <div className="pdp-reviews__rating-summary">
+            <strong>{summary.count > 0 ? summary.average.toFixed(1) : "—"}</strong>
+            <StarRating
+              value={summary.average}
+              label={
+                summary.count > 0
+                  ? `${summary.average.toFixed(1)} average rating out of 5 stars`
+                  : "No ratings yet"
+              }
+            />
+            <span>AVERAGE RATING</span>
+            <p>{reviewCountLabel(summary.count)}</p>
+          </div>
+          <ReviewResponseMeter reviews={reviews} />
         </div>
-        <ReviewResponseMeter reviews={reviews} />
-      </div>
+      )}
 
       {visibleReviews.length > 0 ? (
         <>
@@ -235,7 +246,7 @@ export function ProductReviewsSection({
           </div>
 
           <p className="sr-only" aria-live="polite" aria-atomic="true">
-            Showing {visibleReviews.length} of {reviews.reviews.length} reviews.
+            Showing {visibleReviews.length} of {summary.count} reviews.
           </p>
 
           {hasMore && (

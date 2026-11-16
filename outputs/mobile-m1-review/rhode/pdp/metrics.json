@@ -1,0 +1,277 @@
+{
+  "applicationImages": [
+    {
+      "css": {
+        "height": "155px",
+        "transform": "none",
+        "width": "155px"
+      },
+      "rect": {
+        "bottom": -5280.7265625,
+        "height": 155,
+        "left": 32,
+        "right": 187,
+        "top": -5435.7265625,
+        "width": 155,
+        "x": 32,
+        "y": -5435.7265625
+      }
+    },
+    {
+      "css": {
+        "height": "155px",
+        "transform": "none",
+        "width": "155px"
+      },
+      "rect": {
+        "bottom": -5280.7265625,
+        "height": 155,
+        "left": 203,
+        "right": 358,
+        "top": -5435.7265625,
+        "width": 155,
+        "x": 203,
+        "y": -5435.7265625
+      }
+    },
+    {
+      "css": {
+        "height": "163px",
+        "transform": "none",
+        "width": "326px"
+      },
+      "rect": {
+        "bottom": -5101.7265625,
+        "height": 163,
+        "left": 32,
+        "right": 358,
+        "top": -5264.7265625,
+        "width": 326,
+        "x": 32,
+        "y": -5264.7265625
+      }
+    }
+  ],
+  "document": {
+    "height": 11534,
+    "width": 390
+  },
+  "footer": {
+    "bottom": 827.96875,
+    "height": 1047.0234375,
+    "left": 16,
+    "right": 374,
+    "top": -219.0546875,
+    "width": 358,
+    "x": 16,
+    "y": -219.0546875
+  },
+  "ingredientsImage": {
+    "bottom": -5891.234375,
+    "height": 314.03125,
+    "left": 16,
+    "right": 374,
+    "top": -6205.265625,
+    "width": 358,
+    "x": 16,
+    "y": -6205.265625
+  },
+  "routineControls": [],
+  "sections": [
+    {
+      "class": "shopify-section Product-main js-product-main-section skip-animation",
+      "documentTop": 130.9453125,
+      "id": "shopify-section-template--23462698713326__main",
+      "rect": {
+        "bottom": -9407.890625,
+        "height": 1151.6640625,
+        "left": 16,
+        "right": 374,
+        "top": -10559.5546875,
+        "width": 358,
+        "x": 16,
+        "y": -10559.5546875
+      }
+    },
+    {
+      "class": "shopify-section",
+      "documentTop": 1302.609375,
+      "id": "shopify-section-template--23462698713326__17229769779f0d6228",
+      "rect": {
+        "bottom": -8751.453125,
+        "height": 636.4375,
+        "left": 16,
+        "right": 374,
+        "top": -9387.890625,
+        "width": 358,
+        "x": 16,
+        "y": -9387.890625
+      }
+    },
+    {
+      "class": "shopify-section",
+      "documentTop": 1959.046875,
+      "id": "shopify-section-template--23462698713326__164986185514f630f5",
+      "rect": {
+        "bottom": -7883.640625,
+        "height": 847.8125,
+        "left": 16,
+        "right": 374,
+        "top": -8731.453125,
+        "width": 358,
+        "x": 16,
+        "y": -8731.453125
+      }
+    },
+    {
+      "class": "shopify-section js-highlights-section",
+      "documentTop": 2826.859375,
+      "id": "shopify-section-template--23462698713326__16498630632f51b44c",
+      "rect": {
+        "bottom": -7172.546875,
+        "height": 691.09375,
+        "left": 16,
+        "right": 374,
+        "top": -7863.640625,
+        "width": 358,
+        "x": 16,
+        "y": -7863.640625
+      }
+    },
+    {
+      "class": "shopify-section js-tabbed-section",
+      "documentTop": 3537.953125,
+      "id": "shopify-section-template--23462698713326__74f47a3e-1c7c-43c6-836d-93f2d81704d9",
+      "rect": {
+        "bottom": -6225.265625,
+        "height": 927.28125,
+        "left": 16,
+        "right": 374,
+        "top": -7152.546875,
+        "width": 358,
+        "x": 16,
+        "y": -7152.546875
+      }
+    },
+    {
+      "class": "shopify-section js-educational-section",
+      "documentTop": 4485.234375,
+      "id": "shopify-section-template--23462698713326__ingredients_educational_kGGKmj",
+      "rect": {
+        "bottom": -5471.7265625,
+        "height": 733.5390625,
+        "left": 16,
+        "right": 374,
+        "top": -6205.265625,
+        "width": 358,
+        "x": 16,
+        "y": -6205.265625
+      }
+    },
+    {
+      "class": "shopify-section js-selector-content-slider-section",
+      "documentTop": 5238.7734375,
+      "id": "shopify-section-template--23462698713326__1649930643e2e4d31c",
+      "rect": {
+        "bottom": -4866.7265625,
+        "height": 585,
+        "left": 16,
+        "right": 374,
+        "top": -5451.7265625,
+        "width": 358,
+        "x": 16,
+        "y": -5451.7265625
+      }
+    },
+    {
+      "class": "shopify-section js-slider-with-content-section",
+      "documentTop": 5843.7734375,
+      "id": "shopify-section-template--23462698713326__fd98da97-4f76-45c8-be1c-59840ab4b5d3",
+      "rect": {
+        "bottom": -3801.28125,
+        "height": 1045.4453125,
+        "left": 16,
+        "right": 374,
+        "top": -4846.7265625,
+        "width": 358,
+        "x": 16,
+        "y": -4846.7265625
+      }
+    },
+    {
+      "class": "shopify-section js-slider-with-navigation-section",
+      "documentTop": 6909.21875,
+      "id": "shopify-section-template--23462698713326__slider_with_navigation_qzhLXa",
+      "rect": {
+        "bottom": -3060.4921875,
+        "height": 720.7890625,
+        "left": 16,
+        "right": 374,
+        "top": -3781.28125,
+        "width": 358,
+        "x": 16,
+        "y": -3781.28125
+      }
+    },
+    {
+      "class": "shopify-section js-slider-with-video",
+      "documentTop": 7650.0078125,
+      "id": "shopify-section-template--23462698713326__slider_with_video_VPryWk",
+      "rect": {
+        "bottom": -2320.4921875,
+        "height": 720,
+        "left": 16,
+        "right": 374,
+        "top": -3040.4921875,
+        "width": 358,
+        "x": 16,
+        "y": -3040.4921875
+      }
+    },
+    {
+      "class": "shopify-section",
+      "documentTop": 8390.0078125,
+      "id": "shopify-section-template--23462698713326__1650018376ebbf5186",
+      "rect": {
+        "bottom": -727.0546875,
+        "height": 1573.4375,
+        "left": 16,
+        "right": 374,
+        "top": -2300.4921875,
+        "width": 358,
+        "x": 16,
+        "y": -2300.4921875
+      }
+    },
+    {
+      "class": "shopify-section js-collection-slider",
+      "documentTop": 9983.4453125,
+      "id": "shopify-section-template--23462698713326__1649865195c05eb40a",
+      "rect": {
+        "bottom": -239.0546875,
+        "height": 468,
+        "left": 16,
+        "right": 374,
+        "top": -707.0546875,
+        "width": 358,
+        "x": 16,
+        "y": -707.0546875
+      }
+    }
+  ],
+  "sticky": {
+    "bottom": 930.4000244140624,
+    "height": 72,
+    "left": 0,
+    "right": 390,
+    "top": 858.4000244140625,
+    "width": 390,
+    "x": 0,
+    "y": 858.4000244140625
+  },
+  "url": "https://www.rhodeskin.com/products/peptide-glazing-fluid?variant=46988592021742",
+  "viewport": {
+    "height": 844,
+    "width": 390
+  }
+}

@@ -15,17 +15,23 @@ import {
   validateProductEditorDocument,
 } from "@/lib/admin/catalog/validation";
 import { validateCatalogEditorOwnership } from "@/lib/admin/catalog/ownership";
+import { validateCurrentProductMedia } from "@/lib/admin/catalog/media-readiness";
+import { catalogGuidanceValidationIssues } from "@/lib/admin/catalog/guidance";
 import type {
   CatalogDraftRecord,
   CatalogEditorResponse,
   CatalogGridRow,
   CatalogPublishSuccess,
   CatalogPublishTransactionSuccess,
+  CatalogRestoreSuccess,
   CatalogRevisionRecord,
   ProductEditorDocumentV4,
   CatalogValidationIssue,
 } from "@/lib/admin/catalog/types";
-import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
+import {
+  CATALOG_RESTORE_RETAINED_FIELDS,
+  PRODUCT_EDITOR_SCHEMA_VERSION,
+} from "@/lib/admin/catalog/types";
 import type { CatalogAdminAccess } from "@/lib/admin/capabilities";
 import { catalogDocumentDiff } from "@/lib/admin/catalog/diff";
 import type { CatalogEditorRole } from "@/lib/catalog/field-ownership";
@@ -660,6 +666,8 @@ export async function transitionCatalogDraft(input: {
     validationErrors = result.document
       ? [
           ...result.issues,
+          ...validateCurrentProductMedia(result.document),
+          ...catalogGuidanceValidationIssues(result.document),
           ...validateCatalogEditorOwnership(
             result.document,
             await readCanonicalDocument(result.document.productId),
@@ -778,6 +786,15 @@ export async function publishCatalogDraft(
 ): Promise<CatalogPublishSuccess> {
   const draft = await dependencies.readDraft(input.draftId);
   const document = assertValidProductEditorDocument(draft.document);
+  const guidanceIssues = catalogGuidanceValidationIssues(document);
+  if (guidanceIssues.length > 0) {
+    throw new CatalogAdminError(
+      "validation_failed",
+      "Usage instructions require review before Publish.",
+      422,
+      { issues: guidanceIssues },
+    );
+  }
   const [canonical, mediaIssues, relationshipIssues] = await Promise.all([
     dependencies.readCanonicalDocument(document.productId),
     dependencies.pendingMediaValidationIssues(document),
@@ -788,7 +805,9 @@ export async function publishCatalogDraft(
     canonical,
     input.role,
   );
+  const currentMediaIssues = validateCurrentProductMedia(document);
   if (
+    currentMediaIssues.length > 0 ||
     mediaIssues.length > 0 ||
     relationshipIssues.length > 0 ||
     ownershipIssues.length > 0
@@ -797,7 +816,7 @@ export async function publishCatalogDraft(
       "validation_failed",
       "The product editor document failed publication validation.",
       422,
-      { issues: [...ownershipIssues, ...mediaIssues, ...relationshipIssues] },
+      { issues: [...ownershipIssues, ...currentMediaIssues, ...mediaIssues, ...relationshipIssues] },
     );
   }
   const mediaVerification = await dependencies.verifyMedia(document);
@@ -879,12 +898,26 @@ export async function listCatalogRevisions(
 export async function restoreCatalogRevision(
   revisionId: string,
   actorId: string,
-): Promise<{ ok: true; draft: CatalogDraftRecord }> {
+): Promise<CatalogRestoreSuccess> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.rpc("restore_catalog_product_revision", {
     p_revision_id: revisionId,
     p_actor_id: actorId,
   });
   if (error) throwDatabaseError(error);
-  return assertRpcResult<{ ok: true; draft: CatalogDraftRecord }>(data);
+  const restored = assertRpcResult<CatalogRestoreSuccess>(data);
+  if (
+    !Array.isArray(restored.retainedFields) ||
+    restored.retainedFields.length !== CATALOG_RESTORE_RETAINED_FIELDS.length ||
+    !CATALOG_RESTORE_RETAINED_FIELDS.every((field) =>
+      restored.retainedFields.includes(field),
+    )
+  ) {
+    throw new CatalogAdminError(
+      "restore_contract_unconfirmed",
+      "Current identity retention could not be confirmed. A draft may have been created. Reload the editor and review the draft before publishing.",
+      503,
+    );
+  }
+  return restored;
 }

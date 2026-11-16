@@ -1,7 +1,5 @@
 import {
-  formatFreeShippingThreshold,
   returnsPolicy,
-  shippingPolicy,
   supportPolicy,
 } from "@/content/support/policy";
 
@@ -26,10 +24,10 @@ export const faqCategories: FAQCategory[] = [
     summary: "Product selection, ingredient facts, suitability, and routine fit.",
     items: [
       {
-        id: "what-is-mei-pelle",
-        question: "What is Mei Pelle?",
+        id: "what-is-helix",
+        question: "What is helix?",
         answer:
-          "Mei Pelle is a prestige men's skincare system built around concise product steps, ingredient literacy, and a disciplined daily routine.",
+          "Helix is a prestige men's skincare brand built around concise Product steps, ingredient literacy, and a disciplined daily Routine.",
       },
       {
         id: "available-products",
@@ -59,7 +57,7 @@ export const faqCategories: FAQCategory[] = [
       },
       {
         id: "medical-advice",
-        question: "Is Mei Pelle medical advice?",
+        question: "Is helix medical advice?",
         answer:
           "No. Product pages and ingredient notes are cosmetic and educational. They are not medical advice, diagnosis, or treatment, and they should not replace guidance from a qualified clinician.",
       },
@@ -112,7 +110,7 @@ export const faqCategories: FAQCategory[] = [
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, customer email, or Trustpilot invitation.",
+          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, or Trustpilot invitation. When development email is enabled, demo order confirmations can be sent to approved test recipients only.",
       },
       {
         id: "cart-purpose",
@@ -138,123 +136,137 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "shipping",
     label: "Shipping",
-    summary: "Planned standard shipping policy, threshold, timing, and limits.",
+    summary: "Standard shipping, order processing, and tracking updates.",
     items: [
       {
         id: "free-shipping",
-        question: "Does Mei Pelle offer free standard shipping?",
-        answer: `Standard shipping is planned to be free on eligible United States orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
+        question: "Is standard shipping available?",
+        answer:
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Available shipping options are shown at checkout.",
       },
       {
         id: "shipping-destinations",
-        question: "Where will Mei Pelle ship?",
+        question: "Where is standard shipping available?",
         answer:
-          shippingPolicy.destinationSummary +
-          " International, expedited, freight forwarder, and resale shipping terms are not available unless Mei Pelle publishes them later.",
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Check the available shipping options at checkout.",
       },
       {
         id: "shipping-timing",
-        question: "How long will shipping take?",
-        answer: `The planned estimate is ${shippingPolicy.processingWindow} for processing, then ${shippingPolicy.transitWindow}. Carrier tracking can take ${shippingPolicy.trackingWindow} to update.`,
+        question: "When will my order ship and tracking become available?",
+        answer:
+          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Tracking information becomes available within 48 hours after a shipment is dispatched. Once tracking is available, Helix will email a link to track the package. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
       },
       {
         id: "shipping-address-changes",
         question: "Can I change my shipping address after checkout?",
         answer:
-          "Sandbox Checkout can collect a shipping address for testing, but no real shipment is created. Address-change support and tracking are launch dependencies outside the sandbox flow.",
+          "Contact Customer Care about an address change. Orders may be canceled before they are processed for shipment, with a full refund to the original payment method. Once an order is processed for shipment, it must be returned in accordance with the Return Policy.",
+        links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
   },
   {
     id: "returns",
     label: "Returns & Refunds",
-    summary: "Return windows, damaged items, exchanges, and refund timing.",
+    summary: "Return requests, product condition, Item Claims, Exchanges and refunds.",
     items: [
       {
         id: "return-window",
-        question: "What is the return window?",
-        answer: `Mei Pelle's planned return window is ${returnsPolicy.returnWindowDays} days from delivery for eligible items. ${returnsPolicy.condition}`,
+        question: "What is the return policy?",
+        answer: `Helix offers free returns on all orders. Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition} Products must not otherwise be altered, marked or damaged. Return the product with its original packaging where available. When a return is approved, a prepaid return label will be sent by email. Expedited shipping fees are non-refundable. Rejected items may be held until a reshipment fee is paid; Customer Care will explain the available options.`,
+        links: [{ label: "Request a return", href: "/contact" }],
       },
       {
         id: "damaged-missing",
-        question: "What if an item arrives damaged, missing, or incorrect?",
-        answer: `Report the issue within ${returnsPolicy.issueReportWindowDays} days of delivery and keep packaging, order details, and clear photos. Approved claims may be resolved with a replacement, refund, or other remedy when order support exists.`,
+        question: "What should I do about an issue with my order?",
+        answer:
+          "Contact Customer Care about damaged, missing, or incorrect items and review the Return Policy for return conditions.",
+        links: [
+          { label: "Customer Care", href: "/contact" },
+          { label: "Return Policy", href: "/terms" },
+        ],
       },
       {
         id: "refund-timing",
-        question: "When will I receive a refund?",
-        answer: `Approved refunds are planned to be processed within ${returnsPolicy.refundProcessingWindow}. Your bank or card issuer may take additional time to post the credit.`,
+        question: "When will I receive my refund?",
+        answer:
+          "Each return is inspected against its original order record. Once a return is completed, a refund will be issued to your original payment method within 2 business days. Refunds are processed through Stripe and typically appear within 7–12 business days after they are issued, depending on your bank and payment processing times.",
       },
       {
         id: "exchanges",
-        question: "Do you offer exchanges?",
+        question: "Are Exchanges available?",
         answer:
-          "Direct exchanges are not planned as a default flow. If a damaged, missing, or incorrect item claim is approved, Mei Pelle may offer a replacement when inventory and support operations allow.",
+          "Helix does not offer direct exchanges. Return the merchandise for a refund and place a new order for the preferred item.",
       },
       {
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Original shipping costs are not planned to be refundable unless Mei Pelle caused the issue or applicable law requires a different result.",
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
+        links: [
+          { label: "Terms & Conditions", href: "/terms" },
+          { label: "Customer Care", href: "/contact" },
+        ],
       },
     ],
   },
   {
     id: "rewards",
-    label: "Rewards",
-    summary: "Points, redemptions, referrals, private feedback, and refunds.",
+    label: "helix rewards",
+    summary: "Points, Redemption Tiers, Referrals, private feedback, and refunds.",
     items: [
       {
         id: "rewards-program",
-        question: "Does Mei Pelle have a rewards program?",
+        question: "How does helix rewards work?",
         answer:
-          "MEI PELLE REWARDS is account-backed. Confirmed members receive 100 welcome points once, earn 2 points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 points for $5, $10, or $15 off one eligible order.",
-        links: [{ label: "Rewards", href: "/rewards" }],
+          "Helix rewards is account-backed. Email-confirmed Account Holders receive a 100-Point welcome award once, earn 2 Points per eligible net merchandise dollar after successful sandbox payment, and can redeem 200, 400, or 600 Points for $5, $10, or $15 off one eligible Order.",
+        links: [{ label: "helix rewards", href: "/rewards" }],
       },
       {
         id: "promo-codes",
-        question: "Can I stack rewards or promo codes?",
+        question: "Can I stack Redemption Tiers or promo codes?",
         answer:
-          "No. Checkout applies at most one internal points reward or one referral offer. Stripe promotion-code entry is disabled so points, referrals, and free-shipping calculations stay server-authoritative.",
+          "No. Checkout applies at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
       },
       {
         id: "referrals",
         question: "How do referrals work?",
         answer:
-          "A confirmed account can share a referral code. A referred friend must sign in with a confirmed account and can use 15% off a first qualifying order of $50+ before the referral discount. Self-referrals and stacking are blocked.",
+          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying Order of $50.00 or more. Self-referrals and stacking are blocked.",
       },
       {
         id: "private-feedback-reward",
-        question: "Does private feedback earn points?",
+        question: "Does private feedback earn Points?",
         answer:
-          "Eligible paid sandbox orders can unlock one private first-party feedback request worth 300 points. The reward is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
+          "Eligible Paid Orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
       },
       {
         id: "trustpilot-rewards",
-        question: "Do Trustpilot reviews earn points?",
+        question: "Do Trustpilot reviews earn Points?",
         answer:
-          "No. Trustpilot invitations are independent from rewards. Mei Pelle does not award points for writing, editing, or deleting a Trustpilot review, and sandbox orders do not send real Trustpilot invitations.",
+          "No. Trustpilot invitations are independent from helix rewards. Helix does not award Points for writing, editing, or deleting a Trustpilot review, and sandbox Orders do not send real Trustpilot invitations.",
       },
     ],
   },
   {
     id: "contact",
     label: "Contact",
-    summary: "Support routing and the current intake limitation.",
+    summary: "Support routing and current intake availability.",
     items: [
       {
         id: "contact-topics",
-        question: "What can I contact Mei Pelle about?",
+        question: "What does Support Intake cover?",
         answer:
-          "The Contact page organizes product, System, account, cart, accessibility, privacy, partnership, wholesale, and general inquiry topics so the right information is ready when public support intake opens.",
+          "The Contact page organizes Product, System, Account, Cart, Accessibility Feedback, Privacy Request, partnership, wholesale, and general Inquiry Types. Check the page for current intake availability.",
         links: [{ label: "Contact", href: "/contact" }],
       },
       {
         id: "contact-intake",
-        question: "Can I send Mei Pelle a message through the site?",
+        question: "Can I submit a Support Inquiry through the site?",
         answer:
           supportPolicy.contactStatus +
-          " The Contact page does not submit or store messages until a verified intake channel is published.",
+          " When the form is available, it stores accepted inquiries privately for review. Wait for the form to confirm acceptance; acceptance does not mean an email has been delivered. You can also email support@helixskin.us. We'll get back to you within the countdown shown on the Contact page, ending at the next weekday reply target: noon Pacific.",
+        links: [{ label: "Contact", href: "/contact" }],
       },
       {
         id: "private-details",
@@ -273,28 +285,28 @@ export const faqCategories: FAQCategory[] = [
         id: "privacy",
         question: "Where is the Privacy Policy?",
         answer:
-          "The Privacy Policy explains account, cart, search, cookie, support-intake, and provider data practices for the current site.",
+          "The Privacy Policy explains how we collect, use and protect personal information. We may keep order and billing records for up to 7 years as required for accounting and tax purposes. When information is no longer needed, we delete it or anonymize it securely. For account-deletion requests, we promptly delete or de-identify data unless there is a legal reason to retain it. We regularly review our security procedures and use appropriate safeguards for international data transfers. For privacy requests, email support@helixskin.us with Privacy in the subject line. We may verify your identity before completing a request and will respond within the period required by applicable law.",
         links: [{ label: "Privacy Policy", href: "/privacy" }],
       },
       {
         id: "terms",
-        question: "Where are the Terms of Service?",
+        question: "Where are the Terms & Conditions?",
         answer:
-          "The Terms explain site use, accounts, product information, cart status, acceptable use, intellectual property, and service limits.",
-        links: [{ label: "Terms of Service", href: "/terms" }],
+          "The Terms & Conditions explain use of the Helix website and services, ordering, shipping, returns, refunds, and other conditions. The linked policies and FAQs form part of those Terms.",
+        links: [{ label: "Terms & Conditions", href: "/terms" }],
       },
       {
         id: "accessibility",
         question: "Where is the Accessibility Statement?",
         answer:
-          "The Accessibility Statement explains Mei Pelle's WCAG target, implemented practices, testing approach, and feedback path.",
+          "We strive to maintain compliance with WCAG 2.1 Level AA and continuously work to improve website accessibility. If you encounter a barrier, email support@helixskin.us with Accessibility Barriers in the subject line and describe the feature or suggest an improvement.",
         links: [{ label: "Accessibility Statement", href: "/accessibility" }],
       },
       {
         id: "cookies",
-        question: "Where can I manage cookie preferences?",
+        question: "What can I manage in Your Privacy Choices?",
         answer:
-          "Cookie Preferences explains the current essential-cookie setup and inactive optional categories. Your Privacy Choices explains the current state of sale, sharing, and targeted advertising controls.",
+          "Your Privacy Choices in the footer lets you allow or turn off optional analytics and marketing. Confirm my choices saves your selection in this browser; closing without confirming discards changes. Global Privacy Control keeps marketing off while your browser sends that signal. Required cookies support account access and shopping; you can manage cookies through your browser settings.",
         links: [
           { label: "Cookie Policy", href: "/cookie-policy" },
           { label: "Your Privacy Choices", href: "/privacy-choices" },

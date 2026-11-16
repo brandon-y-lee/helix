@@ -1,3 +1,4 @@
+import { expectNoMainOverflow } from "./layout-assertions";
 import { expect, test } from "./storefront-fixture";
 
 test("primary navigation reaches System, a live PDP, and About", async ({
@@ -10,16 +11,17 @@ test("primary navigation reaches System, a live PDP, and About", async ({
   await primary.getByRole("link", { name: "SYSTEM" }).click();
   await expect(page).toHaveURL(/\/system$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "THE SYSTEM." }),
+    page.getByRole("heading", {
+      level: 1,
+      name: "a new philosophy on male skincare",
+    }),
   ).toBeVisible();
 
-  const productLink = page.locator(".method-step__link").first();
+  const productLink = page.locator(".system-flow__product-link").first();
   const href = await productLink.getAttribute("href");
   if (!href) throw new Error("The System did not render a Product path.");
   const product = storefront.productAtPath(href);
-  await expect(productLink).toHaveAccessibleName(
-    `View ${product.displayName} product details`,
-  );
+  await expect(productLink).toHaveAccessibleName(`View ${product.displayName}`);
   await productLink.click();
   await expect(page).toHaveURL(new RegExp(`${product.path}$`));
   await expect(
@@ -34,6 +36,109 @@ test("primary navigation reaches System, a live PDP, and About", async ({
       name: "TWO CITIES. ONE STANDARD.",
     }),
   ).toBeVisible();
+});
+
+test("System hero uses the campaign image and responsive focal points", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/system");
+
+  const hero = page.locator(".system-hero");
+  const surface = hero.locator(".system-hero__surface");
+  const image = hero.locator("img");
+  const heading = hero.getByRole("heading", {
+    level: 1,
+    name: "a new philosophy on male skincare",
+  });
+
+  await expect(image).toHaveAttribute(
+    "src",
+    /a-new-philosophy-hero-01\.webp/,
+  );
+  await expect(image).toHaveAttribute("alt", "");
+  await expect(image).toHaveCSS("object-position", "50% 15%");
+  await expect(image).not.toHaveCSS("transform", "none");
+  await expect(heading).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(heading).toHaveCSS("font-size", "24px");
+  await expect(heading).toHaveCSS("text-align", "center");
+  await expect(hero.locator(".eyebrow")).toHaveCount(0);
+  await expect(hero.locator("p")).toHaveCount(0);
+  await expect(hero.getByRole("link")).toHaveCount(0);
+  const surfaceRadius = await surface.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+  );
+  expect(surfaceRadius).toBeGreaterThan(0);
+
+  const expectViewportHero = async () => {
+    const dimensions = await hero.evaluate((element) => {
+      const styles = getComputedStyle(document.documentElement);
+      const surface = element.querySelector(".system-hero__surface");
+      if (!surface) throw new Error("The System hero surface is missing.");
+      const surfaceRect = surface.getBoundingClientRect();
+      return {
+        actual: element.getBoundingClientRect().height,
+        expected:
+          window.innerHeight -
+          Number.parseFloat(styles.getPropertyValue("--site-header-height")),
+        leftGutter: surfaceRect.left,
+        rightGutter: window.innerWidth - surfaceRect.right,
+      };
+    });
+    expect(Math.abs(dimensions.actual - dimensions.expected)).toBeLessThanOrEqual(1);
+    expect(dimensions.leftGutter).toBeGreaterThan(0);
+    expect(Math.abs(dimensions.leftGutter - dimensions.rightGutter)).toBeLessThanOrEqual(
+      2,
+    );
+  };
+  await expectViewportHero();
+  await expectNoMainOverflow(page, 1440);
+
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(image).toHaveCSS("object-position", "50% 15%");
+  await expect(heading).toHaveCSS("font-size", "18px");
+  await expectViewportHero();
+  await expectNoMainOverflow(page, 1024);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(image).toHaveCSS("object-position", "60% 50%");
+  const phoneTitleSize = await heading.evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+  expect(phoneTitleSize).toBeGreaterThanOrEqual(24);
+  expect(phoneTitleSize).toBeLessThanOrEqual(28);
+  await expectViewportHero();
+  await expectNoMainOverflow(page, 390);
+});
+
+test("About phone chapters use readable natural-height content", async ({ page }) => {
+  for (const width of [320, 390, 430, 720]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/about");
+    const geometry = await page.locator(".about-page").evaluate((element) => {
+      const heading = element.querySelector("h1")!;
+      const band = element.querySelector(".about-quality__visual")!;
+      const cities = [...element.querySelectorAll(".culture-panel")].map((city) => {
+        const title = city.querySelector("h3")!;
+        const body = city.querySelector(":scope > span")!;
+        return body.getBoundingClientRect().top - title.getBoundingClientRect().bottom;
+      });
+      return {
+        titleSize: parseFloat(getComputedStyle(heading).fontSize),
+        bandHeight: band.getBoundingClientRect().height,
+        cityGaps: cities,
+      };
+    });
+    expect(geometry.titleSize).toBeGreaterThanOrEqual(36);
+    expect(geometry.titleSize).toBeLessThanOrEqual(44);
+    expect(geometry.bandHeight).toBeGreaterThanOrEqual(100);
+    expect(geometry.bandHeight).toBeLessThanOrEqual(140);
+    for (const gap of geometry.cityGaps) expect(gap).toBeLessThanOrEqual(24);
+    await expectNoMainOverflow(page, width);
+  }
+
+  await page.setViewportSize({ width: 721, height: 844 });
+  await expect(page.locator(".about-quality__visual")).toHaveCSS("min-height", "440px");
 });
 
 test("skip link transfers keyboard focus to main content", async ({

@@ -19,7 +19,7 @@ export function assertSameOrigin(request: Request): void {
   if (!suppliedOrigin || suppliedOrigin !== requestOrigin) {
     throw new CatalogAdminError(
       "same_origin_required",
-      "This request must originate from the Mei Pelle admin.",
+      "This request must originate from helix Admin.",
       403,
     );
   }

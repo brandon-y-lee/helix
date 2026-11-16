@@ -1,4 +1,6 @@
-export const CHECKOUT_CANCEL_COOKIE = "mei_pelle_pending_checkout";
+import { PENDING_CHECKOUT_COOKIE } from "@/lib/customer-state-identifiers";
+
+export const CHECKOUT_CANCEL_COOKIE = PENDING_CHECKOUT_COOKIE;
 export const CHECKOUT_CANCEL_COOKIE_PATH = "/cart";
 export const CHECKOUT_CANCEL_COOKIE_MAX_AGE_SECONDS = 30 * 60;
 const CHECKOUT_CANCEL_QUERY_KEY = "checkout";

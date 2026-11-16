@@ -35,11 +35,6 @@ type CatalogMediaSource = {
   placeholder_palette: Record<string, string> | null;
 };
 
-type CatalogSlugRouteSource = {
-  source_slug: string;
-  route_kind: "canonical" | "rename" | "replacement";
-};
-
 type CatalogProductFamilySource = {
   slug: string;
   display_name: string;
@@ -77,7 +72,6 @@ export type CatalogProductSource = {
   concerns: string[];
   usage_time: string[];
   search_keywords: string[];
-  product_slug_routes: CatalogSlugRouteSource[] | null;
   product_family_memberships:
     | CatalogProductFamilyMembershipSource
     | CatalogProductFamilyMembershipSource[]
@@ -96,7 +90,6 @@ export type AlgoliaProductRecord = {
   objectID: string;
   productId: string;
   slug: string;
-  slugAliases: string[];
   displayName: string;
   editorialDescription: string;
   productType: string;
@@ -308,13 +301,6 @@ export function buildAlgoliaRecord(
       `[search-sync] Product "${row.slug}" has an incomplete Product Family.`,
     );
   }
-  const slugAliases = (row.product_slug_routes ?? [])
-    .filter(
-      (route) =>
-        route.route_kind !== "canonical" && route.source_slug !== row.slug,
-    )
-    .map((route) => route.source_slug)
-    .sort();
   const ingredients = [
     ...(row.key_ingredients ?? []),
     ...(row.ingredients
@@ -339,7 +325,6 @@ export function buildAlgoliaRecord(
     ...(row.search_keywords ?? []),
     family?.display_name,
     familyMembership?.option_label,
-    ...slugAliases,
     ...offerPresentation.offers.map((variant) => variant.label),
   ].filter((value): value is string => Boolean(value?.trim()));
 
@@ -347,7 +332,6 @@ export function buildAlgoliaRecord(
     objectID: row.id,
     productId: row.id,
     slug: row.slug,
-    slugAliases,
     displayName: row.display_name,
     editorialDescription: row.editorial_description,
     productType: row.product_type,
@@ -409,7 +393,6 @@ export const INDEX_SETTINGS: IndexSettings = {
     "displayName",
     "productType",
     "editorialDescription",
-    "unordered(slugAliases)",
     "unordered(keywords)",
     "unordered(variantNames)",
   ],

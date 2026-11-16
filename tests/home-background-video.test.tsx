@@ -1,4 +1,4 @@
-import { act, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   HomeBackgroundVideo,
@@ -91,12 +91,12 @@ describe("HomeBackgroundVideo", () => {
     const video = container.querySelector("video") as HTMLVideoElement;
     expect(video).toHaveAttribute(
       "poster",
-      "/media/home/mei-pelle-hero-poster.webp",
+      "/media/home/helix-hero-poster.webp",
     );
     expect(video).toHaveAttribute("preload", "metadata");
     expect(sourceUrls(container)).toEqual([
-      "/media/home/mei-pelle-hero.webm?v=469b5c0022c8",
-      "/media/home/mei-pelle-hero.mp4?v=7048d1daaa75",
+      "/media/home/helix-hero.webm?v=469b5c0022c8",
+      "/media/home/helix-hero.mp4?v=7048d1daaa75",
     ]);
     expect(video.autoplay).toBe(true);
     expect(video.loop).toBe(true);
@@ -118,6 +118,7 @@ describe("HomeBackgroundVideo", () => {
       expect(mediaShell).toHaveAttribute("data-video-ready", "false");
     });
     expect(container.querySelector(".home-video-hero__poster")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /background video/i })).not.toBeInTheDocument();
   });
 
   it.each(lazyPlacements)(
@@ -155,6 +156,39 @@ describe("HomeBackgroundVideo", () => {
       "data-motion-state",
       "static",
     );
+  });
+
+  it("keeps a manually paused loop stopped across viewport and document changes, then resumes on request", async () => {
+    mockReducedMotion(false);
+    mockIntersectionObserver();
+    const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const { container } = render(<HomeBackgroundVideo placement="plug" />);
+    act(() => notifyIntersection?.(true));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+    const video = container.querySelector("video") as HTMLVideoElement;
+    fireEvent.playing(video);
+    fireEvent.click(screen.getByRole("button", { name: "Pause background video" }));
+    expect(pause).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Play background video" })).toHaveAttribute("aria-pressed", "true");
+    expect(container.firstElementChild).toHaveAttribute("data-video-ready", "true");
+    act(() => notifyIntersection?.(false));
+    act(() => notifyIntersection?.(true));
+    let visibility = "hidden";
+    vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility as DocumentVisibilityState);
+    fireEvent(document, new Event("visibilitychange"));
+    visibility = "visible";
+    fireEvent(document, new Event("visibilitychange"));
+    expect(play).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Play background video" }));
+    await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Pause background video" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not offer motion controls for a reduced-motion hero", () => {
+    mockReducedMotion(true);
+    render(<HomeBackgroundVideo placement="hero" />);
+    expect(screen.queryByRole("button", { name: /background video/i })).not.toBeInTheDocument();
   });
 
   it("retries rejected playback when a lazy video re-enters view", async () => {

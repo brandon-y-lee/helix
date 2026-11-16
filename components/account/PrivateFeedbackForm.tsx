@@ -2,12 +2,32 @@
 
 import { useState } from "react";
 
+type FeedbackInput = { feedbackId: string; rating: number; comments: string };
+
+async function sendPrivateFeedback(input: FeedbackInput): Promise<void> {
+  const response = await fetch("/api/rewards/private-feedback", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(
+      data && typeof data.error === "string"
+        ? data.error
+        : "Private feedback could not be submitted.",
+    );
+  }
+}
+
 export function PrivateFeedbackForm({
   feedbackId,
   orderNumber,
+  submitFeedback = sendPrivateFeedback,
 }: {
   feedbackId: string;
   orderNumber: string;
+  submitFeedback?: (input: FeedbackInput) => Promise<void>;
 }) {
   const [rating, setRating] = useState("5");
   const [comments, setComments] = useState("");
@@ -21,19 +41,7 @@ export function PrivateFeedbackForm({
     setStatus(null);
 
     try {
-      const response = await fetch("/api/rewards/private-feedback", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ feedbackId, rating: Number(rating), comments }),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(
-          data && typeof data.error === "string"
-            ? data.error
-            : "Private feedback could not be submitted.",
-        );
-      }
+      await submitFeedback({ feedbackId, rating: Number(rating), comments });
       setSubmitted(true);
       setStatus("Private feedback submitted. 300 points were awarded.");
     } catch (error) {

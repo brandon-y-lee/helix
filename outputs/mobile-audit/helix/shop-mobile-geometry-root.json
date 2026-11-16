@@ -1,0 +1,260 @@
+{
+  "buttons": [
+    {
+      "label": "Sort: Featured",
+      "r": {
+        "h": 32,
+        "w": 112.5546875,
+        "x": 16,
+        "y": 438.078125
+      },
+      "text": "Sort:\nfeatured"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 27,
+        "y": 865.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Biotic Reset",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 148,
+        "y": 873.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 35,
+        "y": 1114.2734375
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 210,
+        "y": 865.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Balancing Prep",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 331,
+        "y": 873.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 218,
+        "y": 1114.2734375
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 27,
+        "y": 1233.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Super Serum",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 148,
+        "y": 1241.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 35,
+        "y": 1482.2734375
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 210,
+        "y": 1233.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Peptide Eye Cream",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 331,
+        "y": 1241.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 218,
+        "y": 1482.2734375
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 27,
+        "y": 1601.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Ceramide Cushion",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 148,
+        "y": 1609.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 35,
+        "y": 1850.2734375
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 44,
+        "w": 153,
+        "x": 210,
+        "y": 1601.078125
+      },
+      "text": "COMING SOON"
+    },
+    {
+      "label": "Close quick buy for Peptide Nourish Mask",
+      "r": {
+        "h": 26,
+        "w": 26,
+        "x": 331,
+        "y": 1609.078125
+      },
+      "text": ""
+    },
+    {
+      "label": "COMING SOON",
+      "r": {
+        "h": 34,
+        "w": 137,
+        "x": 218,
+        "y": 1850.2734375
+      },
+      "text": "COMING SOON"
+    }
+  ],
+  "cards": [
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    },
+    {
+      "h": 360,
+      "w": 175
+    }
+  ],
+  "scrollWidth": 390,
+  "sections": [
+    {
+      "cls": "storefront-shell shop-hero",
+      "h": 286.078125
+    },
+    {
+      "cls": "storefront-shell shop-grid-shell",
+      "h": 1538.6328125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    },
+    {
+      "cls": "product-card__quick-buy",
+      "h": 295.1953125
+    }
+  ],
+  "width": 390
+}

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { FORMER_BRAND_NAME } from "@/tests/helpers/former-identifiers";
 
 const migration = readFileSync(
   resolve(
@@ -26,7 +27,9 @@ describe("Ceramide Cushion PDP content preparation", () => {
     expect(migration).toContain("Centella asiatica");
     expect(migration).toContain("Ceramide AP");
     expect(migration).toContain("Peptides");
-    expect(migration).toContain("Use after TREAT as the final Mei Pelle cream step");
+    expect(migration).toContain(
+      `Use after TREAT as the final ${FORMER_BRAND_NAME} cream step`,
+    );
 
     const contentInsert = migration.slice(
       migration.indexOf("insert into public.product_pdp_content"),

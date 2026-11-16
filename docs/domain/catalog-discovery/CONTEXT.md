@@ -1,15 +1,15 @@
 # Catalog & Discovery
 
-Catalog & Discovery defines the Products Mei Pelle governs, how they become presentable and purchasable, and how Customers find and relate them.
+Catalog & Discovery defines the Products helix governs, how they become presentable and purchasable, and how Customers find and relate them.
 
 ## Language
 
 **Catalog**:
-Mei Pelle's complete managed set of Products and their commercial facts, regardless of current publication or availability.
+The complete helix-managed set of Products and their commercial facts, regardless of current publication or availability.
 _Avoid_: Storefront, Collection
 
 **Product**:
-An independently identifiable Mei Pelle skincare formulation represented in the Catalog. A Product may fulfill a System Step and exists independently of its current publication or availability.
+An independently identifiable helix skincare formulation represented in the Catalog. A Product may fulfill a System Step and exists independently of its current publication or availability.
 _Avoid_: Item, System Step
 
 **Product Source**:
@@ -21,7 +21,7 @@ A governed statement about a Product that is eligible to form part of its canoni
 _Avoid_: Product Education, Product Claim, Supplier Fact
 
 **Supplier Fact**:
-A Product-related statement supplied through approved provenance and subject to Mei Pelle governance before becoming a Product Fact.
+A Product-related statement supplied through approved provenance and subject to helix governance before becoming a Product Fact.
 _Avoid_: Product Fact, Raw Supplier Record
 
 **Product Education**:
@@ -177,7 +177,7 @@ An immutable historical snapshot of a Product produced when a Ready Catalog Draf
 _Avoid_: Catalog Draft, Product Version
 
 **Restore**:
-Create a new Working Catalog Draft from a Published Revision without rewriting history or immediately changing the Product.
+Create a new Working Catalog Draft from a Published Revision while retaining the current Product identity and discovery metadata, without rewriting history or immediately changing the Product. Remaining historical content is reviewed under current publication requirements.
 _Avoid_: Revert, Roll Back
 
 **Discard**:

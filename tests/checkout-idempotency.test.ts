@@ -138,7 +138,7 @@ describe("checkout idempotency", () => {
         },
         now,
       ),
-    ).toBe("replace");
+    ).toBe("processing");
   });
 
   it("never treats a paid session as reusable checkout", () => {
@@ -168,6 +168,6 @@ describe("checkout idempotency", () => {
         },
         1_800_000_000,
       ),
-    ).toBe("replace");
+    ).toBe("processing");
   });
 });

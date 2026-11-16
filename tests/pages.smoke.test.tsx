@@ -50,9 +50,14 @@ describe("public route states", () => {
       }),
     );
 
+    const heroHeading = screen.getByRole("heading", {
+      level: 1,
+      name: "raise your baseline",
+    });
+    expect(heroHeading).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 1, name: "raise your baseline" }),
-    ).toBeInTheDocument();
+      heroHeading.parentElement?.querySelector("img")?.getAttribute("src"),
+    ).toContain("raise-your-baseline-hero-02.webp");
     expect(
       screen.getByRole("navigation", { name: "Shop collections" }),
     ).toBeInTheDocument();
@@ -67,7 +72,10 @@ describe("public route states", () => {
       await generateCollectionMetadata({
         params: Promise.resolve({ collection: "shop" }),
       }),
-    ).toEqual({ title: "Shop All | Mei Pelle" });
+    ).toMatchObject({
+      title: "Shop All | helix",
+      openGraph: { siteName: "helix", url: "/collections/shop" },
+    });
   });
 
   it("renders the Cart empty state inside its provider", async () => {
@@ -77,11 +85,11 @@ describe("public route states", () => {
       </CartProvider>,
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "Cart" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Your CART" })).toBeVisible();
     expect(await screen.findByText(/your cart is empty/i)).toBeVisible();
   });
 
-  it("renders a generic checkout cancellation notice without order details", async () => {
+  it("renders an informational checkout return and an explicit cancellation action", async () => {
     render(
       <CartProvider>
         {await CartPage({
@@ -90,11 +98,11 @@ describe("public route states", () => {
       </CartProvider>,
     );
 
-    const notice = screen.getByRole("status");
-    expect(notice).toHaveTextContent(
-      "Sandbox checkout was cancelled. Your cart is still here.",
-    );
+    const notice = screen.getByText("You returned from checkout. Your cart is still here.");
+    expect(notice).toBeVisible();
     expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
+    expect(screen.getByRole("button", { name: "Cancel pending checkout" })).toBeEnabled();
+    expect(screen.queryByText(/checkout was cancelled/i)).not.toBeInTheDocument();
   });
 
   it("renders the sign-in access experience without changing its auth contract", async () => {
@@ -137,6 +145,9 @@ describe("public route states", () => {
     const decorativeMessage = screen.getByText("Your skin. Your system.");
     expect(decorativeMessage.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(
+      decorativeMessage.parentElement?.querySelector("img")?.getAttribute("src"),
+    ).toContain("access-hero.webp");
+    expect(
       screen
         .getByRole("heading", { level: 1, name: "Sign in" })
         .compareDocumentPosition(decorativeMessage) &
@@ -165,8 +176,11 @@ describe("public route states", () => {
     render(await SignUpPage());
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Create account" }),
+      screen.getByRole("heading", { level: 1, name: "Create Account" }),
     ).toBeVisible();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Create Account" }),
+    ).toHaveClass("account-access-layout__heading--single-line");
     expect(screen.queryByText("Account")).not.toBeInTheDocument();
 
     const fields = [

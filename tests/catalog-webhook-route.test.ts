@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath, revalidateTag } from "next/cache";
 import {
   applyCatalogWebhookEvent,
@@ -6,6 +6,7 @@ import {
 } from "@/lib/algolia/sync";
 import { POST } from "@/app/api/webhooks/supabase/catalog-search-sync/route";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
+import { getIndexName } from "@/lib/algolia/server";
 
 vi.mock("next/cache", async (importOriginal) => {
   const actual = await importOriginal<typeof import("next/cache")>();
@@ -25,13 +26,19 @@ vi.mock("@/lib/algolia/sync", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/algolia/server", () => ({
+  getIndexName: vi.fn(() => "helix_products"),
+}));
+
 const applyMock = vi.mocked(applyCatalogWebhookEvent);
 const verifyMock = vi.mocked(verifyWebhookSecret);
 const revalidatePathMock = vi.mocked(revalidatePath);
 const revalidateTagMock = vi.mocked(revalidateTag);
+const getIndexNameMock = vi.mocked(getIndexName);
+const originalPublicIndexName = process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
 
 function request(body: unknown, init: RequestInit = {}) {
-  return new Request("https://mei-pelle.test/api/webhooks/supabase/catalog-search-sync", {
+  return new Request("https://helix.test/api/webhooks/supabase/catalog-search-sync", {
     method: "POST",
     body: JSON.stringify(body),
     headers: {
@@ -47,7 +54,18 @@ beforeEach(() => {
   verifyMock.mockReset();
   revalidatePathMock.mockReset();
   revalidateTagMock.mockReset();
+  getIndexNameMock.mockReset();
+  getIndexNameMock.mockReturnValue("helix_products");
+  process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = "helix_products";
   verifyMock.mockImplementation((secret) => secret === "valid-secret");
+});
+
+afterAll(() => {
+  if (originalPublicIndexName === undefined) {
+    delete process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
+  } else {
+    process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = originalPublicIndexName;
+  }
 });
 
 describe("catalog search sync route", () => {
@@ -83,7 +101,7 @@ describe("catalog search sync route", () => {
       action: "upsert",
       table: "product_media",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       routineGroup: "core",
     });
 
@@ -108,18 +126,20 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
+    expect(body.indexName).toBe("helix_products");
+    expect(body.publicIndexName).toBe("helix_products");
     expect(applyMock).toHaveBeenCalledOnce();
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-card");
     expect(revalidateTagMock).toHaveBeenCalledWith(
-      "catalog-product-card:treat-03-pdrn-5-ampoule",
+      "catalog-product-card:super-serum",
     );
-    expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-content:treat-03-pdrn-5-ampoule",
+    expect(revalidateTagMock).toHaveBeenCalledWith(
+      "catalog-product-content:super-serum",
     );
     for (const path of SHOP_COLLECTION_PATHS) {
       expect(revalidatePathMock).toHaveBeenCalledWith(path);
     }
-    expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/super-serum");
   });
 
   it("attempts cache invalidation and returns retryable failure when Algolia sync fails", async () => {
@@ -132,12 +152,12 @@ describe("catalog search sync route", () => {
         table: "products",
         record: {
           id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-          slug: "treat-03-pdrn-5-ampoule",
+          slug: "super-serum",
           routine_group: "core",
         },
         old_record: {
           id: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-          slug: "treat-03-pdrn-5-ampoule",
+          slug: "super-serum",
           routine_group: "core",
         },
       }),
@@ -145,9 +165,9 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(502);
     expect(revalidateTagMock).toHaveBeenCalledWith(
-      "catalog-product-content:treat-03-pdrn-5-ampoule",
+      "catalog-product-content:super-serum",
     );
-    expect(revalidatePathMock).toHaveBeenCalledWith("/products/treat-03-pdrn-5-ampoule");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/super-serum");
   });
 
   it.each(["pdp_application", "pdp_outcome", "gallery"])(
@@ -157,7 +177,7 @@ describe("catalog search sync route", () => {
         action: "noop",
         table: "product_media",
         objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-        slug: "treat-03-pdrn-5-ampoule",
+        slug: "super-serum",
         routineGroup: "core",
         reason: "PDP-only media role is not indexed",
       });
@@ -177,19 +197,19 @@ describe("catalog search sync route", () => {
 
       expect(response.status).toBe(200);
       expect(revalidateTagMock).toHaveBeenCalledWith(
-        "catalog-product-content:treat-03-pdrn-5-ampoule",
+        "catalog-product-content:super-serum",
       );
       expect(revalidateTagMock).toHaveBeenCalledWith(
         "catalog-product-content",
       );
       expect(revalidatePathMock).toHaveBeenCalledWith(
-        "/products/treat-03-pdrn-5-ampoule",
+        "/products/super-serum",
       );
       expect(revalidateTagMock).not.toHaveBeenCalledWith(
-        "catalog-product-card:treat-03-pdrn-5-ampoule",
+        "catalog-product-card:super-serum",
       );
       expect(revalidateTagMock).not.toHaveBeenCalledWith(
-        "catalog-product-offer:treat-03-pdrn-5-ampoule",
+        "catalog-product-offer:super-serum",
       );
       for (const path of SHOP_COLLECTION_PATHS) {
         expect(revalidatePathMock).not.toHaveBeenCalledWith(path);
@@ -204,7 +224,7 @@ describe("catalog search sync route", () => {
       action: "noop",
       table: "product_media",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       routineGroup: "core",
       reason: "PDP-only media role is not indexed",
     });
@@ -225,7 +245,7 @@ describe("catalog search sync route", () => {
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
     expect(revalidatePathMock).toHaveBeenCalledWith("/products/biotic-reset");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/products/peptide-bounce");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products/super-serum");
     expect(revalidatePathMock).toHaveBeenCalledWith(
       "/products/ceramide-cushion",
     );
@@ -241,7 +261,7 @@ describe("catalog search sync route", () => {
       action: "upsert",
       table: "product_variants",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       routineGroup: "core",
     });
 
@@ -265,14 +285,14 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith(
-      "catalog-product-offer:treat-03-pdrn-5-ampoule",
+      "catalog-product-offer:super-serum",
     );
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-offer");
     expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-content:treat-03-pdrn-5-ampoule",
+      "catalog-product-content:super-serum",
     );
     expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-card:treat-03-pdrn-5-ampoule",
+      "catalog-product-card:super-serum",
     );
   });
 
@@ -281,7 +301,7 @@ describe("catalog search sync route", () => {
       action: "noop",
       table: "product_pdp_content",
       objectID: "f6091deb-1177-45ad-b506-1f0427fa4abe",
-      slug: "treat-03-pdrn-5-ampoule",
+      slug: "super-serum",
       routineGroup: "core",
       reason: "PDP content is not indexed",
     });
@@ -304,11 +324,11 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(revalidateTagMock).toHaveBeenCalledWith(
-      "catalog-product-content:treat-03-pdrn-5-ampoule",
+      "catalog-product-content:super-serum",
     );
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-core-routine");
     expect(revalidateTagMock).not.toHaveBeenCalledWith(
-      "catalog-product-offer:treat-03-pdrn-5-ampoule",
+      "catalog-product-offer:super-serum",
     );
   });
 });

@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-11-10T10:12:52.242510+00:00",
+  "service": "gui/501/com.helix.local-preview",
+  "pid": 45135,
+  "parent_pid": 1,
+  "http_status": 200,
+  "assets": {
+    "pdrn": 200,
+    "peptides": 200,
+    "niacinamide": 200
+  },
+  "loopback_only": true,
+  "source_commit": "886817ee720adea7381206ad1a44eabaa2fd9d29",
+  "heading_present": true,
+  "old_heading_absent": true,
+  "serum_removed_paragraph_absent": true,
+  "plist_unchanged": true,
+  "runtime_source_hashes_match": true,
+  "rollback_preserved": true,
+  "login_reboot_codex_quit_tested": false
+}

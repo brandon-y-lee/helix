@@ -75,7 +75,7 @@ describe("catalog editor product grid service", () => {
     const products = queryResult([
       {
         id: productId,
-        slug: "cleanse-01-calming-gel-cleanser",
+        slug: "biotic-reset",
         display_name: "CLEANSE",
         product_type: "Daily gel cleanser",
         catalog_status: "active",

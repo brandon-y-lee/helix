@@ -68,6 +68,35 @@ function cartState(lines: CartLine[]): CartState {
   };
 }
 
+export function createCartLayoutFixture(
+  products: readonly StorefrontSnapshotProduct[],
+  { lineCount, quantity }: { lineCount: number; quantity: number },
+): CartState {
+  const productVariants = products.flatMap((product) =>
+    product.variants.map((variant) => ({ product, variant })),
+  );
+  if (lineCount > 0 && productVariants.length === 0) {
+    throw new Error("Cart layout fixtures require a governed Product Variant.");
+  }
+
+  // Repeat governed presentations only to exercise scroll pressure. Quantity,
+  // line identity and availability are browser-controlled; Catalog facts stay
+  // bound to the immutable snapshot even when no current Offer is available.
+  return cartState(Array.from({ length: lineCount }, (_, index) => {
+    const { product, variant } = productVariants[index % productVariants.length];
+    return {
+      key: `layout:${product.slug}:${variant.id}:${index}`,
+      slug: product.slug,
+      variantId: variant.id,
+      ...cartProduct(product, variant),
+      quantity,
+      available: true,
+      warning: null,
+      lineSubtotal: variant.price * quantity,
+    };
+  }));
+}
+
 async function fulfillCart(route: Route, cart: CartState) {
   await route.fulfill({
     status: 200,

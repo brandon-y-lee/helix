@@ -1,0 +1,312 @@
+[
+  {
+    "route": "/privacy",
+    "size": "desktop",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 58,
+    "headings": 12,
+    "paragraphs": 23,
+    "listItems": 23,
+    "links": [
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      }
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "documentWidth": 1440,
+    "article": {
+      "left": 248,
+      "top": 64,
+      "width": 944,
+      "height": 4018
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 272
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "14px",
+      "lineHeight": "20px"
+    },
+    "hasSummaryNotices": false
+  },
+  {
+    "route": "/privacy",
+    "size": "mobile",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 58,
+    "headings": 12,
+    "paragraphs": 23,
+    "listItems": 23,
+    "links": [
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      }
+    ],
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "documentWidth": 390,
+    "article": {
+      "left": 0,
+      "top": 64,
+      "width": 390,
+      "height": 7734
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 24
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "14px",
+      "lineHeight": "20px"
+    },
+    "hasSummaryNotices": false
+  },
+  {
+    "route": "/terms",
+    "size": "desktop",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 138,
+    "headings": 59,
+    "paragraphs": 68,
+    "listItems": 11,
+    "links": [
+      {
+        "text": "Shipping Policy",
+        "href": "/faq#shipping"
+      },
+      {
+        "text": "Shipping Policy",
+        "href": "/faq#shipping"
+      },
+      {
+        "text": "Return Policy",
+        "href": "/faq#returns"
+      },
+      {
+        "text": "request a return online",
+        "href": "/contact"
+      },
+      {
+        "text": "Customer Care",
+        "href": "/contact"
+      }
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "documentWidth": 1440,
+    "article": {
+      "left": 248,
+      "top": 64,
+      "width": 944,
+      "height": 9980
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 272
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "14px",
+      "lineHeight": "20px"
+    },
+    "hasSummaryNotices": false
+  },
+  {
+    "route": "/terms",
+    "size": "mobile",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 138,
+    "headings": 59,
+    "paragraphs": 68,
+    "listItems": 11,
+    "links": [
+      {
+        "text": "Shipping Policy",
+        "href": "/faq#shipping"
+      },
+      {
+        "text": "Shipping Policy",
+        "href": "/faq#shipping"
+      },
+      {
+        "text": "Return Policy",
+        "href": "/faq#returns"
+      },
+      {
+        "text": "request a return online",
+        "href": "/contact"
+      },
+      {
+        "text": "Customer Care",
+        "href": "/contact"
+      }
+    ],
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "documentWidth": 390,
+    "article": {
+      "left": 0,
+      "top": 64,
+      "width": 390,
+      "height": 19016
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 24
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "14px",
+      "lineHeight": "20px"
+    },
+    "hasSummaryNotices": false
+  },
+  {
+    "route": "/accessibility",
+    "size": "desktop",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 10,
+    "headings": 3,
+    "paragraphs": 4,
+    "listItems": 3,
+    "links": [
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "← Customer Care",
+        "href": "/contact"
+      }
+    ],
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "documentWidth": 1440,
+    "article": {
+      "left": 0,
+      "top": 64,
+      "width": 1440,
+      "height": 917.5
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 24
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "10px",
+      "lineHeight": "15px"
+    },
+    "hasSummaryNotices": false
+  },
+  {
+    "route": "/accessibility",
+    "size": "mobile",
+    "status": 200,
+    "errors": [],
+    "contentParity": true,
+    "linkParity": true,
+    "blocks": 10,
+    "headings": 3,
+    "paragraphs": 4,
+    "listItems": 3,
+    "links": [
+      {
+        "text": "support@helixskin.com",
+        "href": "mailto:support@helixskin.com"
+      },
+      {
+        "text": "← Customer Care",
+        "href": "/contact"
+      }
+    ],
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "documentWidth": 390,
+    "article": {
+      "left": 0,
+      "top": 64,
+      "width": 390,
+      "height": 1280.78125
+    },
+    "h1": {
+      "font": "Marcellus, \"Marcellus Fallback\", Georgia, serif",
+      "fontSize": "32px",
+      "lineHeight": "48px",
+      "left": 24
+    },
+    "firstParagraph": {
+      "font": "Manrope, \"Manrope Fallback\", sans-serif",
+      "fontSize": "10px",
+      "lineHeight": "15px"
+    },
+    "hasSummaryNotices": false
+  }
+]

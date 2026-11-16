@@ -3,14 +3,14 @@ export type ApplicationRouteMode =
   | "standard-admin"
   | "catalog-preview";
 
-export const ADMIN_ROUTE_REQUEST_HEADER = "x-mei-pelle-admin-route";
+export const ADMIN_ROUTE_REQUEST_HEADER = "x-helix-admin-route";
 
 export function adminReturnPath(value: string | null): string {
   if (!value) return "/admin";
   try {
-    const parsed = new URL(value, "http://mei-pelle.local");
+    const parsed = new URL(value, "http://helix.local");
     if (
-      parsed.origin !== "http://mei-pelle.local" ||
+      parsed.origin !== "http://helix.local" ||
       (parsed.pathname !== "/admin" &&
         !parsed.pathname.startsWith("/admin/"))
     ) {
@@ -23,6 +23,16 @@ export function adminReturnPath(value: string | null): string {
 }
 
 export function applicationRouteMode(pathname: string): ApplicationRouteMode {
+  if (pathname === "/helix-verification/admin/preview") return "catalog-preview";
+  if ([
+    "/helix-verification/admin",
+    "/helix-verification/admin/catalog",
+    "/helix-verification/admin/editor",
+    "/helix-verification/admin/states",
+    "/helix-verification/admin/demo-orders",
+    "/helix-verification/admin/support",
+    "/helix-verification/admin/support/intake",
+  ].includes(pathname)) return "standard-admin";
   if (/^\/admin\/catalog\/preview\/[^/]+\/?$/.test(pathname)) {
     return "catalog-preview";
   }

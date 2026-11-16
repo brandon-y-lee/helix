@@ -1,0 +1,28 @@
+{
+  "terms-conditions": [
+    {
+      "find": "Returns must be requested within 7 calendar days of delivery and meet the condition and packaging requirements in our ",
+      "replace": "Return requests must be submitted within 30 days of receipt. Opened products are considered case by case; acceptance is not guaranteed. Further details are set out in our "
+    },
+    {
+      "find": "The return must be requested within 7 calendar days of the delivery date.",
+      "replace": "Return requests must be submitted within 30 days of receipt."
+    },
+    {
+      "find": "The item must be in its original condition and cannot be used, altered, washed, marked or damaged.",
+      "replace": "Opened products are considered case by case; acceptance is not guaranteed. Products must not otherwise be altered, marked or damaged."
+    },
+    {
+      "find": "The item must be returned with all original packaging intact, which may include the product box, container and product label. Packaging cannot be altered, damaged or removed.",
+      "replace": "Return the product with its original packaging where available, including the product box, container and product label. Opening the product or its packaging does not automatically make a return request ineligible."
+    },
+    {
+      "operation": "remove-paragraph",
+      "find": "Face masks: In the interest of hygiene, face masks and face coverings are considered Final Sale."
+    },
+    {
+      "operation": "remove-paragraph",
+      "find": "Intimate apparel and swimwear: Lingerie, hosiery, underwear, swimsuits and bikini bottoms cannot be worn and must be returned with the original hygienic protection sticker intact to be eligible for a refund."
+    }
+  ]
+}

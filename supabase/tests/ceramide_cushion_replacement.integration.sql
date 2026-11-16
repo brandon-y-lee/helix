@@ -73,11 +73,11 @@ begin
       and route.source_product_id = green_id
       and route.target_product_id = ceramide_id
       and route.route_kind = 'replacement'
-  ) <> 1 or (
-    select route.route_kind || ':' || route.target_slug
-    from public.resolve_product_slug('seal-05-green-collagen-cream') route
-  ) is distinct from 'replacement:ceramide-cushion' then
-    raise exception 'Green Collagen replacement route is missing or chained';
+  ) <> 1 or exists (
+    select 1 from public.product_slug_routes route
+    where route.target_product_id = green_id
+  ) then
+    raise exception 'Green Collagen private replacement provenance is missing or chained';
   end if;
 
   if exists (
@@ -105,9 +105,9 @@ begin
   ) is distinct from jsonb_build_array(
     jsonb_build_object('source', 'balancing-prep', 'sort', 3),
     jsonb_build_object('source', 'biotic-reset', 'sort', 2),
-    jsonb_build_object('source', 'peptide-bounce', 'sort', 2),
     jsonb_build_object('source', 'peptide-eye-cream', 'sort', 3),
-    jsonb_build_object('source', 'peptide-nourish-mask', 'sort', 3)
+    jsonb_build_object('source', 'peptide-nourish-mask', 'sort', 3),
+    jsonb_build_object('source', 'super-serum', 'sort', 2)
   ) then
     raise exception 'Ceramide Cushion inbound Routine Complement graph drifted';
   end if;
@@ -119,7 +119,7 @@ begin
     where relationship.product_id = ceramide_id
       and relationship.relationship_type = 'complete_the_routine'
       and relationship.archived_at is null
-  ) is distinct from jsonb_build_array('biotic-reset', 'peptide-bounce') then
+  ) is distinct from jsonb_build_array('biotic-reset', 'super-serum') then
     raise exception 'Ceramide Cushion Core Routine Complement graph drifted';
   end if;
 

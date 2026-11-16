@@ -1,35 +1,29 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import { FAQ_HERO_IMAGE } from "@/lib/content/faq-hero";
+import styles from "@/components/content/faq.module.css";
 import { FAQAccordion } from "@/components/content/FAQAccordion";
 import { faqCategories } from "@/content/support/faq";
+import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 
-const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
-
-export const metadata: Metadata = {
-  metadataBase: siteUrl,
-  title: "FAQ | Mei Pelle",
+export const metadata: Metadata = createPublicSiteMetadata({
+  title: "FAQ | helix",
   description:
-    "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
-  alternates: { canonical: "/faq" },
-  openGraph: {
-    title: "FAQ | Mei Pelle",
-    description:
-      "Answers about Mei Pelle products, accounts, orders, shipping, returns, rewards, contact, and policies.",
-    url: "/faq",
-    siteName: "Mei Pelle",
-    type: "website",
-  },
-};
+    "Answers about helix products, accounts, sandbox orders, shipping, returns, refunds, rewards, contact, privacy, and accessibility.",
+  canonical: "/faq",
+});
 
 export default function FAQPage() {
   return (
-    <div className="support-page faq-page">
-      <header className="support-hero">
-        <p className="eyebrow">Support</p>
-        <h1>FAQ</h1>
-        <p>
-          Product, account, order, shipping, return, rewards, contact, and
-          policy answers in one place.
-        </p>
+    <div className={`faq-page ${styles.page}`}>
+      <header className="storefront-shell system-hero" aria-labelledby="faq-heading" data-layout-shell="storefront">
+        <div className="system-hero__surface">
+          <Image src={FAQ_HERO_IMAGE} alt="" fill priority
+            sizes="(max-width: 720px) 180vh, 100vw" className={`system-hero__image ${styles.heroImage}`} />
+          <div className="system-hero__copy">
+            <h1 id="faq-heading">In case you were wondering...</h1>
+          </div>
+        </div>
       </header>
       <FAQAccordion categories={faqCategories} />
     </div>

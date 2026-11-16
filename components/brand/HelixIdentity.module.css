@@ -1,0 +1,9 @@
+.identity {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  color: inherit;
+}

@@ -1,7 +1,7 @@
 import CatalogProductGrid from "@/components/admin/catalog-editor/CatalogProductGrid";
 
 export const metadata = {
-  title: "Catalog Editor | Mei Pelle Admin",
+  title: "Catalog Editor",
 };
 
 export default function AdminCatalogPage() {

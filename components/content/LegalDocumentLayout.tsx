@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import type { LegalDocument } from "@/content/legal/types";
+import { LegalContents } from "@/components/content/LegalContents";
+import {
+  legalPublicationStatus,
+  type LegalDocument,
+} from "@/content/legal/types";
 
 export function LegalDocumentLayout({
   document,
@@ -11,23 +15,19 @@ export function LegalDocumentLayout({
   return (
     <article className="legal-page">
       <header className="legal-hero">
-        <p className="eyebrow">Official</p>
+        <p className="eyebrow">{legalPublicationStatus.label}</p>
         <h1>{document.title}</h1>
         <p>{document.intro}</p>
+        <p>{legalPublicationStatus.summary}</p>
+        <p>{legalPublicationStatus.detail}</p>
         <span>{document.status}</span>
       </header>
 
       <div className="legal-shell">
-        <nav className="legal-toc" aria-label={`${document.title} sections`}>
-          <h2>Contents</h2>
-          <ol>
-            {document.sections.map((section) => (
-              <li key={section.id}>
-                <a href={`#${section.id}`}>{section.title}</a>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <LegalContents
+          title={document.title}
+          sections={document.sections.map(({ id, title }) => ({ id, title }))}
+        />
 
         <div className="legal-document">
           {children}
@@ -51,4 +51,3 @@ export function LegalDocumentLayout({
     </article>
   );
 }
-

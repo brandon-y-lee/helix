@@ -1,1 +1,3 @@
-export const REFERRAL_COOKIE = "mei_pelle_referral_code";
+import { REFERRAL_COOKIE } from "@/lib/customer-state-identifiers";
+
+export { REFERRAL_COOKIE };

@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function AdminError({ reset }: { reset: () => void }) {
   return (
     <section className="admin-error" role="alert">
-      <p className="admin-dashboard__eyebrow">Admin console</p>
+      <p className="admin-dashboard__eyebrow">helix Admin</p>
       <h1>This module could not load</h1>
       <p>
         The requested admin view is unavailable. No changes were made.

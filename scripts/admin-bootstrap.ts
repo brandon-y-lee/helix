@@ -5,7 +5,6 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
-import WebSocket from "ws";
 import { assertApprovedSupabaseProjectUrl } from "../lib/supabase/project-safety";
 
 const ROLES = new Set(["admin", "catalog_publisher", "catalog_editor"]);
@@ -53,11 +52,11 @@ async function findUserByEmail(
 async function resolveUser(
   admin: SupabaseClient,
 ): Promise<User> {
-  const userId = process.env.MEI_PELLE_ADMIN_USER_ID?.trim();
-  const email = process.env.MEI_PELLE_ADMIN_EMAIL?.trim();
+  const userId = process.env.HELIX_ADMIN_USER_ID?.trim();
+  const email = process.env.HELIX_ADMIN_EMAIL?.trim();
   if (Boolean(userId) === Boolean(email)) {
     throw new Error(
-      "Set exactly one of MEI_PELLE_ADMIN_USER_ID or MEI_PELLE_ADMIN_EMAIL.",
+      "Set exactly one of HELIX_ADMIN_USER_ID or HELIX_ADMIN_EMAIL.",
     );
   }
   if (userId) {
@@ -73,18 +72,15 @@ async function resolveUser(
 async function main() {
   const url = requiredEnv("NEXT_PUBLIC_SUPABASE_URL");
   assertApprovedSupabaseProjectUrl(url);
-  const role = requiredEnv("MEI_PELLE_ADMIN_ROLE");
+  const role = requiredEnv("HELIX_ADMIN_ROLE");
   if (!ROLES.has(role)) {
     throw new Error(
-      "MEI_PELLE_ADMIN_ROLE must be admin, catalog_publisher, or catalog_editor.",
+      "HELIX_ADMIN_ROLE must be admin, catalog_publisher, or catalog_editor.",
     );
   }
 
   const admin = createClient(url, requiredEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { autoRefreshToken: false, persistSession: false },
-    realtime: {
-      transport: WebSocket as unknown as typeof globalThis.WebSocket,
-    },
   });
   const user = await resolveUser(admin);
   const { data, error } = await admin.rpc(

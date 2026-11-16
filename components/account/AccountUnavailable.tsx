@@ -4,7 +4,7 @@ export function AccountUnavailable({
   retryHref?: string;
 }) {
   return (
-    <div className="container account-shell">
+    <div className="container account-shell account-status-page">
       <section className="account-panel" role="alert">
         <p className="eyebrow">Account</p>
         <h1>Account temporarily unavailable</h1>

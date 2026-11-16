@@ -1,7 +1,8 @@
 import "server-only";
 
-import { resolveProductPresentationMedia } from "@/lib/catalog";
+import { resolveProductPresentationMedia } from "@/lib/catalog/media-presentation";
 import { assertValidProductEditorDocument } from "@/lib/admin/catalog/validation";
+import { catalogGuidanceValidationIssues } from "@/lib/admin/catalog/guidance";
 import {
   PRODUCT_EDITOR_SCHEMA_VERSION,
   type CatalogProductFields,
@@ -23,6 +24,7 @@ import type {
   OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
+import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
 import type {
   PlaceholderPalette,
   ProductMedia,
@@ -180,7 +182,7 @@ function approvedStorageUrl(
     if (
       url.origin !== approvedOrigin ||
       !url.pathname.startsWith(
-        "/storage/v1/object/public/mei-pelle-catalog/",
+        `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
       )
     ) {
       return false;
@@ -535,6 +537,7 @@ export function projectCatalogDraftPreview(
     variants: safeVariants(document.variants, productWithoutVariants),
   };
   const warnings = [
+    ...catalogGuidanceValidationIssues(document).map((issue) => issue.message),
     ...(rejected > 0
       ? [
           `${rejected} draft media ${rejected === 1 ? "item was" : "items were"} omitted because the source, role, or type was not approved.`,

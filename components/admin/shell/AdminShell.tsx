@@ -8,12 +8,15 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
-import { signOutAction } from "@/app/account/actions";
+import { signOutAction as defaultSignOutAction } from "@/app/account/actions";
+import { AdminHelixIdentity } from "@/components/admin/shell/AdminHelixIdentity";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { Sheet } from "@/components/overlays/Sheet";
 import type { AdminModule } from "@/lib/admin/modules";
 
-const ADMIN_SIDEBAR_PREFERENCE = "mei-pelle-admin-sidebar-collapsed";
+const ADMIN_SIDEBAR_PREFERENCE = "helix-admin-sidebar-collapsed";
+
+type SignOutAction = (formData: FormData) => void | Promise<void>;
 
 function currentViewLabel(
   pathname: string,
@@ -31,10 +34,12 @@ function AdminAccount({
   accountLabel,
   compact = false,
   collapsed = false,
+  signOutAction,
 }: {
   accountLabel: string;
   compact?: boolean;
   collapsed?: boolean;
+  signOutAction: SignOutAction;
 }) {
   return (
     <div
@@ -76,12 +81,19 @@ export function AdminShell({
   accountLabel,
   modules,
   children,
+  signOutAction = defaultSignOutAction,
+  navigationPath,
+  navigationEnabled = true,
 }: {
   accountLabel: string;
   modules: readonly AdminModule[];
   children: ReactNode;
+  signOutAction?: SignOutAction;
+  navigationPath?: string;
+  navigationEnabled?: boolean;
 }) {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = navigationPath ?? currentPathname;
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -119,20 +131,11 @@ export function AdminShell({
       </a>
 
       <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <span
-            className="admin-brand__wordmark"
-            aria-label={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
-            title={sidebarCollapsed ? "Mei Pelle Admin" : undefined}
-          >
-            <span aria-hidden={sidebarCollapsed || undefined}>
-              {sidebarCollapsed ? "MP" : "MEI PELLE"}
-            </span>
-          </span>
-          {sidebarCollapsed ? null : (
-            <span className="admin-brand__label">ADMIN</span>
-          )}
-        </div>
+        <AdminHelixIdentity
+          className="admin-brand"
+          compact={sidebarCollapsed}
+          title={sidebarCollapsed ? "helix Admin" : undefined}
+        />
         <button
           type="button"
           className="admin-sidebar__toggle"
@@ -148,10 +151,12 @@ export function AdminShell({
           pathname={pathname}
           modules={modules}
           collapsed={sidebarCollapsed}
+          navigationEnabled={navigationEnabled}
         />
         <AdminAccount
           accountLabel={accountLabel}
           collapsed={sidebarCollapsed}
+          signOutAction={signOutAction}
         />
       </aside>
 
@@ -167,7 +172,9 @@ export function AdminShell({
           >
             Menu
           </button>
-          <span className="admin-mobile-header__brand">MEI PELLE ADMIN</span>
+          <AdminHelixIdentity
+            className="admin-mobile-header__brand"
+          />
           <span className="admin-mobile-header__current">{currentView}</span>
         </header>
 
@@ -185,7 +192,7 @@ export function AdminShell({
         open={mobileNavigationOpen}
         side="left"
         title="Admin menu"
-        description="Navigate Mei Pelle internal tools."
+        description="Navigate helix internal tools."
         onClose={closeMobileNavigation}
         returnFocus={restoreMenuFocus}
         className="admin-drawer"
@@ -195,8 +202,13 @@ export function AdminShell({
             pathname={pathname}
             modules={modules}
             onNavigate={closeMobileNavigation}
+            navigationEnabled={navigationEnabled}
           />
-          <AdminAccount accountLabel={accountLabel} compact />
+          <AdminAccount
+            accountLabel={accountLabel}
+            compact
+            signOutAction={signOutAction}
+          />
         </div>
       </Sheet>
     </div>

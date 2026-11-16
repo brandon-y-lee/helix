@@ -1,0 +1,157 @@
+{
+  "capturedAt": "2026-10-20T00:51:52.777Z",
+  "sourceHost": "https://revetir.com",
+  "status": 200,
+  "browser": "Playwright 1.55.1 Chromium isolated headless",
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 1000
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844
+    }
+  },
+  "sources": [
+    {
+      "slug": "privacy-policy",
+      "url": "https://revetir.com/us/privacy-policy",
+      "renderedTextCharacters": 14244,
+      "headings": 12,
+      "paragraphs": 23,
+      "listItems": 23,
+      "renderedLinks": 4
+    },
+    {
+      "slug": "terms-conditions",
+      "url": "https://revetir.com/us/terms-conditions",
+      "renderedTextCharacters": 35548,
+      "headings": 59,
+      "paragraphs": 68,
+      "listItems": 11,
+      "renderedLinks": 5
+    },
+    {
+      "slug": "accessibility",
+      "url": "https://revetir.com/us/customer-care/accessibility",
+      "renderedTextCharacters": 1058,
+      "headings": 3,
+      "paragraphs": 4,
+      "listItems": 3,
+      "renderedLinks": 2
+    }
+  ],
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 8088,
+      "sha256": "7e2b3be3fe21fe245a6ea803f627091c49f71c69ef97525f650fb3bbeae1f6e9"
+    },
+    {
+      "name": "accessibility-desktop.measurements.json",
+      "bytes": 26502,
+      "sha256": "fcd1a3b9bb1961c214f9da1ce9e0bc7d9528559ccb4cb799889559e03f6a842d"
+    },
+    {
+      "name": "accessibility-mobile.measurements.json",
+      "bytes": 26569,
+      "sha256": "4fc65076710395c1f9c95c30ee221a564a1c8407b084364e7e97745f6275013f"
+    },
+    {
+      "name": "accessibility.article.html",
+      "bytes": 2607,
+      "sha256": "1144a767bbf24789249bb328d9f5393cd9ad6e3838dd3885b46175f1de72f198"
+    },
+    {
+      "name": "accessibility.article.txt",
+      "bytes": 1061,
+      "sha256": "60d93518d5078dd1cc18ce4178d4b39f9b8c5da313726f01f43f4561d60548eb"
+    },
+    {
+      "name": "accessibility.rendered.article.html",
+      "bytes": 2478,
+      "sha256": "b4077dabb7391be7e2a425cec4b8bccab9946f460503eab1c13baca8f27fc4e2"
+    },
+    {
+      "name": "accessibility.response.html",
+      "bytes": 476079,
+      "sha256": "f1468bb6e54ed3f786d6bbad12e44fdf8f945632f58aa2b1a1e464026ffb0a1a"
+    },
+    {
+      "name": "accessibility.structure.json",
+      "bytes": 633,
+      "sha256": "b15560bf899e59e25ce3416e616159c52c904cc4f68932a58ec9f393396ae213"
+    },
+    {
+      "name": "privacy-policy-desktop.measurements.json",
+      "bytes": 89769,
+      "sha256": "9e5901bd3996538941a3b681feee12d4ebbe63393071239e25c4f845c14bf404"
+    },
+    {
+      "name": "privacy-policy-mobile.measurements.json",
+      "bytes": 89719,
+      "sha256": "20db7339b296487096a7d39c9d93d79064defeba9e14b1ad5c597ed907f1d6b5"
+    },
+    {
+      "name": "privacy-policy.article.html",
+      "bytes": 17728,
+      "sha256": "6da2021318d0c8921bb31d798dc6e666d582aa4238680fd5283101b4c1555be2"
+    },
+    {
+      "name": "privacy-policy.article.txt",
+      "bytes": 14249,
+      "sha256": "9a11e35b9819e0312a949a2f02e8e3e4e53be27cc072b6df24da65134e739bc7"
+    },
+    {
+      "name": "privacy-policy.rendered.article.html",
+      "bytes": 17212,
+      "sha256": "ff085f24360c528ff3201159f26b093ab2aec942258a386f1efa3e533e0ecc48"
+    },
+    {
+      "name": "privacy-policy.response.html",
+      "bytes": 508631,
+      "sha256": "fcdaeb22521f15633f3589d0de3370ce1af15b46e0f66d746670b796ca1c64cd"
+    },
+    {
+      "name": "privacy-policy.structure.json",
+      "bytes": 1310,
+      "sha256": "7af874b3837f7fbb8fbc00f161286f624a683c2939dbec6a3cdf41cf5046e1d7"
+    },
+    {
+      "name": "terms-conditions-desktop.measurements.json",
+      "bytes": 186017,
+      "sha256": "fd4af299f4cd3f141f13d7b1c3338ff0db27f883a17f943163635a5a477c7c3a"
+    },
+    {
+      "name": "terms-conditions-mobile.measurements.json",
+      "bytes": 185979,
+      "sha256": "33dcdecbf66f4a08940059d4cd448831fb6d84dbd097e1940a37e596b2da6eb6"
+    },
+    {
+      "name": "terms-conditions.article.html",
+      "bytes": 42248,
+      "sha256": "b67a22c290ebadc54131699cf20f30418b6b69b0daab783a5e2b2348eb42aa5c"
+    },
+    {
+      "name": "terms-conditions.article.txt",
+      "bytes": 35554,
+      "sha256": "32684f8c70e984492176c73ca640a9e8f35d367b8d25abca610988a33cc7b3ec"
+    },
+    {
+      "name": "terms-conditions.rendered.article.html",
+      "bytes": 41772,
+      "sha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628"
+    },
+    {
+      "name": "terms-conditions.response.html",
+      "bytes": 561388,
+      "sha256": "df700d9984e65b1855d36a38923cd9e3603fa78aa6bf42f972f24e7d18108d7c"
+    },
+    {
+      "name": "terms-conditions.structure.json",
+      "bytes": 5003,
+      "sha256": "cf25d8c6e02f357c45b6498f271594dae08bee562a7367d7f04417224bf86a3c"
+    }
+  ]
+}

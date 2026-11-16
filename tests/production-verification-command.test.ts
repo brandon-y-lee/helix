@@ -207,15 +207,15 @@ describe("Production Verification Commands", () => {
     );
   });
 
-  it("keeps a lightweight Windows lifecycle contract in CI", async () => {
+  it("does not schedule the retired Windows lifecycle lane in CI", async () => {
     const workflow = await readFile(
       resolve(process.cwd(), ".github/workflows/ci.yml"),
       "utf8",
     );
 
-    expect(workflow).toContain("verification-lifecycle-windows:");
-    expect(workflow).toContain("runs-on: windows-latest");
-    expect(workflow).toContain(
+    expect(workflow).not.toContain("verification-lifecycle-windows:");
+    expect(workflow).not.toContain("runs-on: windows-latest");
+    expect(workflow).not.toContain(
       "pnpm vitest run tests/production-verification.test.ts tests/production-verification-process.test.ts",
     );
 
@@ -242,8 +242,8 @@ describe("Production Verification Commands", () => {
     const require = createRequire(import.meta.url);
     const playwrightCli = require.resolve("@playwright/test/cli");
     const environment = { ...process.env };
-    delete environment.MEI_PELLE_VERIFICATION_ADAPTER;
-    delete environment.MEI_PELLE_VERIFICATION_BASE_URL;
+    delete environment.HELIX_VERIFICATION_ADAPTER;
+    delete environment.HELIX_VERIFICATION_BASE_URL;
 
     const result = spawnSync(process.execPath, [playwrightCli, "test", "--list"], {
       cwd: process.cwd(),
@@ -262,7 +262,7 @@ describe("Production Verification Commands", () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const temporaryDirectory = await mkdtemp(
-      resolve(tmpdir(), "mei-pelle-global-setup-"),
+      resolve(tmpdir(), "helix-global-setup-"),
     );
 
     try {

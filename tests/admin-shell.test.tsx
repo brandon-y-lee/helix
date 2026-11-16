@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
 
 let pathname = "/admin";
 
@@ -45,6 +46,7 @@ vi.mock("@/components/cart/CartProvider", () => ({
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 import { AdminNavigation } from "@/components/admin/shell/AdminNavigation";
 import { AdminShell } from "@/components/admin/shell/AdminShell";
+import { VerificationAdminShell } from "@/app/helix-verification/admin/VerificationAdminShell";
 import type { AdminModule } from "@/lib/admin/modules";
 import { adminReturnPath } from "@/lib/admin/routes";
 
@@ -99,6 +101,38 @@ describe("admin shell navigation", () => {
     ).toHaveFocus();
   });
 
+  it("isolates opted-out verification navigation while keeping the mobile drawer usable", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <VerificationAdminShell
+        modules={[{ ...modules[0], status: "active" }]}
+        navigationEnabled={false}
+      >
+        <h1>Demo tracking verification</h1>
+      </VerificationAdminShell>,
+    );
+
+    expect(container.querySelector('a[href^="/admin"]')).toBeNull();
+    const desktopNavigation = within(screen.getByRole("navigation"));
+    expect(
+      desktopNavigation.getByText("Overview").closest("[aria-disabled]"),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(
+      desktopNavigation.getByText("Catalog Editor").closest("[aria-disabled]"),
+    ).toHaveAttribute("aria-disabled", "true");
+
+    const menuButton = screen.getByRole("button", { name: "Menu" });
+    await user.click(menuButton);
+    const dialog = screen.getByRole("dialog", { name: "Admin menu" });
+    expect(within(dialog).queryByRole("link")).toBeNull();
+    expect(within(dialog).getByText("Overview")).toBeVisible();
+    expect(within(dialog).getByText("Catalog Editor")).toBeVisible();
+
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Admin menu" })).toBeNull();
+    expect(menuButton).toHaveFocus();
+  });
+
   it("closes the mobile drawer with Escape and restores menu focus", async () => {
     const user = userEvent.setup();
     render(
@@ -121,6 +155,21 @@ describe("admin shell navigation", () => {
     expect(menuButton).toHaveFocus();
   });
 
+  it("renders the canonical wordmark in the mobile admin header", () => {
+    const { container } = render(
+      <AdminShell accountLabel="operator@example.com" modules={modules}>
+        <h1>Admin overview</h1>
+      </AdminShell>,
+    );
+
+    const mobileBrand = container.querySelector(".admin-mobile-header__brand");
+    expect(mobileBrand).toHaveAccessibleName("helix Admin");
+    expect(
+      mobileBrand?.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(mobileBrand).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+  });
+
   it("collapses the desktop sidebar and restores the browser preference", async () => {
     const user = userEvent.setup();
     const activeModules = [{ ...modules[0], status: "active" as const }];
@@ -129,6 +178,14 @@ describe("admin shell navigation", () => {
         <h1>Admin overview</h1>
       </AdminShell>,
     );
+    const adminBrand = first.container.querySelector(".admin-brand");
+
+    expect(adminBrand).toHaveAccessibleName("helix Admin");
+    expect(
+      adminBrand?.querySelector('[data-helix-identity="wordmark"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(adminBrand).not.toHaveTextContent(FORMER_BRAND_PATTERN);
+    expect(adminBrand).not.toHaveTextContent(/\bMP\b/);
 
     await user.click(
       screen.getByRole("button", { name: "Collapse admin sidebar" }),
@@ -137,7 +194,7 @@ describe("admin shell navigation", () => {
       "data-sidebar-collapsed",
       "true",
     );
-    expect(window.localStorage.getItem("mei-pelle-admin-sidebar-collapsed")).toBe(
+    expect(window.localStorage.getItem("helix-admin-sidebar-collapsed")).toBe(
       "true",
     );
     expect(screen.getByRole("link", { name: "Overview" })).toBeVisible();
@@ -145,6 +202,10 @@ describe("admin shell navigation", () => {
       screen.getByRole("link", { name: "Catalog Editor" }),
     ).toBeVisible();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+    expect(
+      adminBrand?.querySelector('[data-helix-identity="symbol"]'),
+    ).toHaveAttribute("aria-hidden", "true");
+    expect(adminBrand).toHaveAttribute("title", "helix Admin");
 
     first.unmount();
     const restored = render(
@@ -162,7 +223,7 @@ describe("admin shell navigation", () => {
 
   it("keeps the collapsed current route identifiable and keyboard togglable", async () => {
     pathname = "/admin/catalog/products/product-cleanse";
-    window.localStorage.setItem("mei-pelle-admin-sidebar-collapsed", "true");
+    window.localStorage.setItem("helix-admin-sidebar-collapsed", "true");
     const user = userEvent.setup();
     const { container } = render(
       <AdminShell
@@ -259,7 +320,7 @@ describe("admin shell navigation", () => {
   });
 
   it("leaves product detail pages outside the viewport frame", () => {
-    pathname = "/products/treat-03-pdrn-5-ampoule";
+    pathname = "/products/super-serum";
     render(
       <ApplicationChrome>
         <div>Product detail content</div>

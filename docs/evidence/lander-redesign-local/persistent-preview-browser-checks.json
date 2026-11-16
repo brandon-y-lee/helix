@@ -1,0 +1,51 @@
+[
+  {
+    "columns": "788.914px 571.289px",
+    "imageLoaded": true,
+    "introGaps": [
+      {
+        "above": 72,
+        "below": 36
+      },
+      {
+        "above": 72,
+        "below": 36
+      }
+    ],
+    "overflow": false,
+    "paragraphs": [
+      "A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin."
+    ],
+    "title": "One step for Longevity",
+    "viewport": [
+      1440,
+      900
+    ]
+  },
+  {
+    "focus": {
+      "active": true,
+      "outline": "rgb(17, 19, 18) solid 2px"
+    },
+    "imageLoaded": true,
+    "introGaps": [
+      {
+        "above": 19.5,
+        "below": 9.75
+      },
+      {
+        "above": 19.5,
+        "below": 9.75
+      }
+    ],
+    "overflow": false,
+    "paragraphs": [
+      "A lightweight serum with PDRN, humectants, niacinamide, peptides, and adenosine for hydrated, supple-looking skin."
+    ],
+    "title": "One step for Longevity",
+    "viewport": [
+      390,
+      844
+    ]
+  }
+]

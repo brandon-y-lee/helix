@@ -5,7 +5,7 @@ import { CheckoutPanel } from "@/components/cart/CheckoutPanel";
 import { useCart, useCartMutations } from "@/components/cart/useCart";
 import { ProductImage } from "@/components/product/ProductImage";
 import {
-  formatFreeShippingThreshold,
+  FREE_STANDARD_SHIPPING_THRESHOLD_CENTS,
   qualifiesForFreeStandardShipping,
   remainingForFreeStandardShipping,
 } from "@/content/support/policy";
@@ -22,6 +22,7 @@ export function CartView({
     lines,
     subtotal,
     count,
+    dataUpdatedAt,
     loading,
     hasLoadedCart,
     error: queryError,
@@ -42,9 +43,10 @@ export function CartView({
   const error = mutationError ?? queryError;
   const retryable = mutationError ? mutationRetryable : queryRetryable;
   const isDrawer = mode === "drawer";
-  const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
+  const subtotalThresholdReached = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
   const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
+  const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} cartUpdatedAt={dataUpdatedAt} />;
 
   async function retryCart() {
     resetErrors();
@@ -111,7 +113,12 @@ export function CartView({
 
   return (
     <div className={isDrawer ? "cart-layout cart-layout--drawer" : "cart-layout"}>
-      <div>
+      <div
+        className={isDrawer ? "cart-drawer__items" : undefined}
+        role={isDrawer ? "region" : undefined}
+        aria-label={isDrawer ? "Cart items and updates" : undefined}
+        tabIndex={isDrawer ? 0 : undefined}
+      >
         <div className="cart-items__head">
           <span>{count} {count === 1 ? "item" : "items"}</span>
           <button
@@ -225,26 +232,30 @@ export function CartView({
         </ul>
       </div>
 
-      <aside className="cart-summary" aria-label="Order summary">
-        <h2>Summary</h2>
+      <aside
+        className={isDrawer ? "cart-summary cart-summary--drawer" : "cart-summary"}
+        aria-label="Order summary"
+      >
+        <div className="cart-shipping">
+          <progress
+            className="cart-shipping__progress"
+            aria-label="Merchandise subtotal before discounts"
+            aria-valuetext={`${formatPrice(subtotal)} of ${formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} merchandise subtotal before discounts`}
+            max={FREE_STANDARD_SHIPPING_THRESHOLD_CENTS}
+            value={Math.max(0, FREE_STANDARD_SHIPPING_THRESHOLD_CENTS - freeShippingRemaining)}
+          />
+          <p className="cart-shipping__message" role="status">
+            {subtotalThresholdReached
+              ? <>Subtotal is at least {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} before discounts.</>
+              : <>Add <strong>{formatPrice(freeShippingRemaining)}</strong> to reach {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} before discounts.</>}
+            {" "}Free standard US shipping applies at {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)}+ after discounts and before taxes.
+          </p>
+        </div>
         <div className="summary-row">
-          <span>Subtotal ({count} items)</span>
+          <span>Subtotal</span>
           <span>{formatPrice(subtotal)}</span>
         </div>
-        <div className="summary-row">
-          <span>Standard shipping</span>
-          <span>
-            {freeShippingQualified
-              ? "Free threshold met"
-            : `Free at ${formatFreeShippingThreshold()}`}
-          </span>
-        </div>
-        <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} />
-        <p className="cart-summary__note">
-          {freeShippingQualified
-            ? "Your cart meets the free standard shipping threshold."
-            : `${formatPrice(freeShippingRemaining)} away from the free standard shipping threshold.`}
-        </p>
+        {isDrawer ? <div className="cart-summary__action">{checkout}</div> : checkout}
       </aside>
     </div>
   );

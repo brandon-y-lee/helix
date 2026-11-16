@@ -1,0 +1,375 @@
+'use client';
+
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { AnimatePresence, domMax, LazyMotion } from 'motion/react';
+import * as m from 'motion/react-m';
+import { effects, type Effect } from '@/lib/content/serum-effects';
+import { animateEffectsGeometry, captureEffectsGeometry, type EffectsGeometrySnapshot } from './effects-disclosure-motion';
+import styles from './PdpEffectsSection.module.css';
+
+const MOBILE_EFFECTS_QUERY = '(max-width: 800px)';
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+function subscribeEffectsQuery(media: string, callback: () => void) {
+  const query = window.matchMedia?.(media);
+  query?.addEventListener?.('change', callback);
+  return () => query?.removeEventListener?.('change', callback);
+}
+
+const subscribeMobileEffects = (callback: () => void) => subscribeEffectsQuery(MOBILE_EFFECTS_QUERY, callback);
+const subscribeMotionPreference = (callback: () => void) => subscribeEffectsQuery(REDUCED_MOTION_QUERY, callback);
+const reducedMotionSnapshot = () => window.matchMedia?.(REDUCED_MOTION_QUERY).matches ?? false;
+const serverMotionSnapshot = () => false;
+
+function mobileEffectsSnapshot() {
+  return window.matchMedia?.(MOBILE_EFFECTS_QUERY).matches ?? false;
+}
+
+const serverMobileEffectsSnapshot = () => true;
+
+function Chevron({ previous = false }: { previous?: boolean }) {
+  return <svg viewBox="0 0 20 20" aria-hidden="true"><path d={previous ? 'm12 5-5 5 5 5' : 'm8 5 5 5-5 5'} /></svg>;
+}
+
+function PropertyCopy({ pathway }: { pathway: Effect['pathways'][number] }) {
+  return <>
+    <h3>{pathway.title}</h3>
+    <p className={styles.ingredients}>{pathway.ingredients}</p>
+    <p className={styles.rationale}>{pathway.description}</p>
+  </>;
+}
+
+function Properties({ effect, reduceMotion, mobile }: { effect: Effect; reduceMotion: boolean; mobile: boolean }) {
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(active);
+  const previousRef = useRef<HTMLButtonElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
+
+  function goTo(index: number) {
+    const track = trackRef.current;
+    if (!track) return;
+    const card = track.children[index] as HTMLElement;
+    setActive(index);
+    track.scrollTo({ left: card.offsetLeft, behavior: reduceMotion ? 'instant' : 'smooth' });
+  }
+
+  useLayoutEffect(() => {
+    activeRef.current = active;
+    // Move focus after the endpoint buttons have received their new disabled state.
+    if (active === 0 && document.activeElement === previousRef.current) nextRef.current?.focus({ preventScroll: true });
+    if (active === effect.pathways.length - 1 && document.activeElement === nextRef.current) previousRef.current?.focus({ preventScroll: true });
+  }, [active, effect.pathways.length]);
+
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    let width = track.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (track.clientWidth === width) return;
+      width = track.clientWidth;
+      const selected = track.children[activeRef.current] as HTMLElement;
+      track.scrollTo({ left: selected.offsetLeft, behavior: 'instant' });
+    });
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, []);
+
+  return <div className={styles.properties} role="region" aria-roledescription="carousel" aria-label={`${effect.title} properties`}>
+    {mobile && <div className={styles.propertySizer} aria-hidden="true" inert>
+      {effects.flatMap(item => item.pathways).map((pathway, index) => <article className={styles.property} key={index}><PropertyCopy pathway={pathway} /></article>)}
+    </div>}
+    <div className={styles.propertyTrack} ref={trackRef} onScroll={event => {
+      const track = event.currentTarget;
+      const index = Math.round(track.scrollLeft / track.clientWidth);
+      if (index >= 0 && index < effect.pathways.length) setActive(index);
+    }}>
+      {effect.pathways.map((pathway, index) => <article className={styles.property} key={pathway.title} aria-hidden={active !== index} aria-roledescription="slide" aria-label={`${index + 1} of ${effect.pathways.length}`}>
+        <PropertyCopy pathway={pathway} />
+      </article>)}
+    </div>
+    <div className={styles.propertyControls}>
+      <span className={styles.count} aria-live="polite" aria-atomic="true">{String(active + 1).padStart(2, '0')} <span aria-hidden="true">/</span><span className={styles.srOnly}>of</span> {String(effect.pathways.length).padStart(2, '0')}</span>
+      <div className={styles.propertyArrows}>
+        <button ref={previousRef} type="button" aria-label="Previous property" disabled={active === 0} onClick={() => goTo(active - 1)}><Chevron previous /></button>
+        <button ref={nextRef} type="button" aria-label="Next property" disabled={active === effect.pathways.length - 1} onClick={() => goTo(active + 1)}><Chevron /></button>
+      </div>
+    </div>
+  </div>;
+}
+
+export function PdpEffectsSection() {
+  const [active, setActive] = useState<number | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
+  const propertiesRef = useRef<HTMLDivElement>(null);
+  const closedEffect = useRef<number | null>(null);
+  const selectedRef = useRef<number | null>(null);
+  const [position, setPosition] = useState(0);
+  const [moving, setMoving] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [arrowTarget, setArrowTarget] = useState<number | null>(null);
+  const arrowTargetRef = useRef<number | null>(null);
+  const scrollPosition = useRef(0);
+  const [disclosure, setDisclosure] = useState<'opening' | 'closing' | null>(null);
+  const disclosureFrom = useRef<EffectsGeometrySnapshot | null>(null);
+  const disclosureIsMobile = useRef(false);
+  const disclosureMotion = useRef<ReturnType<typeof animateEffectsGeometry> | null>(null);
+  const requestedView = useRef<number | null>(null);
+  const touching = useRef(false);
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reduceMotion = useSyncExternalStore(subscribeMotionPreference, reducedMotionSnapshot, serverMotionSnapshot);
+  const mobile = useSyncExternalStore(subscribeMobileEffects, mobileEffectsSnapshot, serverMobileEffectsSnapshot);
+  const effect = active === null ? null : effects[active];
+
+  const mobileExpanded = mobile && active !== null;
+  const viewOpen = active !== null && disclosure !== 'closing';
+  const mobileOpen = mobile && viewOpen;
+  selectedRef.current = active;
+
+  const showArrowsFor = useCallback((index: number | null) => {
+    arrowTargetRef.current = index;
+    setArrowTarget(index);
+    const rail = railRef.current;
+    if (index !== null && rail) {
+      const stride = (rail.children[1] as HTMLElement).offsetLeft - (rail.children[0] as HTMLElement).offsetLeft;
+      rail.parentElement?.style.setProperty('--arrow-drift', `${(index - scrollPosition.current) * stride}px`);
+    }
+  }, []);
+
+  const settle = useCallback(() => {
+    if (!touching.current) { setMoving(false); showArrowsFor(selectedRef.current); }
+  }, [showArrowsFor]);
+
+  function releaseSwipe() {
+    touching.current = false;
+    setDragging(false);
+    const rail = railRef.current;
+    if (rail) {
+      const stride = (rail.children[1] as HTMLElement).offsetLeft - (rail.children[0] as HTMLElement).offsetLeft;
+      if (Math.abs(scrollPosition.current - Math.round(scrollPosition.current)) * stride <= 1) showArrowsFor(Math.round(scrollPosition.current));
+    }
+    scheduleSettle();
+  }
+
+  function scheduleSettle() {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(settle, 160);
+  }
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    rail?.addEventListener('scrollend', settle);
+    return () => {
+      rail?.removeEventListener('scrollend', settle);
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      touching.current = false;
+    };
+  }, [settle]);
+
+  function centerCard(index: number, behavior: ScrollBehavior) {
+    const rail = railRef.current;
+    const card = rail?.children[index] as HTMLElement | undefined;
+    if (rail && card) rail.scrollTo({ left: card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2, behavior });
+  }
+
+  const commitView = useCallback((index: number | null) => {
+    if (index === null) {
+      closedEffect.current = active;
+    } else setPosition(index);
+    setActive(index);
+    scrollPosition.current = index ?? 0;
+    arrowTargetRef.current = index;
+    setArrowTarget(index);
+    setMoving(false);
+    touching.current = false;
+    setDragging(false);
+    railRef.current?.parentElement?.style.setProperty('--arrow-drift', '0px');
+  }, [active]);
+
+  function changeView(index: number | null) {
+    if (disclosure && requestedView.current === index) return;
+    if (index === null && active !== null) {
+      (railRef.current?.children[active] as HTMLElement | undefined)?.querySelector('button')?.focus({ preventScroll: true });
+    }
+    const elements = disclosureElements();
+    disclosureIsMobile.current = mobile;
+    disclosureFrom.current = !reduceMotion && elements ? captureEffectsGeometry(elements) : null;
+    disclosureMotion.current?.stop();
+    disclosureMotion.current = null;
+    requestedView.current = index;
+    if (disclosureFrom.current) {
+      setDisclosure(index === null ? 'closing' : 'opening');
+      if (index !== null) commitView(index);
+    }
+    else { commitView(index); setDisclosure(null); }
+  }
+
+  function select(index: number) {
+    if (disclosure) { changeView(index); return; }
+    if (mobileExpanded) {
+      showArrowsFor(index);
+      centerCard(index, reduceMotion ? 'instant' : 'smooth');
+      if (!reduceMotion) return;
+    }
+    changeView(index);
+  }
+
+  function close() { changeView(null); }
+
+  const disclosureElements = useCallback(() => {
+    const rail = railRef.current, image = imageRef.current, properties = propertiesRef.current;
+    if (!rail) return null;
+    return mobile ? image && properties ? { rail, image, properties } : null : { rail };
+  }, [mobile]);
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    let width = -1;
+    function resize() {
+      if (!rail) return;
+      if (mobile && mobileOpen) {
+        let maxHeight = 44;
+        for (const slot of Array.from(rail.children)) {
+          const button = slot.querySelector('button');
+          const description = slot.querySelector<HTMLElement>(`.${styles.description}`);
+          if (button && description) {
+            button.style.setProperty('--card-height', `${description.offsetHeight}px`);
+            maxHeight = Math.max(maxHeight, description.offsetHeight);
+          }
+        }
+        rail.style.setProperty('--effect-max-card-height', `${maxHeight}px`);
+      }
+      if (rail.clientWidth === width) return;
+      disclosureMotion.current?.finish();
+      width = rail.clientWidth;
+      const index = selectedRef.current ?? closedEffect.current;
+      if (mobile && index !== null) {
+        centerCard(index, 'instant');
+        setPosition(index);
+        scrollPosition.current = index;
+      }
+    }
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(rail);
+    if (mobileOpen) rail.querySelectorAll(`.${styles.description}`).forEach(description => observer.observe(description));
+    return () => observer.disconnect();
+  }, [mobile, mobileOpen]);
+
+  useLayoutEffect(() => {
+    if (!disclosure) return;
+    const elements = disclosureElements();
+    const finish = () => {
+      disclosureMotion.current = null;
+      disclosureFrom.current = null;
+      if (requestedView.current === null) commitView(null);
+      setDisclosure(null);
+    };
+    if (reduceMotion || !elements || mobile !== disclosureIsMobile.current) {
+      disclosureMotion.current?.stop();
+      finish();
+      return;
+    }
+    if (!disclosureFrom.current) return;
+    if (mobile && requestedView.current !== null) centerCard(requestedView.current, 'instant');
+    const animation = animateEffectsGeometry(elements, disclosureFrom.current, captureEffectsGeometry(elements), finish);
+    disclosureMotion.current = animation;
+    disclosureFrom.current = null;
+    return () => animation.stop();
+  }, [mobile, reduceMotion, disclosure, active, commitView, disclosureElements]);
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!mobileExpanded || moving || disclosure || active === null || !rail) return;
+    const hiddenEndpoint = rail.parentElement?.querySelector(`.${styles.arrows} button:disabled`);
+    if (rail.contains(document.activeElement) || document.activeElement === hiddenEndpoint) {
+      (rail.children[active] as HTMLElement).querySelector('button')?.focus({ preventScroll: true });
+    }
+  }, [active, mobileExpanded, moving, disclosure]);
+
+  function scrollEffects() {
+    const rail = railRef.current;
+    if (!rail || !mobileExpanded || disclosure) return;
+    setMoving(true);
+    scheduleSettle();
+    const first = rail.children[0] as HTMLElement;
+    const second = rail.children[1] as HTMLElement;
+    const stride = second.offsetLeft - first.offsetLeft;
+    if (stride <= 0) return;
+    const next = Math.max(0, Math.min(effects.length - 1,
+      (rail.scrollLeft - first.offsetLeft + (rail.clientWidth - first.offsetWidth) / 2) / stride));
+    // Follow the destination of native post-release motion, even before it crosses halfway.
+    if (!touching.current && arrowTargetRef.current === null && next !== scrollPosition.current) {
+      showArrowsFor(next > scrollPosition.current ? Math.ceil(next) : Math.floor(next));
+    }
+    scrollPosition.current = next;
+    rail.parentElement?.style.setProperty('--arrow-drift', `${((arrowTargetRef.current ?? Math.round(next)) - next) * stride}px`);
+    setPosition(next);
+    setActive(Math.round(next));
+  }
+
+  const mediaOpacity = reduceMotion ? 1 : Math.abs(position - Math.round(position)) * -2 + 1;
+  const imageLabel = viewOpen && effect ? `${effect.title} model image placeholder` : 'Serum effects hero image placeholder';
+  const visualContent = <>
+    <div ref={imageRef} className={styles.image} data-effect={viewOpen ? effect?.id : 'hero'}>
+      {mobile ? <div className={styles.hue} data-media-effect={viewOpen ? effect?.id : 'hero'} role="img" aria-label={imageLabel} style={{ opacity: disclosure ? 1 : mediaOpacity }} /> :
+        <AnimatePresence mode="wait" initial={false}>
+          <m.div key={viewOpen ? effect?.id : 'hero'} className={styles.hue} data-media-effect={viewOpen ? effect?.id : 'hero'} role="img" aria-label={imageLabel}
+            initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: reduceMotion ? 0 : .58, delay: reduceMotion ? 0 : .08, ease: 'easeInOut' } }}
+            exit={{ opacity: 0, transition: { duration: reduceMotion ? 0 : .24, ease: 'easeInOut' } }} />
+        </AnimatePresence>}
+      <h2 id="effects-title" className={styles.heading}>Four effects.<br />One formula.</h2>
+    </div>
+    {mobile ? <div ref={propertiesRef} className={styles.mobileProperties} data-open={viewOpen} aria-hidden={!viewOpen} inert={!viewOpen}>
+      {effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile />}
+    </div> : viewOpen && effect && <Properties key={effect.id} effect={effect} reduceMotion={reduceMotion} mobile={false} />}
+  </>;
+
+  return <LazyMotion features={domMax}>
+    <section id="effects-prototype" className={styles.closer} aria-labelledby="effects-title" onKeyDown={event => {
+      if (event.key === 'Escape' && active !== null) { event.preventDefault(); close(); }
+    }}>
+      <div className={styles.stage} data-disclosure={disclosure}>
+        <div className={styles.visualStage}>
+          {viewOpen && <button className={styles.close} type="button" aria-label="Collapse effect description" onClick={close}><span aria-hidden="true">×</span></button>}
+          <div className={styles.visual} data-selected={viewOpen}>{visualContent}</div>
+
+        </div>
+        <div className={styles.selector} data-open={viewOpen}>
+          <div className={styles.effects} aria-label="Explore product effects" ref={railRef} onScroll={scrollEffects}
+            onTouchStart={() => { disclosureMotion.current?.finish(); touching.current = true; setDragging(true); showArrowsFor(null); }}
+            onTouchEnd={releaseSwipe}
+            onTouchCancel={releaseSwipe}
+            onKeyDown={event => {
+              if (!mobileExpanded || active === null) return;
+              const next = event.key === 'ArrowRight' ? Math.min(effects.length - 1, active + 1) :
+                event.key === 'ArrowLeft' ? Math.max(0, active - 1) : event.key === 'Home' ? 0 : event.key === 'End' ? effects.length - 1 : null;
+              if (next !== null) { event.preventDefault(); select(next); }
+            }}>
+            {effects.map((item, index) => {
+              const expanded = viewOpen && active === index;
+              const expansion = reduceMotion ? Number(expanded) : Math.max(0, 1 - Math.abs(position - index));
+              // Mobile wrapper transforms can shrink WebKit's scroll extent and clamp the selection out of view.
+              return <div className={styles.effect} key={item.id} data-expanded={expanded}>
+                <button style={{ borderRadius: 28, ...(mobileOpen ? { '--card-expansion': expansion } : {}) } as CSSProperties}
+                  type="button" aria-label={item.title} aria-describedby={expanded ? `closer-effect-${item.id}` : undefined}
+                  tabIndex={mobileOpen && !expanded ? -1 : undefined} aria-expanded={expanded} aria-controls={`closer-effect-${item.id}`} onClick={() => select(index)}>
+                  <span className={styles.effectLabel}><span className={styles.effectIcon} aria-hidden="true" /><span>{item.title}</span></span>
+                  <span style={{ visibility: mobile && (!mobileOpen || expansion === 0) ? 'hidden' : undefined }} id={`closer-effect-${item.id}`} className={styles.description} aria-hidden={!expanded} hidden={!expanded && !mobile}>
+                    <strong>{item.title}.</strong> {item.promise} {item.summary}
+                  </span>
+                </button>
+              </div>;
+            })}
+          </div>
+          {mobileOpen && <div className={styles.arrows} data-moving={moving} data-dragging={dragging} data-pending={arrowTarget === null}>
+            <button type="button" aria-label="Previous effect" disabled={(arrowTarget ?? active) === 0} onClick={() => select((arrowTarget ?? active) - 1)}><Chevron previous /></button>
+            <button type="button" aria-label="Next effect" disabled={(arrowTarget ?? active) === effects.length - 1} onClick={() => select((arrowTarget ?? active) + 1)}><Chevron /></button>
+          </div>}
+        </div>
+      </div>
+    </section>
+  </LazyMotion>;
+}

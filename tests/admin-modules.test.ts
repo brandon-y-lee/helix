@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_CAPABILITIES } from "@/lib/admin/capabilities";
+import {
+  ADMIN_CAPABILITIES,
+  capabilitiesForRole,
+} from "@/lib/admin/capabilities";
 import {
   getAdminModules,
   sortAdminModules,
@@ -37,8 +40,8 @@ describe("admin module registry", () => {
         status: "active",
       },
     ];
-    const first = getAdminModules();
-    const second = getAdminModules();
+    const first = getAdminModules(capabilitiesForRole("admin"));
+    const second = getAdminModules(capabilitiesForRole("admin"));
 
     expect(sortAdminModules(fixtures).map((module) => module.id)).toEqual([
       "catalog",
@@ -55,7 +58,7 @@ describe("admin module registry", () => {
   });
 
   it("registers the Catalog Editor honestly for its integration route", () => {
-    expect(getAdminModules()).toContainEqual({
+    expect(getAdminModules(capabilitiesForRole("admin"))).toContainEqual({
       id: "catalog",
       label: "Catalog Editor",
       route: "/admin/catalog",
@@ -65,5 +68,33 @@ describe("admin module registry", () => {
       navigationOrder: 10,
       status: "active",
     });
+  });
+
+  it("filters registered modules by their explicit capabilities", () => {
+    expect(
+      getAdminModules(capabilitiesForRole("admin")).map((module) => ({
+        label: module.label,
+        route: module.route,
+      })),
+    ).toEqual([
+      { label: "Catalog Editor", route: "/admin/catalog" },
+      { label: "Demo orders", route: "/admin/demo-orders" },
+      { label: "Support Inbox", route: "/admin/support" },
+      { label: "Product reviews", route: "/admin/reviews" },
+      { label: "Shipment records", route: "/admin/shipments" },
+    ]);
+    for (const role of ["catalog_editor", "catalog_publisher"] as const) {
+      expect(getAdminModules(capabilitiesForRole(role)).map((module) => module.route)).toEqual(["/admin/catalog"]);
+    }
+    expect(getAdminModules([ADMIN_CAPABILITIES.supportRead])).toEqual([
+      expect.objectContaining({ id: "support", route: "/admin/support", requiredCapability: ADMIN_CAPABILITIES.supportRead }),
+    ]);
+    expect(
+      getAdminModules([ADMIN_CAPABILITIES.ordersSimulate]).map(
+        (module) => module.route,
+      ),
+    ).toEqual(["/admin/demo-orders"]);
+    expect(getAdminModules([ADMIN_CAPABILITIES.access])).toEqual([]);
+    expect(getAdminModules([])).toEqual([]);
   });
 });

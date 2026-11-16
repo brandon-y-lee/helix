@@ -73,7 +73,7 @@ The process of fixing the terms selected from a Cart, creating an Order, and see
 _Avoid_: Checkout Session, Order
 
 **Sandbox Checkout**:
-Checkout operating in a test environment that may simulate payment states but cannot create real charges, fulfillment, or Customer communications.
+Checkout operating in a test environment that may simulate payment states but cannot create real charges or Fulfillment. Explicitly enabled development communications may describe its simulated outcomes to approved test recipients.
 _Avoid_: Live Checkout, Test Order
 
 **Payment Attempt**:
@@ -89,7 +89,7 @@ A Customer-facing identifier assigned to an Order, distinct from internal provid
 _Avoid_: Order ID, Payment Reference
 
 **Sandbox Order**:
-An Order created through Sandbox Checkout that records a payment simulation but is not a real purchase and cannot enter fulfillment.
+An Order created through Sandbox Checkout that records a payment simulation but is not a real purchase and cannot enter Fulfillment. Clearly identified development communications and Simulated Shipments may exercise its service experience without representing a real purchase or dispatch.
 _Avoid_: Test Order, Live Order
 
 **Order Line**:

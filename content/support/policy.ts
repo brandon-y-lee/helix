@@ -13,15 +13,14 @@ export const returnsPolicy = {
   issueReportWindowDays: 7,
   refundProcessingWindow: "1 to 2 weeks after the approved return is received and inspected",
   condition:
-    "Items should be unopened, unused, and returned with their original packaging unless the issue is an approved damaged, missing, or incorrect item claim.",
+    "Opened products are considered case by case; acceptance is not guaranteed.",
 };
 
 export const supportPolicy = {
-  contactIntakeConfigured: false,
   contactStatus:
-    "Mei Pelle has not published a verified public support destination yet.",
+    "The Contact page shows current Support Intake availability.",
   privacyRequestRoute:
-    "Use the Contact page to review request categories while a verified privacy intake channel is finalized.",
+    "Use the Contact page to check availability and choose Privacy request. A request is received only after the form confirms acceptance.",
 };
 
 export function qualifiesForFreeStandardShipping(subtotalCents: unknown): boolean {
