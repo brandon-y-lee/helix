@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as createCheckout } from "@/app/api/checkout/sessions/route";
 import { POST as cancelCheckout } from "@/app/cart/checkout-cancel/route";
 import { CheckoutAdmissionError } from "@/lib/checkout/admission";
-import { assertCheckoutRequestOrigin } from "@/lib/checkout/request";
+import { readCheckoutCancellationRequest, assertCheckoutRequestOrigin } from "@/lib/checkout/request";
 
 const runtime = vi.hoisted(() => ({ cookies: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: runtime.cookies, headers: vi.fn() }));
@@ -215,5 +215,18 @@ describe("cancellation browser request boundary", () => {
       error: "Sandbox checkout is temporarily unavailable. Try again in a moment.",
     });
     expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("explicit return-origin recovery input", () => {
+  it.each([{}, { recoverOriginChange: true }, { recoverOriginChange: false }])("accepts only a bounded recovery preference %#", async (body) => {
+    await expect(readCheckoutCancellationRequest(new Request("https://www.helixskin.us/cart/checkout-cancel", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    }))).resolves.toEqual({ recoverOriginChange: body.recoverOriginChange === true });
+  });
+  it.each([{ recoverOriginChange: "true" }, { recoverOriginChange: null }, { recoverOriginChange: true, orderId: "foreign" }, { requestOrigin: "https://attacker.example" }])("rejects recovery authority from client data %#", async (body) => {
+    await expect(readCheckoutCancellationRequest(new Request("https://www.helixskin.us/cart/checkout-cancel", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    }))).rejects.toThrow("Invalid checkout request.");
   });
 });

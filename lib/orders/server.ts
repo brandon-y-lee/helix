@@ -1,3 +1,4 @@
+import { checkoutReturnDestinationState } from "@/lib/orders/checkout-return";
 import { resolveCheckoutOffer } from "@/lib/offers/server";
 import "server-only";
 import { readManualShipments } from "@/lib/shipments/server";
@@ -170,6 +171,7 @@ class CheckoutError extends Error {
     | "unavailable_cart"
     | "checkout_unavailable"
     | "checkout_in_progress"
+    | "checkout_origin_changed"
     | "shipping_unavailable"
     | "reward_unavailable";
 
@@ -622,7 +624,7 @@ export async function createStripeCheckoutSession(
   if (originalId) {
     const original = await loadOrderById(originalId);
     if (!original || !checkoutOrderBelongsToCurrentIdentity(original, identity)) throw new CheckoutAdmissionError(503);
-    return resumeKnownCheckout(original, config, stripe);
+    return resumeKnownCheckout(original, config, stripe, origin);
   }
   readCheckoutConfig();
   const cart = await getCheckoutCartSnapshot();
@@ -722,7 +724,7 @@ export async function createStripeCheckoutSession(
     );
   }
 
-  if (order.stripe_checkout_session_id) return resumeKnownCheckout(order, config, stripe);
+  if (order.stripe_checkout_session_id) return resumeKnownCheckout(order, config, stripe, origin);
   const pending = await readPendingCheckoutAttempt({ orderId: order.id });
   if (pending?.sendStarted || pending?.legacy) throw uncertainCheckout();
   const attemptToken = await claimCheckoutAttempt(order.id);
@@ -791,6 +793,7 @@ export async function createStripeCheckoutSession(
     }
     await cacheCreatedCheckoutSession({ accountId: config.accountId, orderId: order.id, attemptToken, stripeIdempotencyKey,
       snapshot: checkoutRefreshSnapshot(session) });
+    assertCheckoutReturns(session, origin);
     if (!session.url) throw uncertainCheckout();
     return { orderId: order.id, orderNumber: order.order_number, sessionId: session.id, url: session.url };
   } catch (error) {
@@ -803,7 +806,14 @@ function uncertainCheckout(): CheckoutError {
   return new CheckoutError("checkout_in_progress", "This checkout needs verification. Please contact support before starting another.");
 }
 
-async function resumeKnownCheckout(order: OrderRow, config: PaymentProviderConfig, stripe: Stripe): Promise<CreateCheckoutResult> {
+function assertCheckoutReturns(session: Stripe.Checkout.Session, origin: string): void {
+  const state = checkoutReturnDestinationState(session, origin);
+  if (state === "origin_changed") throw new CheckoutError("checkout_origin_changed",
+    "This pending checkout was opened on another Helix site. Cancel it here before starting a new checkout.");
+  if (state !== "match") throw new CheckoutAdmissionError(503);
+}
+
+async function resumeKnownCheckout(order: OrderRow, config: PaymentProviderConfig, stripe: Stripe, origin: string): Promise<CreateCheckoutResult> {
   if (!order.stripe_checkout_session_id) throw uncertainCheckout();
   const refresh = await refreshOwnedCheckoutSession(config, stripe, order, order.stripe_checkout_session_id);
   const session = refresh.verified ?? refresh.cached;
@@ -813,6 +823,8 @@ async function resumeKnownCheckout(order: OrderRow, config: PaymentProviderConfi
   if (reconciled?.status === "paid" || reconciled?.status === "refunded") throw new CheckoutError("checkout_unavailable", "This checkout has already been completed.");
   if (checkoutSessionDisposition({ orderStatus: order.status === "paid" || order.status === "refunded" ? "pending_payment" : order.status,
     status: session.status, paymentStatus: session.payment_status, expiresAt: session.expires_at, url: session.url }) === "reuse" && session.url) {
+    if (!refresh.verified) throw new CheckoutAdmissionError(429, Math.max(1, refresh.retryAfterSeconds));
+    assertCheckoutReturns(refresh.verified, origin);
     if (!order.user_id) await ensureGuestReceiptBinding({ orderId: order.id, accountId: config.accountId });
     await setPendingCheckoutCookie(order.id);
     return { orderId: order.id, orderNumber: order.order_number, sessionId: session.id, url: session.url };
@@ -1073,9 +1085,11 @@ async function reconcileLoadedCheckoutPayment(
 async function cancelStripeCheckoutOrder(
   initialOrder: OrderRow,
   reason: string,
+  recoveryOrigin?: string,
 ): Promise<"cancelled" | "paid" | "processing"> {
   let order = initialOrder;
   if (!order.stripe_checkout_session_id) {
+    if (recoveryOrigin) return "processing";
     if (await cancelLoadedPendingOrder(order, reason)) return "cancelled";
     const current = await loadOrderById(order.id);
     if (!current || current.status === "cancelled") return "cancelled";
@@ -1095,6 +1109,8 @@ async function cancelStripeCheckoutOrder(
     // object belongs to this accepted attempt. Verify its binding before expiry.
     await reconcileLoadedCheckoutPayment(order, provider);
     if (await getCheckoutPaymentException({ orderId: order.id, sessionId })) return "processing";
+    if (recoveryOrigin && (provider.session.payment_status !== "unpaid" ||
+        checkoutReturnDestinationState(provider.session, recoveryOrigin) !== "origin_changed")) return "processing";
     // An expiration race is uncertain until the next separately admitted read.
     // Do not bypass the shared cooldown by retrieving again in the catch path.
     try {
@@ -1116,6 +1132,7 @@ async function cancelStripeCheckoutOrder(
 
 export async function cancelPendingCheckoutFromCookie(
   reason = "customer requested checkout cancellation",
+  options: { recoverOriginChange?: boolean; requestOrigin?: string } = {},
 ): Promise<{
   status:
     | "missing"
@@ -1127,10 +1144,22 @@ export async function cancelPendingCheckoutFromCookie(
     | "not_cancellable";
 }> {
   const cookieStore = await cookies();
-  const orderId = cookieStore.get(CHECKOUT_CANCEL_COOKIE)?.value ?? null;
-
+  let orderId = cookieStore.get(CHECKOUT_CANCEL_COOKIE)?.value ?? null;
+  const recoveryOrigin = options.recoverOriginChange ? resolveCheckoutOrigin({ requestOrigin: options.requestOrigin }) : undefined;
+  let fallbackUserId: string | null = null;
+  let fallbackCartId: string | null = null;
   if (!orderId) {
-    return { status: "missing" };
+    if (!recoveryOrigin) return { status: "missing" };
+    const user = await getCurrentUser();
+    if (!user) return { status: "missing" };
+    const identity = await getActiveCartIdentity();
+    if (!identity.cartId || identity.userId !== user.id) return { status: "not_owned" };
+    orderId = await findUnresolvedCheckoutOrder({ cartId: identity.cartId });
+    if (!orderId) return { status: "missing" };
+    fallbackUserId = user.id;
+    fallbackCartId = identity.cartId;
+    const candidate = await loadOrderById(orderId);
+    if (!candidate || candidate.user_id !== user.id || candidate.cart_id !== identity.cartId || !checkoutOrderBelongsToCurrentIdentity(candidate, identity)) return { status: "not_owned" };
   }
   if (!isUuid(orderId)) {
     await clearPendingCheckoutCookie();
@@ -1143,6 +1172,7 @@ export async function cancelPendingCheckoutFromCookie(
     return { status: "not_found" };
   }
   const user = await getCurrentUser();
+  if (fallbackUserId && (user?.id !== fallbackUserId || order.user_id !== fallbackUserId || order.cart_id !== fallbackCartId)) return { status: "not_owned" };
   const owned = order.stripe_checkout_session_id
     ? await authorizeCheckoutReceipt({ orderId: order.id, sessionId: order.stripe_checkout_session_id,
       accountId: STRIPE_SANDBOX_ACCOUNT_ID, verifiedUserId: user?.id ?? null })
@@ -1156,7 +1186,7 @@ export async function cancelPendingCheckoutFromCookie(
     return { status: "not_cancellable" };
   }
 
-  const status = await cancelStripeCheckoutOrder(order, reason);
+  const status = await cancelStripeCheckoutOrder(order, reason, recoveryOrigin);
   // Processing and uncertain failures must retain the capability for a retry.
   if (status !== "processing") await clearPendingCheckoutCookie();
   return { status };
@@ -1278,9 +1308,12 @@ export async function getOrdersForCurrentUser(): Promise<Array<{
   }>;
 }
 
-export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number } {
+export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number; code?: "CHECKOUT_ORIGIN_CHANGED" } {
   if (error instanceof CheckoutAdmissionError) {
     return { message: error.message, status: error.status, retryAfterSeconds: error.retryAfterSeconds };
+  }
+  if (error instanceof CheckoutError && error.code === "checkout_origin_changed") {
+    return { message: error.message, status: 409, code: "CHECKOUT_ORIGIN_CHANGED" };
   }
   if (error instanceof CartError || error instanceof CheckoutError) {
     return { message: error.message, status: 400 };

@@ -80,11 +80,13 @@ export async function readCheckoutRequest(request: Request): Promise<{
   return { rewardTierId: tier.id };
 }
 
-export async function readCheckoutCancellationRequest(request: Request): Promise<void> {
+export async function readCheckoutCancellationRequest(request: Request): Promise<{ recoverOriginChange: boolean }> {
   const body = await readJsonObject(request);
-  if (Object.keys(body).length > 0) {
+  if (Object.keys(body).some((key) => key !== "recoverOriginChange") ||
+      (body.recoverOriginChange !== undefined && typeof body.recoverOriginChange !== "boolean")) {
     throw new CheckoutRequestError("Invalid checkout request.", 400);
   }
+  return { recoverOriginChange: body.recoverOriginChange === true };
 }
 
 export function checkoutResponseHeaders(retryAfterSeconds?: number): Record<string, string> {
