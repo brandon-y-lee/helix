@@ -724,3 +724,46 @@ passing unchanged unit/static/build checks before local repair completion.
 Retain the concurrent stress limitation even if these checks pass. No runtime
 arrow change is justified by the current evidence. Any normal-load recurrence
 remains a blocker requiring further diagnosis.
+
+
+## V6 release-owner handoff checkpoint
+
+Parent delegation reports Brandon now authorized current dev to Production;
+release task `6afa7b47-533c-8191-bc49-e3bfa19120d8` owns merges/deployments and must
+resolve its exact release SHA. This worker remains forbidden to promote, deploy,
+change hosted/security settings or DNS. Keep dev `helixskin.vercel.app` and
+Production `.us`/`www`. The runbook now states the exact integration and
+Production-only origin/Auth/firewall/email dependencies. The local candidate is
+not in dev and is not selected for integration merely by authorizing dev's
+promotion.
+
+Reviewed source `b0b7a827177ef0763ec04c1b63460317a6607570` retains all nine dashboard
+paths and all 234 original PDP assertion calls. Proof:
+`/tmp/helix-domain-v6-composition.json` and
+`/tmp/helix-domain-v6-assertion-proof.json`. Both independent reviewers approve
+source deltas `d689688..4d7bbc5` and `4d7bbc5..b0b7a82`; no actionable findings.
+
+Passed: all four native-swipe cases ten times, retries disabled, **40/40**, on
+fresh configured-`.us` owned build `mKrtxUU8sKXkAGaonax3d`, loopback port 50394,
+identity/cleanup passed. Log `/tmp/helix-domain-v6-repeat-sequential.log`;
+traces/frames `/tmp/helix-domain-v6-repeat-sequential-results`. Final named lint
+and typecheck both exit 0 (`/tmp/helix-domain-v6-final-{lint,typecheck}.log`).
+
+Failed: even without concurrent browser work the complete ordinary four-worker
+Vitest has nine timeouts in two files, plus one `onTaskUpdate` reporting timeout;
+291 files/2864 tests passed, eight existing SQL-fixture skips, duration 316.94s.
+Affected files: `tests/catalog-editor-sections.test.tsx` and
+`tests/storefront-reconciliation.test.ts`. Log
+`/tmp/helix-domain-v6-vitest-sequential.log`. This withdraws any concurrent-only
+explanation. A read-only host snapshot showed unrelated heavy CPU use and about
+7.8 GB swap used; pressure is plausible, not proven causal. No process, timeout,
+worker count, assertion or application behavior was changed. Both reviewers
+require a materially changed condition before repeating this same unit run.
+Earlier 2873-pass v5 evidence does not substitute for the failed current gate.
+
+Full Chromium after v6 is pending at this checkpoint; prior v5 evidence remains
+206 passed/three prerequisite skips/one flaky, not a clean replacement. Prior
+unchanged dedicated DB evidence is retained; no migration or database source
+changed. **Local verification and integration readiness remain BLOCKED.**
+The release owner must receive the exact failed and passed results, not a
+completion claim. The latest full-browser outcome will be appended separately.

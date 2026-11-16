@@ -7,13 +7,71 @@ protection and created a Preview; see the chronological
 [plan/evidence](../plans/domain-transition.md). The latest local reconciliation
 and read-only exposure inspection made no hosted changes.
 
+## Latest release coordination and current blocker
+
+The parent now reports Brandon authorized moving **current dev to Production**.
+Release execution task `6afa7b47-533c-8191-bc49-e3bfa19120d8` owns every merge and
+deployment, and must resolve and record its exact current dev SHA. This later
+release instruction supersedes the earlier intent to retain the old Production
+build. The hostname split remains Production `helixskin.us`/`www.helixskin.us`
+and dev `helixskin.vercel.app`. This worker must not independently promote,
+deploy, change hosted settings/security, or change DNS.
+
+The unintegrated local domain candidate is on `codex/plan-domain-transition`,
+reviewed source `b0b7a827177ef0763ec04c1b63460317a6607570`. Both independent
+reviewers approve the narrow timing repair and completed-frame attachment;
+application/domain executable code is unchanged from reconciled source `37d4391`.
+All nine dashboard paths remain identical to dev `3519c00`; all 234 PDP assertion
+calls remain byte-identical to the pre-repair source.
+
+Readiness is **BLOCKED**. Forty native swipes passed without retries on fresh
+configured-`.us` build `mKrtxUU8sKXkAGaonax3d`, and lint/typecheck pass. However,
+the complete normal four-worker Vitest failed twice: the isolated run has nine
+timeouts in `catalog-editor-sections.test.tsx` and `storefront-reconciliation.test.ts`
+plus an `onTaskUpdate` reporting timeout (291 files/2864 tests passed, eight
+existing SQL-fixture skips). Heavy unrelated host load and swap pressure were
+observed, but causality is unproven. Timeouts, workers and assertions stay intact.
+The complete post-repair Chromium run is pending at this checkpoint; see the
+latest outcome appended to the [evidence record](../plans/domain-transition.md).
+No release readiness or gate waiver is implied by source review or the 40-pass run.
+
+Required integration and configuration dependencies for the release owner:
+
+1. Explicitly select this compatibility delta for reviewed integration if `.us`
+   service origins are required. Promoting existing dev alone excludes these
+   local changes and retains its hardcoded legacy origin. Use the applicable
+   repository workflow and green quality/browser gates on the exact combined
+   release SHA; no cherry-pick or failed-check bypass is implied here.
+2. Preserve the stable dev alias and its environment values. Scope the three
+   coherent origin settings to the intended Production build only:
+   `NEXT_PUBLIC_SITE_URL`, `CHECKOUT_ORIGIN` when present, and
+   `HELIX_EMAIL_SITE_ORIGIN`. For the current apex 308-to-www arrangement the
+   serving origin is `https://www.helixskin.us`; verify actual DNS/TLS and mapping
+   with the DNS owner first. Keep dev at `https://helixskin.vercel.app`.
+   Public metadata/static routes require a rebuild of compatible code.
+3. In the verified existing Supabase project, add only the chosen serving
+   origin's exact `/auth/callback` and `/auth/confirm` paths, retaining both
+   legacy and localhost entries. Keep the current Site URL until `.us` Auth
+   continuity is proven on the compatible build. No wildcard or SMTP/template
+   activation is implicit; follow the existing Auth-email manifest procedure.
+4. Verify active checkout host firewall/admission rules. The documented sandbox
+   host rule allows only legacy, so `.us` checkout may remain blocked. Any rule
+   change is a separate reviewed security action, not covered by this worker.
+   Keep legacy callbacks, Stripe success/cancel/receipt routes and webhooks
+   reachable for old links and Sessions; cookies do not transfer across hosts.
+5. Prove Auth and sandbox checkout on actual hosts under the required controlled
+   recipient/provider authority. Keep all flags, payment modes, campaigns,
+   tracking, provider endpoints/secrets and existing `support@helixskin.com`
+   copy unchanged. Lifecycle/marketing template contracts and persisted email
+   links have separate origin/activation dependencies; do not rewrite outboxes.
+
 ## Current destination decision — supersedes the Preview proposal
 
 Brandon selected **`helixskin.us` on the existing Vercel Production deployment**,
 with **`helixskin.vercel.app` remaining dev**. A separate worker owns the
-explicitly authorized DNS work. Do not reassign `.us` to Preview, promote dev,
-change project protection/security, or infer production-release authority from
-this destination choice. Earlier instructions below proposing `.us` on Preview
+explicitly authorized DNS work. Do not reassign `.us` to Preview or change project protection/security.
+This earlier destination choice did not itself authorize promotion; the latest
+separate release-owner authority is recorded above. Earlier instructions below proposing `.us` on Preview
 and withholding all DNS work are historical and superseded by this decision.
 They do not authorize further actions.
 
