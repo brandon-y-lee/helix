@@ -325,8 +325,13 @@ describe("legal and support content", () => {
     expect(hero.querySelector("img")).toHaveAttribute("alt", "");
     expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
-    expect(faqText).toContain("$50+");
-    expect(faqText).toMatch(/No real shipping or Fulfillment capability is available/i);
+    expect(faqText).toContain("free standard shipping to delivery addresses within the United States");
+    expect(faqText).toContain("Most orders ship 5–7 business days after being placed.");
+    expect(faqText).toContain("within 2 business days");
+    expect(faqText).toContain("7–12 business days after they are issued");
+    expect(faqText).toContain("noon Pacific");
+    expect(faqText).toContain("up to 7 years");
+    expect(faqText).toContain("WCAG 2.1 Level AA");
     const returnAnswer = faqCategories.find((category) => category.id === "returns")!
       .items.find((item) => item.id === "return-window")!.answer;
     const returnWindow = `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt.`;
@@ -338,7 +343,8 @@ describe("legal and support content", () => {
     const legalTerms = renderToStaticMarkup(termsOfService.content);
     expect(legalTerms).toContain(returnWindow);
     expect(legalTerms).toContain(returnsPolicy.condition);
-    expect(faqText).toMatch(/Terms status page/i);
+    expect(faqText).toContain("Terms & Conditions");
+    expect(faqText).not.toMatch(/Terms status page|No real shipping or Fulfillment capability is available|not an operative Terms of Service|no operative refund rule|requires a Legal Operator|unavailable feedback channel/i);
     expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
       /development storefront|development platform|test store|placeholder/i,

@@ -427,7 +427,10 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
     /raise-your-baseline-hero-02\.webp/,
   );
 
-  await page.getByRole("button", { name: "SEARCH" }).click();
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  const searchButton = page.getByRole("button", { name: "SEARCH" });
+  await expect(searchButton).toBeInViewport({ ratio: 1 });
+  await searchButton.click();
   const search = page.getByRole("dialog", { name: "Search" });
   await expect(search).toBeVisible();
   await expect(search.getByText("Search products", { exact: true })).toBeVisible();
