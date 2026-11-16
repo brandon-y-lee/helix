@@ -47,6 +47,12 @@ export function CheckoutCancellationCleanup({ active, recoverOriginChange = fals
 
   return (
     <div>
+      {recoverOriginChange && (
+        <p className="checkout-panel__hint">
+          Changing or clearing your cart doesn’t close an earlier checkout.
+          {" "}Choose Cancel pending checkout below; once cancellation is confirmed, try checkout again.
+        </p>
+      )}
       <button
         type="button"
         className="link-button"

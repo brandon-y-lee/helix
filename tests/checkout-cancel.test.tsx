@@ -148,6 +148,7 @@ describe("explicit origin recovery UI", () => {
     vi.stubGlobal("fetch", fetchRequest);
     const user = userEvent.setup();
     render(<CheckoutCancellationCleanup active recoverOriginChange onCancelled={recovered} />);
+    expect(screen.getByText(/Changing or clearing your cart doesn’t close an earlier checkout/)).toBeVisible();
     expect(fetchRequest).not.toHaveBeenCalled();
     expect(recovered).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Cancel pending checkout" }));
