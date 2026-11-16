@@ -165,3 +165,21 @@ privacy test awaits it before the first metric and after reload before revoking
 loaded SDKs. All existing assertions, timeout/retry settings and application
 measurement runtime remain unchanged. Fresh exact-source review/verification
 must show zero unexpected/flaky outcomes; no green-exit waiver.
+
+## Reviewed v6 — establish visual geometry before native ingredient hover
+
+Exact397fcd7 full Chromium retained210passed/one catalog skip/one ingredient
+hover flake, HTML ok:false despite runner exit0. Privacy, all three account
+viewports and both available purchase tests passed retry0. Retained report and
+system traces: `/tmp/helix-release-evidence/397fcd7-failed`; exact summary
+`/tmp/helix-release-evidence/chromium-397fcd7.json`.
+
+The failed ingredient test derives a native pointer point after logical
+centering and a nonnull box, while the rail has a CSS centering transition.
+Those do not establish final visual geometry; stale coordinates are a plausible
+inference, not a traced first-attempt cause. Both independent reviewers approved
+v6 before editing: add the preceding test's actual card/viewport center<=2px
+condition and refresh focusedCard inside that poll before computing the pointer
+point. Keep the original nonnull assertion and every native mouse, indicator,
+coordinate, selection/swipe assertion, timeout and retry. No app change, sleep,
+forced hover or event replacement. Fresh exact-source full gates remain required.

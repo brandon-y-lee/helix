@@ -510,6 +510,17 @@ test("Ingredient literacy supports reliable selection and multi-card swipe snapp
       return focusedCard;
     })
     .not.toBeNull();
+  await expect
+    .poll(async () => {
+      const viewportBox = await viewport.boundingBox();
+      focusedCard = await tabs.nth(1).boundingBox();
+      if (!viewportBox || !focusedCard) return Number.POSITIVE_INFINITY;
+      return Math.abs(
+        focusedCard.x + focusedCard.width / 2 -
+          (viewportBox.x + viewportBox.width / 2),
+      );
+    })
+    .toBeLessThanOrEqual(2);
   if (!focusedCard) throw new Error("The focused ingredient card is not visible.");
 
   const startX = focusedCard.x + focusedCard.width * 0.62;
