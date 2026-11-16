@@ -140,3 +140,22 @@ describe("checkout cancellation routing", () => {
     expect(refreshCart).not.toHaveBeenCalled();
   });
 });
+
+describe("explicit origin recovery UI", () => {
+  it("waits for a separate click, sends no identifiers, and reports verified recovery without starting checkout", async () => {
+    const fetchRequest = vi.fn().mockResolvedValue(Response.json({ status: "cancelled" }));
+    const recovered = vi.fn();
+    vi.stubGlobal("fetch", fetchRequest);
+    const user = userEvent.setup();
+    render(<CheckoutCancellationCleanup active recoverOriginChange onCancelled={recovered} />);
+    expect(fetchRequest).not.toHaveBeenCalled();
+    expect(recovered).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancel pending checkout" }));
+    expect(fetchRequest).toHaveBeenCalledExactlyOnceWith("/cart/checkout-cancel", expect.objectContaining({
+      method: "POST", body: '{"recoverOriginChange":true}', credentials: "same-origin",
+    }));
+    expect(recovered).toHaveBeenCalledOnce();
+    expect(refreshCart).toHaveBeenCalledOnce();
+    expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+  });
+});

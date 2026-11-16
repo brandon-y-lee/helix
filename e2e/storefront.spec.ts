@@ -541,9 +541,13 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   const mobileCards = await page.locator(".shop-grid-shell .product-card__surface").evaluateAll((elements) =>
     elements.map((element) => {
       const rect = element.getBoundingClientRect();
-      const action = element.querySelector(".product-card__button")?.getBoundingClientRect();
+      const button = element.querySelector(".product-card__button");
+      const action = button?.getBoundingClientRect();
+      const actionStyle = button ? getComputedStyle(button) : null;
       const identity = element.querySelector(".product-card__identity")!.getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, identityHeight: identity.height, actionHeight: action?.height };
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height, identityHeight: identity.height,
+        actionHeight: actionStyle ? Number.parseFloat(actionStyle.height) : undefined,
+        actionVisualHeight: action?.height, actionBoxSizing: actionStyle?.boxSizing };
     }),
   );
   expect(mobileCards[0].x).toBe(16);
@@ -551,6 +555,12 @@ test("shop presents the approved Product, collection, sheet, and footer treatmen
   expect(mobileCards[1].x - (mobileCards[0].x + mobileCards[0].width)).toBe(8);
   expect(mobileCards[1].y).toBe(mobileCards[0].y);
   expect(mobileCards.every((card) => card.actionHeight === undefined || card.actionHeight >= 44)).toBe(true);
+  for (const card of mobileCards.filter((item) => item.actionHeight !== undefined)) {
+    // Fractional document coordinates can subtract to 43.99994 for a 44px box.
+    // Keep the exact CSS minimum and separately detect visual scaling/shrinkage.
+    expect(card.actionBoxSizing).toBe("border-box");
+    expect(card.actionVisualHeight).toBeCloseTo(card.actionHeight!, 3);
+  }
   // Current short-name cards are compact; content may grow without clipping.
   for (const card of mobileCards.filter((item) => item.identityHeight <= 58 && item.actionHeight === 44)) {
     expect(card.height).toBeGreaterThanOrEqual(290);

@@ -5,7 +5,9 @@ import { useCart } from "@/components/cart/useCart";
 
 type CancellationState = "idle" | "pending" | "cancelled" | "paid" | "processing" | "unavailable" | "error";
 
-export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
+export function CheckoutCancellationCleanup({ active, recoverOriginChange = false, onCancelled }: {
+  active: boolean; recoverOriginChange?: boolean; onCancelled?: () => void;
+}) {
   const { refresh } = useCart();
   const [state, setState] = useState<CancellationState>("idle");
   if (!active) return null;
@@ -18,7 +20,7 @@ export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
       const response = await fetch("/cart/checkout-cancel", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: "{}",
+        body: recoverOriginChange ? JSON.stringify({ recoverOriginChange: true }) : "{}",
         cache: "no-store",
         credentials: "same-origin",
       });
@@ -36,6 +38,7 @@ export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
       setState(result.status);
       if (result.status === "cancelled" || result.status === "paid") {
         void refresh();
+        if (result.status === "cancelled") onCancelled?.();
       }
     } catch {
       setState("error");
@@ -57,7 +60,9 @@ export function CheckoutCancellationCleanup({ active }: { active: boolean }) {
         {state === "pending" && "Checking pending checkout…"}
         {state === "cancelled" && "Sandbox checkout was cancelled."}
         {state === "paid" && "This checkout has already completed."}
-        {state === "processing" && "This payment is still processing. Try again shortly."}
+        {state === "processing" && (recoverOriginChange
+          ? "This checkout still needs verification. Try again shortly; contact support if it remains blocked."
+          : "This payment is still processing. Try again shortly.")}
         {state === "unavailable" && "No pending checkout is available to cancel."}
         {state === "error" && "We couldn't cancel checkout. Try again in a moment."}
       </p>

@@ -1,8 +1,11 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { createCheckoutSession } from "@/lib/cart/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cart = vi.hoisted(() => ({
   useCartMutations: vi.fn(),
+  useCart: vi.fn(),
 }));
 
 vi.mock("@/components/cart/useCart", () => cart);
@@ -19,6 +22,7 @@ function response(body: unknown, status = 200) {
 describe("Checkout helix rewards state", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    cart.useCart.mockReturnValue({ refresh: vi.fn() });
     cart.useCartMutations.mockReturnValue({
       checkoutPending: false,
       checkoutError: null,
@@ -58,4 +62,31 @@ describe("Checkout helix rewards state", () => {
     expect(await screen.findByText(/an account is required/i)).toBeVisible();
     expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument();
   });
+});
+
+it("shows explicit local recovery only for the structured origin error, then requires a separate checkout click", async () => {
+  const fetchRequest = vi.fn().mockResolvedValueOnce(Response.json({ error: { code: "CHECKOUT_ORIGIN_CHANGED", message: "This pending checkout was opened on another Helix site." } }, { status: 409 }));
+  vi.stubGlobal("fetch", fetchRequest);
+  const error = await createCheckoutSession(null).catch((value: unknown) => value);
+  const resetErrors = vi.fn();
+  const startCheckout = vi.fn().mockResolvedValue(null);
+  const mutationState = { checkoutPending: false, checkoutError: error, resetErrors, startCheckout };
+  cart.useCartMutations.mockReturnValue(mutationState);
+  fetchRequest.mockImplementation((url) => url === "/cart/checkout-cancel"
+    ? response({ status: "cancelled" }) : response({ authenticated: false, affordableTiers: [] }));
+  const user = userEvent.setup();
+  const view = render(<CheckoutPanel disabled={false} subtotal={5500} cartUpdatedAt={1} />);
+  expect(screen.getByText("This pending checkout was opened on another Helix site.")).toBeVisible();
+  expect(fetchRequest.mock.calls.filter(([url]) => url === "/cart/checkout-cancel")).toHaveLength(0);
+  expect(startCheckout).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Cancel pending checkout" }));
+  expect(await screen.findByText("Pending checkout was cancelled. You can check out again.")).toBeVisible();
+  expect(resetErrors).toHaveBeenCalledOnce();
+  expect(startCheckout).not.toHaveBeenCalled();
+  cart.useCartMutations.mockReturnValue({ ...mutationState, checkoutError: null });
+  view.rerender(<CheckoutPanel disabled={false} subtotal={5500} cartUpdatedAt={1} />);
+  expect(screen.queryByRole("button", { name: "Cancel pending checkout" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Checkout $55.00" }));
+  expect(startCheckout).toHaveBeenCalledExactlyOnceWith(null, undefined);
+  expect(fetchRequest).toHaveBeenCalledWith("/cart/checkout-cancel", expect.objectContaining({ body: '{"recoverOriginChange":true}' }));
 });

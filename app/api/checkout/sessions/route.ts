@@ -26,9 +26,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     const requestError = checkoutRequestErrorResponse(error);
     if (requestError) return requestError;
-    const { message, status, retryAfterSeconds } = checkoutErrorResponseMessage(error);
+    const { message, status, retryAfterSeconds, code } = checkoutErrorResponseMessage(error);
     return NextResponse.json(
-      { error: message },
+      { error: code ? { code, message } : message },
       { status, headers: checkoutResponseHeaders(retryAfterSeconds) },
     );
   }
