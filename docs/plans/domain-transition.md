@@ -645,3 +645,52 @@ Local candidate79cb69b/source37d4391 remains undeployed, source-approved and
 browser-blocked as above. This inspection made only GET requests and local
 source reads/checks; it did not change provider environment, deployments,
 protection, aliases, domains, DNS, data, campaigns, payment modes or remote Git.
+
+
+## Candidate v6 — native swipe timing repair (local only)
+
+The parent authorized investigating the reproduced Chromium failure and a narrow
+fix if justified, without weakening assertions or changing hosted state, dev or
+Production. Independent Spec and Standards reviewers first approved diagnosis,
+then approved the exact test-only implementation delta described below.
+
+The failed v5 trace's last synthetic move preceded release by about 125 ms;
+the intended 100 px fast flick is below half the 322 px card stride. The test waits
+for serial CDP acknowledgements and several assertions before releasing.
+A plain native CSS scroll-snap control and the application were compared in a
+matched touch-enabled 390x844 Chromium context through the owned local runner.
+The final 18-trial diagnostic has nonnegative browser event timestamps:
+
+- Native and application with an added 125 ms dwell: each 3/3 snap back to x 0;
+  last-move-to-release event gaps 146–173 ms.
+- Native and application with explicit nominal 5 ms event cadence despite the
+  same host round trips: each 3/3 advance to x 322, event gaps 4.9–5 ms.
+- Untimestamped native immediate release also snapped back once when its
+  unintended event gap reached 108.6 ms. A scheduled host-side 5 ms wait does not
+  establish a 5 ms browser input cadence.
+
+Evidence: `/tmp/helix-domain-v6-swipe-diagnosis.json` and
+`/tmp/helix-domain-v6-diagnose-final.log`, owned build
+`0yM0UFCdMGZDxd904tzJr`; server identity and cleanup passed. An initial diagnostic
+stopped because its browser context lacked touch support; another exploratory
+variant used timestamps before the new document's time origin, which clamped
+them to 0. Those runs do not support the final timestamp conclusion; their logs
+remain preserved. The final run corrected both conditions.
+
+These controls support a synthetic-input timing cause; no application gesture
+repair is justified. The approved delta only supplies monotonic epoch-second
+CDP timestamps to the existing fast forward and reverse flicks: start at current
+UTC epoch time, moves 5 ms apart, release 5 ms after the last move. Slow gestures keep
+their real-time input, including 250 ms paused-finger checks. Distances, wall waits,
+all assertions/tolerances, fixtures, browser settings and production UI stay
+unchanged. The existing reproduced test is the regression seam; no mirrored
+unit test is added. The [official ChromeDevTools input schema](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Input.pdl)
+defines the optional touch timestamp in epoch seconds.
+
+Before clearing the v5 blocker: run all four native-swipe cases 10 times each with
+retries disabled, the complete PDP browser file, full Chromium on a fresh owned
+configured-`.us` build, affected unit tests, normal full Vitest, lint and typecheck.
+Preserve old failure artifacts and report remaining skips separately. SQL paths
+remain unchanged, so prior dedicated database proof remains applicable. Obtain
+both independent final diff reviews against source checkpoint d689688 and exact
+combined dev 3519c00. This delta authorizes no deployment or hosted action.
