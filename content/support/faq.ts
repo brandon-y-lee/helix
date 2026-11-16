@@ -142,13 +142,13 @@ export const faqCategories: FAQCategory[] = [
         id: "free-shipping",
         question: "Is standard shipping available?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States. Available shipping options are shown at checkout.",
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Available shipping options are shown at checkout.",
       },
       {
         id: "shipping-destinations",
         question: "Where is standard shipping available?",
         answer:
-          "Free standard shipping is available to delivery addresses within the United States. Check the available shipping options at checkout.",
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Check the available shipping options at checkout.",
       },
       {
         id: "shipping-timing",
@@ -202,7 +202,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
+          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
         links: [
           { label: "Terms & Conditions", href: "/terms" },
           { label: "Customer Care", href: "/contact" },

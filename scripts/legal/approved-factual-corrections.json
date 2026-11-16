@@ -111,6 +111,11 @@
       "area": "payments",
       "find": "Refunds are processed through Square",
       "replace": "Refunds are processed through Stripe"
+    },
+    {
+      "area": "pricing",
+      "find": "Helix offers free standard shipping to delivery addresses within the United States.",
+      "replace": "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes."
     }
   ]
 }
