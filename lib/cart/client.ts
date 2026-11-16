@@ -184,3 +184,7 @@ export function cartErrorRetryable(error: unknown): boolean {
 export function isConfirmedCartFailure(error: unknown): boolean {
   return error instanceof CartApiError && error.outcome === "confirmed";
 }
+
+export function cartErrorCode(error: unknown): string | null {
+  return error instanceof CartApiError ? error.code : null;
+}

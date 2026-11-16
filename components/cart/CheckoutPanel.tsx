@@ -4,7 +4,8 @@ import Link from "next/link";
 import { isOfferSummary, offerDiscountCents, type OfferSummary } from "@/lib/offers/rules";
 import { useEffect, useMemo, useState } from "react";
 import { useCartMutations } from "@/components/cart/useCart";
-import { cartErrorMessage } from "@/lib/cart/client";
+import { CheckoutCancellationCleanup } from "@/components/cart/CheckoutCancellationCleanup";
+import { cartErrorCode, cartErrorMessage } from "@/lib/cart/client";
 import { formatPrice } from "@/lib/products";
 
 type RewardTierSummary = {
@@ -42,6 +43,7 @@ export function CheckoutPanel({
   subtotal: number;
   cartUpdatedAt: number;
 }) {
+  const [originRecovered, setOriginRecovered] = useState(false);
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
   const [rewardsStatus, setRewardsStatus] = useState<
     "loading" | "ready" | "unavailable"
@@ -106,6 +108,7 @@ export function CheckoutPanel({
   async function startCheckout() {
     if (pending || disabled) return;
     resetErrors();
+    setOriginRecovered(false);
     const session = await createCheckout(
       selectedReward === "none" ? null : selectedReward,
       selectedOffer || undefined,
@@ -192,6 +195,13 @@ export function CheckoutPanel({
         </p>
       )}
 
+      {cartErrorCode(checkoutError) === "CHECKOUT_ORIGIN_CHANGED" && (
+        <CheckoutCancellationCleanup active recoverOriginChange onCancelled={() => {
+          setOriginRecovered(true);
+          resetErrors();
+        }} />
+      )}
+      {originRecovered && <p role="status">Pending checkout was cancelled. You can check out again.</p>}
       {activeOffer && <p className="checkout-panel__hint">Estimated merchandise total after offer. Tax and shipping are calculated at checkout.</p>}
       <button
         type="button"

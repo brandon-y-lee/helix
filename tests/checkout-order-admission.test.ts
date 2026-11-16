@@ -40,7 +40,7 @@ const accountId = "acct_1Tm9WRFEzyaKzdmq";
 const attemptId = "00000000-0000-4000-8000-000000000046";
 const guestToken = Buffer.alloc(32, 1).toString("base64url");
 const refreshToken = "00000000-0000-4000-8000-000000000045";
-const order = { id: orderId, cart_id: cartId, user_id: null, status: "pending_payment",
+const order = { id: orderId, cart_id: cartId, user_id: null as string | null, status: "pending_payment",
   stripe_checkout_session_id: sessionId, total_cents: 5500, merchandise_subtotal_cents: 5500,
   discount_cents: 0, shipping_cents: 0, tax_cents: 0, shipping_address: {}, shipping_name: null,
   reward_points_earned: 0, reward_points_redeemed: 0, metadata: {}, order_number: "HX-42" };
@@ -62,6 +62,8 @@ function providerSession() {
     mode: "payment", currency: "usd", client_reference_id: orderId, amount_total: 5500,
     metadata: { order_id: orderId, environment: "sandbox", schema: "checkout_v1" }, payment_intent: null, after_expiration: null, recovered_from: null,
     expires_at: Math.floor(Date.now() / 1000) + 1800,
+    success_url: "https://helixskin.vercel.app/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+    cancel_url: "https://helixskin.vercel.app/cart?checkout=cancelled",
     url: "https://checkout.stripe.com/c/pay/private", payment_method_types: ["card"] } satisfies Partial<Stripe.Checkout.Session>;
 }
 
@@ -142,7 +144,7 @@ function useCheckoutFixture(overrides: Record<string, unknown> = {}, priceCents 
     if (params.discounts && params.allow_promotion_codes !== undefined) {
       throw new Error("You may only specify one of these parameters: allow_promotion_codes, discounts.");
     }
-    return { ...session, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null };
+    return { ...session, success_url: params.success_url, cancel_url: params.cancel_url, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null };
   });
   boundary.retrieveSession.mockResolvedValue(session);
   boundary.from.mockImplementation((table: string) => {
@@ -188,6 +190,107 @@ function rpcCallOrder(name: string): number {
 }
 
 describe("customer checkout admission", () => {
+  it.each(["unresolved", "reserved"])("blocks dev return URLs on www through the %s-order resume entrypoint", async (entry) => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    useCheckoutFixture({ stripe_checkout_session_id: sessionId });
+    if (entry === "reserved") {
+      const original = boundary.rpc.getMockImplementation()!;
+      boundary.rpc.mockImplementation((name, ...args) => name === "find_unresolved_checkout_order"
+        ? Promise.resolve({ data: null, error: null }) : original(name, ...args));
+    }
+    await expect(createStripeCheckoutSession({ requestOrigin: "https://www.helixskin.us" })).rejects.toMatchObject({ code: "checkout_origin_changed" });
+    expect(boundary.cookieSet).not.toHaveBeenCalled();
+    expect(boundary.createSession).not.toHaveBeenCalled();
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+    expect(boundary.rpc.mock.calls.some(([name]) => ["bind_guest_checkout_receipt", "expire_checkout_order_from_stripe", "fail_checkout_attempt"].includes(name))).toBe(false);
+  });
+  it.each(["https://www.helixskin.us", "https://helixskin.vercel.app"])("resumes only provider-proven same-origin returns on %s", async (origin) => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
+    boundary.retrieveSession.mockResolvedValue({ ...session, success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${origin}/cart?checkout=cancelled` });
+    await expect(createStripeCheckoutSession({ requestOrigin: origin })).resolves.toMatchObject({ sessionId, url: session.url });
+    expect(boundary.retrieveSession).toHaveBeenCalledOnce();
+    expect(boundary.createSession).not.toHaveBeenCalled();
+  });
+  it.each(["success_url", "cancel_url"])("rejects a missing %s before issuing a resume capability", async (field) => {
+    const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
+    boundary.retrieveSession.mockResolvedValue({ ...session, [field]: null });
+    await expect(createStripeCheckoutSession()).rejects.toMatchObject({ status: 503 });
+    expect(boundary.cookieSet).not.toHaveBeenCalled();
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+  });
+  it("persists a newly-created financial Session but does not expose an idempotent dev return URL on www", async () => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    const { session } = useCheckoutFixture();
+    boundary.createSession.mockImplementation(async (params) => ({ ...session, metadata: params.metadata, client_reference_id: params.client_reference_id, customer: params.customer ?? null }));
+    await expect(createStripeCheckoutSession({ requestOrigin: "https://www.helixskin.us" })).rejects.toMatchObject({ code: "checkout_origin_changed" });
+    expect(boundary.createSession).toHaveBeenCalledOnce();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "bind_checkout_attempt_session")).toBe(true);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "cache_created_checkout_session")).toBe(true);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "fail_checkout_attempt")).toBe(false);
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+  });
+
+  function useOriginRecovery() {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    const fixture = useCheckoutFixture({ stripe_checkout_session_id: sessionId, user_id: "user-1" });
+    boundary.cookieGet.mockReturnValue(undefined);
+    boundary.identity.mockResolvedValue({ id: "user-1", email: "customer@example.test" });
+    boundary.authorizeReceipt.mockImplementation((args) => args.p_order_id === orderId && args.p_session_id === sessionId && args.p_user_id === "user-1");
+    const original = boundary.rpc.getMockImplementation()!;
+    boundary.rpc.mockImplementation((name, args) => {
+      if (name === "resolve_active_cart") return Promise.resolve({ data: [{ cart_id: cartId, user_id: "user-1", status: "active" }], error: null });
+      if (name === "expire_checkout_order_from_stripe") { fixture.activeOrder.status = "cancelled"; return Promise.resolve({ data: true, error: null }); }
+      return original(name, args);
+    });
+    boundary.expireSession.mockResolvedValue({ ...fixture.session, status: "expired", url: null });
+    return fixture;
+  }
+  const recovery = { recoverOriginChange: true, requestOrigin: "https://www.helixskin.us" };
+  it("explicitly recovers the authenticated user's own unresolved cart without a cross-host pending cookie", async () => {
+    useOriginRecovery();
+    await expect(cancelPendingCheckoutFromCookie(undefined, recovery)).resolves.toEqual({ status: "cancelled" });
+    expect(boundary.retrieveSession).toHaveBeenCalledOnce();
+    expect(boundary.expireSession).toHaveBeenCalledOnce();
+    expect(rpcCallOrder("authorize_checkout_receipt")).toBeLessThan(boundary.retrieveSession.mock.invocationCallOrder[0]);
+    expect(boundary.rpc.mock.calls.filter(([name]) => name === "claim_checkout_refresh")).toHaveLength(1);
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "expire_checkout_order_from_stripe")).toBe(true);
+    expect(boundary.createSession).not.toHaveBeenCalled();
+  });
+  it.each(["guest", "wrong-user", "wrong-cart", "foreign-order", "malformed-cookie", "foreign-cookie", "receipt-denied"])("does not grant missing-cookie recovery to %s", async (scenario) => {
+    const { activeOrder } = useOriginRecovery();
+    if (scenario === "guest") boundary.identity.mockResolvedValue(null);
+    if (scenario === "wrong-user") boundary.identity.mockResolvedValue({ id: "another-user" });
+    if (scenario === "wrong-cart") activeOrder.cart_id = "another-cart";
+    if (scenario === "foreign-order") activeOrder.user_id = "another-user";
+    if (scenario === "malformed-cookie") boundary.cookieGet.mockReturnValue({ value: "invalid" });
+    if (scenario === "foreign-cookie") { boundary.cookieGet.mockReturnValue({ value: orderId }); activeOrder.user_id = "another-user"; boundary.authorizeReceipt.mockReturnValue(false); }
+    if (scenario === "receipt-denied") boundary.authorizeReceipt.mockReturnValue(false);
+    const result = await cancelPendingCheckoutFromCookie(undefined, recovery);
+    expect(["missing", "not_owned"]).toContain(result.status);
+    expect(boundary.retrieveSession).not.toHaveBeenCalled();
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+  });
+  it.each(["same-host", "missing-return", "cached", "processing", "exception", "expiration-race"])("does not expire or release a recovery Session on %s proof", async (scenario) => {
+    const { session } = useOriginRecovery();
+    if (scenario === "same-host") boundary.retrieveSession.mockResolvedValue({ ...session, success_url: session.success_url.replace("helixskin.vercel.app", "www.helixskin.us"), cancel_url: session.cancel_url.replace("helixskin.vercel.app", "www.helixskin.us") });
+    if (scenario === "missing-return") boundary.retrieveSession.mockResolvedValue({ ...session, cancel_url: null });
+    if (scenario === "processing") boundary.retrieveSession.mockResolvedValue({ ...session, status: "complete", payment_status: "unpaid" });
+    if (scenario === "expiration-race") boundary.expireSession.mockRejectedValue(new Error("uncertain outcome"));
+    const original = boundary.rpc.getMockImplementation()!;
+    if (scenario === "cached" || scenario === "exception") boundary.rpc.mockImplementation((name, ...args) => {
+      if (scenario === "cached" && name === "claim_checkout_refresh") return Promise.resolve({ data: { allowed: false, token: null, cached: cachedSession(session), retry_after_seconds: 5 }, error: null });
+      if (scenario === "exception" && name === "read_checkout_payment_exception") return Promise.resolve({ data: { code: "amount_mismatch", paymentStatus: "paid", paymentIntentId: "pi_requires_review", amountCents: 5500 }, error: null });
+      return original(name, ...args);
+    });
+    await expect(cancelPendingCheckoutFromCookie(undefined, recovery)).resolves.toEqual({ status: "processing" });
+    if (scenario !== "expiration-race") expect(boundary.expireSession).not.toHaveBeenCalled();
+    else expect(boundary.expireSession).toHaveBeenCalledOnce();
+    expect(boundary.rpc.mock.calls.some(([name]) => name === "expire_checkout_order_from_stripe")).toBe(false);
+    expect(boundary.createSession).not.toHaveBeenCalled();
+    expect(boundary.cookieSet).not.toHaveBeenCalledWith(CHECKOUT_CANCEL_COOKIE, "", expect.any(Object));
+    expect(boundary.retrieveSession.mock.calls.length).toBeLessThanOrEqual(1);
+  });
   it("does not disclose or retrieve an order's Session for another guest cart", async () => {
     expect(await getOrderConfirmationBySession(sessionId)).toBeNull();
     expect(boundary.retrieveSession).not.toHaveBeenCalled();
@@ -448,13 +551,14 @@ describe("customer checkout admission", () => {
     expect(await getOrderConfirmationBySession(sessionId)).toMatchObject({ order: { status: "pending_payment" }, state: "pending" });
     expect(boundary.retrieveSession).not.toHaveBeenCalled();
   });
-  it("reuses only an unexpired cached payable URL while replay refresh is deferred", async () => {
+  it("defers cached payable replay because the strict cache lacks return-origin proof", async () => {
     const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });
     const original = boundary.rpc.getMockImplementation()!;
     boundary.rpc.mockImplementation((name, ...args) => name === "claim_checkout_refresh"
       ? Promise.resolve({ data: { allowed: false, token: null, cached: { ...cachedSession(session), payment_method_types: ["afterpay_clearpay"] }, retry_after_seconds: 5 }, error: null })
       : original(name, ...args));
-    expect(await createStripeCheckoutSession()).toMatchObject({ sessionId, url: session.url });
+    await expect(createStripeCheckoutSession()).rejects.toMatchObject({ status: 429, retryAfterSeconds: 5 });
+    expect(boundary.cookieSet).not.toHaveBeenCalled();
     expect(boundary.retrieveSession).not.toHaveBeenCalled();
     expect(boundary.createSession).not.toHaveBeenCalled();
     expect(boundary.from.mock.calls.some(([table]) => table === "payment_attempts")).toBe(false);

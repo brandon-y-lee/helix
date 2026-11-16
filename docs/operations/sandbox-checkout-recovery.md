@@ -26,3 +26,30 @@ If no conclusive Session or event can be found, leave the purchase blocked and e
 The existing full-refund path verifies successful returned amounts and completes supported local reward/referral effects. A failed local effect stays an exception and requires repair/resend. Partial, pending and failed refunds are reviewed in Stripe Dashboard. Complete live refund accounting, spent-points debt, fulfillment and production payment activation remain outside this sandbox milestone.
 
 Rollback stops new checkout admission and republishes the offer as unavailable through the catalog's audited Publish flow. Preserve webhook settlement, private confirmation, existing Orders, rewards and provider references.
+
+## A pending checkout belongs to another Helix site
+
+Stripe success and cancel URLs cannot be retargeted after Session creation. A
+previously opened hosted page retains its original URLs. New checkout admission
+and both existing-Order resume paths require fresh, admitted provider proof that
+both return destinations match the initiating trusted site and expected routes.
+The strict eight-field refresh cache cannot supply that proof: a deferred replay
+returns a bounded retry instead of a payable URL, without bypassing refresh limits.
+Payment status reconciliation remains independent of return-destination suitability.
+
+For a proven mismatch, the cart offers **Cancel pending checkout** as a separate,
+explicit action. Existing pending-cookie/receipt ownership remains required for
+guests. An authenticated customer without the other host's pending cookie can
+recover only the owned unresolved Order resolved from their own active cart; no
+client-supplied Order or Session identifiers are accepted. Malformed or foreign
+cookies never fall through to that recovery.
+
+Recovery obtains one admitted provider read, verifies the financial binding and
+incompatible return destinations, and expires only that owned open unpaid Session.
+Paid, processing, contradictory, cached-only or uncertain outcomes retain their
+financial safeguards. A confirmed nonpayable cancellation permits a separate
+checkout retry; recovery never creates a replacement automatically. Unknown
+return proof stays blocked for verification/support. Keep legacy routes and
+callbacks reachable for previously issued links; do not redirect dev globally or
+copy cookies across hosts. This repair does not change sandbox mode, provider
+configuration, email delivery, or reservation/settlement contracts.

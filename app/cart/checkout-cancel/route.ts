@@ -16,8 +16,10 @@ export const runtime = "nodejs";
 export async function POST(request: Request): Promise<NextResponse> {
   try {
     assertCheckoutRequestOrigin(request);
-    await readCheckoutCancellationRequest(request);
-    const result = await cancelPendingCheckoutFromCookie();
+    const body = await readCheckoutCancellationRequest(request);
+    const result = await cancelPendingCheckoutFromCookie(undefined, {
+      recoverOriginChange: body.recoverOriginChange, requestOrigin: new URL(request.url).origin,
+    });
     const status = ["cancelled", "paid", "processing"].includes(result.status)
       ? result.status
       : "unavailable";
