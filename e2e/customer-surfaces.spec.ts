@@ -64,7 +64,7 @@ test("private customer content is rendered on the shared surfaces without live c
           await expect(island).toHaveCSS("background-color", "rgb(245, 245, 247)");
         }
       } else {
-        await expectGrayPanels(page.locator("#content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
+        await expectGrayPanels(page.locator("#content .account-section, #content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
       }
       for (const control of await page.locator('#content .account-form input:not([type="hidden"]), #content .account-form select, #content .account-form textarea').all()) {
         await expect(control).toHaveCSS("background-color", CANVAS_WHITE);
