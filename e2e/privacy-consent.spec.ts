@@ -68,6 +68,7 @@ test("privacy choices gate scripts, persist independent analytics, and revoke lo
   await dialog.getByRole("button", { name: "Confirm my choices" }).click();
   await expect.poll(() => network.scripts.length).toBe(3);
   expect(network.scripts.join(" ")).not.toContain("/meta.js");
+  await expect(page.locator("html")).toHaveAttribute("data-helix-mock-speed-ready", "true");
   await page.getByRole("button", { name: "Emit synthetic metric" }).click();
   await expect
     .poll(() =>
@@ -79,6 +80,7 @@ test("privacy choices gate scripts, persist independent analytics, and revoke lo
   ).toBe(true);
   await page.reload();
   await expect.poll(() => network.scripts.length).toBe(6);
+  await expect(page.locator("html")).toHaveAttribute("data-helix-mock-speed-ready", "true");
   dialog = await open(page);
   await expect(
     dialog.getByRole("switch", { name: "Allow analytics" }),

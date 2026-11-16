@@ -145,3 +145,23 @@ Eight protected candidate Preview GETs also verified exact deployment
 account redirects and unchanged firewall denial. Only an existing authorized
 read credential was used in request memory; no security setting changed.
 Fresh v4 source review and full gates remain required.
+
+## Reviewed v5 — wait for the local privacy SDK fixture to execute
+
+Exact24937b9 full Chromium executed both available rich-PDP tests successfully:
+210passed, one unchanged two-Offer skip, one privacy flake, HTML ok:false. The
+runner exited0, so this result remains blocked. Preserved full report and privacy
+artifacts: `/tmp/helix-release-evidence/24937b9-failed`; summary
+`/tmp/helix-release-evidence/chromium-24937b9.json`.
+
+The failed assertion expected a speed event after the first synthetic metric.
+Its request counter observes script requests before script execution, whereas
+the mock registers the metric listener during execution. A readiness race is an
+inference supported by that ordering/failure point; the first attempt did not
+retain script-execution timing, so it is not asserted as conclusively traced.
+Both independent reviewers approved v5 before editing: the local-only speed
+stub sets a DOM readiness attribute after listener registration; the existing
+privacy test awaits it before the first metric and after reload before revoking
+loaded SDKs. All existing assertions, timeout/retry settings and application
+measurement runtime remain unchanged. Fresh exact-source review/verification
+must show zero unexpected/flaky outcomes; no green-exit waiver.
