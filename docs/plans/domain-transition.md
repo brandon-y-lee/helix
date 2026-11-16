@@ -694,3 +694,33 @@ Preserve old failure artifacts and report remaining skips separately. SQL paths
 remain unchanged, so prior dedicated database proof remains applicable. Obtain
 both independent final diff reviews against source checkpoint d689688 and exact
 combined dev 3519c00. This delta authorizes no deployment or hosted action.
+
+V6 verification refinement, approved independently by both reviewers:
+
+The first 40-case run overlapped full four-worker Vitest on this local host.
+All 20 fast flicks passed; five of 20 unchanged slow drags exceeded the existing
+three-frame arrow-visibility budget by one frame (35 passed, five failed).
+Concurrent Vitest recorded seven timeouts in two files plus one `onTaskUpdate`
+reporting timeout, taking 321 seconds. Preserve those failed logs:
+`/tmp/helix-domain-v6-repeat.log` and `/tmp/helix-domain-v6-vitest.log`.
+This is evidence of sensitivity under the overlapping workload; CPU contention
+is a hypothesis, not a conclusively proven cause or permission to waive failures.
+
+The reviewers approved adding a bounded JSON attachment of the already-recorded
+synthetic frame samples after recording completes and before assertions. It
+changes no input, sampled interval, assertion or application behavior, and keeps
+future failure evidence. An isolated traced repeat of the two slow cases passed
+10/10 with the unchanged three-frame limit; all attached samples show arrows
+visible on the third frame. Evidence:
+`/tmp/helix-domain-v6-slow-trace.log`,
+`/tmp/helix-domain-v6-swipe-trace-results`, and
+`/tmp/helix-domain-v6-slow-frame-proof.json`.
+
+The required normal-load topology will now run complete unchanged four-worker
+Vitest, all four gestures ten times without retries, then full Chromium
+sequentially. Repository CI quality and browser jobs use separate runners.
+Both reviewers require zero failures/flakes in the normal browser runs and
+passing unchanged unit/static/build checks before local repair completion.
+Retain the concurrent stress limitation even if these checks pass. No runtime
+arrow change is justified by the current evidence. Any normal-load recurrence
+remains a blocker requiring further diagnosis.
