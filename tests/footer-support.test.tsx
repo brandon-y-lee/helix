@@ -344,7 +344,7 @@ describe("legal and support content", () => {
     expect(legalTerms).toContain(returnWindow);
     expect(legalTerms).toContain(returnsPolicy.condition);
     expect(faqText).toContain("Terms & Conditions");
-    expect(faqText).not.toMatch(/Terms status page|No real shipping or Fulfillment capability is available|not an operative Terms of Service|unavailable feedback channel/i);
+    expect(faqText).not.toMatch(/Terms status page|No real shipping or Fulfillment capability is available|not an operative Terms of Service|no operative refund rule|requires a Legal Operator|unavailable feedback channel/i);
     expect(faqText).not.toMatch(/Does helix offer|Report the issue within|Approved refunds/i);
     expect(faqText).not.toMatch(
       /development storefront|development platform|test store|placeholder/i,

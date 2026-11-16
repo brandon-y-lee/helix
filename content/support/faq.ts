@@ -202,7 +202,11 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "No real shipping cost is charged, and no operative refund rule is in effect. Any future treatment of shipping costs requires a Legal Operator and reviewed Policy.",
+          "Helix offers free standard shipping to delivery addresses within the United States. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
+        links: [
+          { label: "Terms & Conditions", href: "/terms" },
+          { label: "Customer Care", href: "/contact" },
+        ],
       },
     ],
   },
