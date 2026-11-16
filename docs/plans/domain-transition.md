@@ -294,3 +294,177 @@ findings. Reviewers verified the normal complete-suite log, unchanged
 assertions/timeouts/workers/isolation, configured-domain artifact and explicit
 hosted acceptance limits. Worktree was clean and `prepare` passed before review.
 This final documentation record adds no further executable change.
+
+## Candidate v4 — protected hosted Preview only
+
+Goal source: delegated instruction to prepare and deploy reviewed candidate to a
+protected Preview/dev environment, preserve existing work/deployments, and keep
+Production, `.us` assignment/DNS, campaigns, tracking, and payment modes untouched.
+Deployment authority is now granted for this protected Preview only; no branch
+push, merge, Production promotion, public `.us` cutover or customer sends.
+
+Read-only Vercel preflight using authenticated official CLI 65.16.0 found project
+`prj_N9nyPL9SixJHOROIovS8PDQ9aKny`, team `team_uriJjJWNwpZnZHnIp5AiXuv0`,
+framework Next.js/Node24. Its SSO/password/IP protection is disabled; an existing
+automation-bypass record is present (value withheld). Production remains
+`dpl_FJ5YpBEjrFzZo7C73Zia4S56exgj`; legacy staging alias points to
+`dpl_F1Mkgm5192hL4QcqQDCE7MX76sqA`. `.us` apex still redirects308 to `www`,
+and `www` has no gitBranch (Production). No mutation or upload has happened.
+
+Proposed exact bounded rollout:
+
+1. Record and re-read current project, domain and legacy alias state; stop on
+   drift. Use only existing project, no new project or paid upgrade. Confirm
+   anonymous legacy callback/scanner/webhook-health reachability without using
+   a token or invoking provider side effects.
+2. Because Vercel protection is project-scoped, preserve the already-public
+   `helixskin.vercel.app` alias by adding only its documented protection
+   exception: PATCH `/aliases/<existing-legacy-alias-id>/protection-bypass`,
+   `{ "override": { "scope": "alias-protection-override", "action": "create" } }`.
+   Then enable **Preview only** Vercel Authentication with PATCH project
+   `{ "ssoProtection": { "deploymentType": "preview" } }`. The published
+   OpenAPI explicitly supports both bodies; exceptions are free on all plans.
+   Do not use Standard/All scopes that affect Production deployment URLs.
+   No new public hostname/access is created: the exception preserves the exact
+   existing public staging alias and its callback/webhook path behavior. Other
+   generated Preview URLs become authenticated; artifacts/aliases are preserved.
+3. Re-read settings, prove legacy anonymous health/callback/scanner behavior
+   unchanged, and compare Production target and all custom-domain assignments
+   to baseline. Stop before upload if these conditions fail. Do not rotate or
+   create a bypass secret. Before any candidate upload, a failed protection
+   setup may restore only this task's exact touched fields after drift checks.
+4. Export only tracked reviewed commit `929fd47220733a940e8b68eeb1af4ee8e3440f82`
+   to a task-owned temporary source directory. Use CLI `deploy --dry --json`
+   to audit inputs; no `.env`, `.next`, dependency folder, private preflight,
+   tokens, screenshots or unrelated dirty work may upload.
+5. Deploy explicitly to existing project's **preview** target on isolated
+   `codex/plan-domain-transition` metadata, never `dev` branch metadata (which
+   could move the public staging alias). Retain legacy URL configuration for
+   the first Preview. Use deployment-scoped safe disabled feature overrides
+   where required to prevent email/checkout/campaign side effects; change no
+   existing project environment variable or payment mode. Preserve source SHA
+   and a source-manifest fingerprint in deployment metadata. No --prod,
+   --temporary, --verify (which could create a bypass), alias, promote or DNS
+   operation. Review exact options and resulting input manifest before upload.
+6. Verify anonymous Preview access requires authentication, then use official
+   authenticated CLI requests with the **existing** automation bypass to inspect
+   metadata, robots/sitemap, missing-code callback and synthetic confirmation
+   GET/HEAD, and invalid-origin POST rejection. No signup/recovery send, real
+   token exchange, payment/session creation, customer-data query or mutation.
+   Verify actual deployment target/source SHA/environment and unchanged legacy
+   aliases/Production/.us state again. Report limits on real-host cookie proof.
+7. Keep the Preview protected after creation; never roll SSO back to public
+   while that deployment exists. Leave `.us` domain assignment as a separate
+   consequential public-exposure step for the parent. Record exact remote
+   changes, preview URL/ID and check outcomes locally.
+
+Independent Spec and Standards approval of this exact v4 is required before
+protection mutation or upload. All raw provider state remains in a mode700
+temporary directory with mode600 files; no sensitive values are logged/committed.
+
+V4 exact upload candidate: `/tmp/helix-domain-preview-deploy.mjs` exports the
+reviewed SHA above to `/tmp/helix-domain-preview-source` and targets only existing
+project/team with `--environment preview`. Metadata is custom informational
+`helixReviewedSha`, `helixSourceManifest`, and
+`helixSourceBranch=codex/plan-domain-transition`; no provider Git branch override
+is supplied, so no `dev` branch association/domain is moved. The Preview uses
+general Preview variables, with explicit deployment-only overrides: public
+Supabase URL is the approved non-production project; all three site origins
+remain legacy. Every checkout/send/support/marketing/lifecycle/offer/review/
+shipment/measurement enablement flag is `false` at build and runtime. Management,
+service-role, payment, search-write and email credentials are overridden empty
+for this anonymous-catalog inspection deployment. No project environment value
+or payment mode is changed. Existing dev's enabled restricted services remain
+unchanged; this Preview cannot certify those provider actions.
+
+Dry inspection passed: Next.js, 1,694 upload files, 62,779,297 bytes; archive has
+1,695 tracked files. Exact tracked-source manifest fingerprint:
+`7acf1f16a51ee31a7ea6229b132fdf039bdf490889c19a86c65f708cce4284e2`.
+Private dry and argument manifests reside under the protected preflight directory.
+For authenticated verification, use the existing automation-bypass value only
+in an HTTPS request header to the exact returned owned Preview hostname; do not
+ask CLI to create a bypass, print it, put it in a URL, or extract CLI auth cache.
+These exact input/options details also require independent review before upload.
+
+Exact-options review found and resolved three gaps before any remote mutation:
+explicit GA4 and guest-review disabled flags were added, and the upload script
+now rejects any source fingerprint differing from the approved value above
+before invoking Vercel. Both reviewers independently found the source guard/GA4
+issues; Spec also requested the explicit guest-review flag. Spec independently
+compared all 1,695 files against tracked `929fd47`, with no missing, extra or
+mismatched source. Regenerated dry manifests require reapproval of these fixes.
+
+### V4 approval and hosted outcome
+
+Both `/root/domain_spec_review` and `/root/domain_standards_review` approved v4
+before mutation. Both approved the revised exact upload inputs after the source
+guard and disabled flags were fixed. Spec additionally found that provider
+object assertion diffs could expose secret values on drift; before mutation the
+protection script was changed to boolean comparisons with generic errors and a
+sanitized top-level catch. Before/after comparisons also cover password/IP and
+the existing automation-bypass configuration. Both reviewers approved this
+revision. There were no rejected or uncertain hosted writes.
+
+Remote actions completed through official CLI 65.16.0:
+
+- Added `alias-protection-override` only to already-public
+  `helixskin.vercel.app`, preserving its prior public access and its exact
+  deployment target. No public access was added to the candidate hostname.
+- Enabled Vercel Authentication with `deploymentType=preview` on Helix.
+  Existing/future generated Preview URLs now require authentication; Production
+  protection is excluded. No new bypass token was generated or rotated.
+- Deployed tracked reviewed source `929fd47220733a940e8b68eeb1af4ee8e3440f82`
+  to Preview `dpl_BmiGN28iDj2X6hS6WbCFbQHGXvK6`, now `READY`:
+  `https://helix-qjolaotzx-brandons-projects-5060bad5.vercel.app`.
+  Custom metadata records the reviewed SHA, source manifest fingerprint and
+  source branch; there is no `dev` Git association and no assigned custom alias.
+
+Actual uploaded provider source tree independently matched all **1,694** dry
+upload paths and content hashes. The sole archive file ignored by CLI was
+`.gitignore`. No private preflight, local environment/dependency/build output or
+dirty primary file uploaded. Deployment-scoped overrides were exactly reviewed;
+project environment variables and payment modes were not edited.
+
+Hosted verification passed **14 checks**. Anonymous access returns302 to Vercel
+authentication. Using only the existing private header bypass: root/PDP,
+robots and all26 sitemap entries retain the legacy canonical origin; no GA4/
+Meta script is enabled; missing-code callback returns307 to legacy sign-in;
+callback/confirmation remain private/no-store; synthetic confirmation GET
+renders the human form, HEAD returns no body, cross-origin confirmation and
+checkout POSTs return403. No real token exchange, customer query, send or
+payment Session was attempted. The checkout403 may be the existing edge rule;
+it does not establish provider checkout acceptance on this hostname.
+
+Final project/alias/domain comparison confirmed: Preview-only SSO active;
+Production target remains `dpl_FJ5YpBEjrFzZo7C73Zia4S56exgj`; legacy alias still
+targets `dpl_F1Mkgm5192hL4QcqQDCE7MX76sqA`; all `.us` domain assignments and
+redirects, project environment values, password/IP protection and the existing
+automation bypass are unchanged. Legacy anonymous callback307, confirmation200
+and Stripe webhook health200 were verified after enabling protection. No DNS,
+alias target, environment value, production build, Git push, merge, scheduler,
+campaign or tracking activation changed in this task.
+
+Sanitized supporting results are in the private task directory:
+`source-verification.json`, `preview-verification.json`, and
+`final-preservation-summary.json`; raw provider responses remain mode600 under
+`/tmp/helix-domain-vercel-preflight` (directory mode700), never committed.
+
+The parent has a separate account-dashboard worker integrating into dev.
+This Preview intentionally freezes the reviewed domain candidate and does not
+claim to include that later integration. No local/remote dev branch was updated
+here. Re-fetch dev after the account merge before any later domain integration.
+
+The next domain assignment is still a separate exposure-sensitive step. Current
+`.us`/`www` assignment points at the older Production destination; fixing website
+DNS as-is can expose that old site. Later bind `.us` only to the exact reviewed
+Preview/dev destination and verify authentication on the actual custom hostname
+before DNS/public access. Do not assume a protection setting for a generated
+Preview URL proves a differently classified custom domain stays private.
+Removing protection/making `.us` public remains a separate launch decision.
+
+Sources checked for these operations:
+[Vercel Auth scope](https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication),
+[exact domain exceptions](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/deployment-protection-exceptions),
+and the published `https://vercel.com/openapi.json` schemas. No paid feature or
+subscription was enabled. Keep the candidate protected; do not restore SSO to
+null while the hosted Preview exists.
