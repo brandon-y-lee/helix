@@ -150,7 +150,7 @@ export const cookiePolicy: LegalDocument = {
       id: "contact",
       title: "Contact us",
       body: [
-        "For questions about cookies or your personal information, contact Helix Labs LLC DBA Helix at support@helixskin.com. Our Privacy Policy explains more about how we handle personal information and your privacy rights.",
+        "For questions about cookies or your personal information, contact Helix Labs LLC DBA Helix at support@helixskin.us. Our Privacy Policy explains more about how we handle personal information and your privacy rights.",
       ],
     },
   ],

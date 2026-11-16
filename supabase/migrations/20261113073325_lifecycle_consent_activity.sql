@@ -592,7 +592,7 @@ grant execute on function private.label_lifecycle_evidence(),private.lifecycle_v
   public.confirm_marketing_subscription(text,text),private.enqueue_marketing_welcome(private.marketing_subscribers,text) to service_role;
 
 -- The browser must acknowledge the exact immutable scope assigned to this token.
-create function public.confirm_marketing_subscription_scoped(p_confirmation_token text,p_preference_token text,p_scope text)
+create or replace function public.confirm_marketing_subscription_scoped(p_confirmation_token text,p_preference_token text,p_scope text)
 returns jsonb language plpgsql security invoker set search_path='' as $$
 declare version text;
 begin

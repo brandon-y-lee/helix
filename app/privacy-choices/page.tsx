@@ -39,8 +39,8 @@ export default function PrivacyChoicesPage() {
               </section>
             ))}
             <p>
-              <a href="mailto:support@helixskin.com" data-policy-link="email">
-                support@helixskin.com
+              <a href="mailto:support@helixskin.us" data-policy-link="email">
+                support@helixskin.us
               </a>{" "}
               · <Link href="/privacy">Privacy Policy</Link> ·{" "}
               <Link href="/cookie-policy">Cookie Policy</Link>

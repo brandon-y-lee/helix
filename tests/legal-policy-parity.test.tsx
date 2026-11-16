@@ -11,7 +11,7 @@ const substitutions = [
   ["REVETIR LLC", "Helix Labs LLC"],
   ["REVETIR", "Helix"],
   ["Revetir", "Helix"],
-  ["care@revetir.com", "support@helixskin.com"],
+  ["care@revetir.com", "support@helixskin.us"],
   ["2 Park Avenue, 20th Floor, New York, NY 10016", "2747 Haste Street, Berkeley CA 94704"],
   ["https://www.revetir.com", "https://helixskin.vercel.app"],
 ];
@@ -22,7 +22,7 @@ const links: Record<string, string> = {
   "/us/guest/self-serve": "/contact",
   "/us/customer-care/contact-us": "/contact",
   "/us/customer-care": "/contact",
-  "mailto:care@revetir.com": "mailto:support@helixskin.com",
+  "mailto:care@revetir.com": "mailto:support@helixskin.us",
 };
 const substitute = (value: string) => substitutions.reduce((text, [before, after]) => text.replaceAll(before, after), value);
 const approvedCorrections: Record<string, { find: string; replace: string }[]> = JSON.parse(
@@ -104,8 +104,8 @@ describe("complete authorized local policy copies", () => {
     render(<PolicyDocumentLayout document={privacyPolicy} />);
     expect(screen.getByRole("article", { name: "Privacy Policy" })).toHaveTextContent("Helix Labs LLC");
     expect(screen.getByRole("article")).toHaveTextContent("2747 Haste Street, Berkeley CA 94704");
-    for (const link of screen.getAllByRole("link", { name: "support@helixskin.com" })) {
-      expect(link).toHaveAttribute("href", "mailto:support@helixskin.com");
+    for (const link of screen.getAllByRole("link", { name: "support@helixskin.us" })) {
+      expect(link).toHaveAttribute("href", "mailto:support@helixskin.us");
     }
     expect(screen.queryByText("Contents")).not.toBeInTheDocument();
   });

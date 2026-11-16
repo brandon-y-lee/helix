@@ -15,7 +15,7 @@ const substitutions = [
   ["REVETIR LLC", "Helix Labs LLC"],
   ["REVETIR", "Helix"],
   ["Revetir", "Helix"],
-  ["care@revetir.com", "support@helixskin.com"],
+  ["care@revetir.com", "support@helixskin.us"],
   ["2 Park Avenue, 20th Floor, New York, NY 10016", "2747 Haste Street, Berkeley CA 94704"],
   ["https://www.revetir.com", "https://helixskin.vercel.app"],
 ];

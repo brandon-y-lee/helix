@@ -272,7 +272,7 @@ test("cookie policy retains the current legal layout with readable scoped tables
     await expect(policy).not.toContainText(/Not in effect|prelaunch|No Legal Operator/);
     await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("columnheader")).toHaveText(["Name", "Function", "Duration"]);
     await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("row")).toHaveCount(8);
-    await expect(policy.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+    await expect(policy.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
     await expectNoMainOverflow(page, viewport.width);
     await page.locator(".site-footer").getByRole("button", { name: "Your Privacy Choices" }).click();
     await page.getByRole("dialog").getByRole("link", { name: "Privacy Policy", exact: true }).first().click();

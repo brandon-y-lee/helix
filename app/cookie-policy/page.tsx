@@ -108,10 +108,10 @@ export default function CookiePolicyPage() {
                 {section.id === "contact" && (
                   <p>
                     <a
-                      href="mailto:support@helixskin.com"
+                      href="mailto:support@helixskin.us"
                       data-policy-link="email"
                     >
-                      support@helixskin.com
+                      support@helixskin.us
                     </a>{" "}
                     · <Link href="/privacy">Privacy Policy</Link>
                   </p>

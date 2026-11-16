@@ -16,7 +16,7 @@ export const accessibilityStatement: PolicyDocument = {
 </div></section>
 <section id="accessibility-barriers" aria-labelledby="accessibility-barriers-title"><h2 id="accessibility-barriers-title">Accessibility barriers</h2>
 <div data-policy-prose=""><p>If you are having difficulty viewing, navigating, or browsing content on our website; or notice any content, feature, or function that you believe is not fully accessible to people who are differently abled, please:</p>
-<ul><li>Write to us at <a href="mailto:support@helixskin.com">support@helixskin.com</a>.</li>
+<ul><li>Write to us at <a href="mailto:support@helixskin.us">support@helixskin.us</a>.</li>
 <li>Use &quot;Accessibility Barriers&quot; in the subject line so that we may address the issue as soon as possible.</li>
 <li>A description of the specific feature you feel is an accessibility barrier and/or a suggestion for improvement would be greatly appreciated.</li>
 </ul>
