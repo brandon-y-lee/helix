@@ -1,11 +1,74 @@
 # helixskin.us storefront transition — local candidate
 
-Prepared 2026-11-16 from remote dev `022bd8e`. This document is a rollout plan,
-not evidence that a domain, mailbox, provider, or deployment is ready. This task
-made no remote configuration changes, pushes, deployments, or sends. It does
-not activate checkout, tracking, campaigns, email workers, or live payments.
+Prepared 2026-11-16, originally from remote dev `022bd8e`; local Candidate v5
+incorporates exact dev `3519c00`. This is a local plan and inspection record,
+not proof of functioning hosted services. Historical v4 changed Preview
+protection and created a Preview; see the chronological
+[plan/evidence](../plans/domain-transition.md). The latest local reconciliation
+and read-only exposure inspection made no hosted changes.
 
-## Baseline and prerequisites
+## Current destination decision — supersedes the Preview proposal
+
+Brandon selected **`helixskin.us` on the existing Vercel Production deployment**,
+with **`helixskin.vercel.app` remaining dev**. A separate worker owns the
+explicitly authorized DNS work. Do not reassign `.us` to Preview, promote dev,
+change project protection/security, or infer production-release authority from
+this destination choice. Earlier instructions below proposing `.us` on Preview
+and withholding all DNS work are historical and superseded by this decision.
+They do not authorize further actions.
+
+The read-only 2026-11-16 03:06 UTC inventory found Production target
+`dpl_FJ5YpBEjrFzZo7C73Zia4S56exgj`, READY, generated URL
+`helix-qu3j7xrlu-brandons-projects-5060bad5.vercel.app`, deployed
+2026-09-01T22:42:36.913Z from source
+`ca88cded8c8d2ac2d069db40928a0026f0319ae6` (August 31). Its historical Git ref is
+`dev`; its provider target is Production. These are different concepts. The
+project's configured production branch is `main`, currently remote `74ce8bd`.
+The stable dev alias targets `dpl_aKJ3ioofSj55aH13qEwzGVyMJmVj`, exact remote dev
+`3519c001e9594233fd992e4a0a982eb6adea90e3`.
+
+The existing apex assignment redirects 308 to `www.helixskin.us`, which targets
+Production. This plan does not change that serving-host arrangement. At 03:09
+UTC, anonymous probes from this machine still reached parked, non-Next content
+on both `.us` names; the Production generated URL and dev alias returned 200.
+DNS/TLS observations are time- and resolver-specific while the other worker
+proceeds. Read actual routing again before any service configuration change.
+
+Connecting DNS to this existing target exposes the old Production application,
+not the local candidate or latest dev. Compared with dev, its source is 229
+commits behind, with 1187 changed paths including 32 migration paths. These are
+source-tree differences, not evidence of live database schema or instructions
+to run migrations. It lacks the current dashboard and `/account/reviews` route.
+Its deployed homepage canonical is still `https://helixskin.vercel.app`.
+The old source resolver always returns that legacy origin in production, even
+when passed either `.us` environment/request origin; account signup/recovery
+and Stripe return construction consume it. DNS alone therefore cannot establish
+`.us` Auth, checkout, email-link or SEO compatibility. A cross-host PKCE return
+can lack its initiating browser's verifier cookie; sessions and carts are
+host-scoped. No real login, token exchange, email or checkout was attempted.
+
+Current safe sequence:
+
+1. Let the DNS owner finish the authorized existing-Production assignment;
+   re-read apex redirect, `www` TLS and exact deployed identity. Preserve dev's
+   alias and its callbacks, webhooks and checkout settlement URLs.
+2. Keep existing Auth Site URL, redirects, provider endpoints and service-origin
+   values until their actual destination code is compatible. Merely changing
+   Supabase Site URL or environment variables cannot repair the old hardcoded
+   resolver. Do not claim full service migration from DNS success.
+3. Treat any compatibility release as separate, reviewed deployment work. The
+   local dev-based candidate is not a small patch of old Production and is not
+   deployed. It preserves legacy defaults until explicit configuration, but its
+   full browser gate is blocked by the reproducible native-swipe failure noted
+   in the plan. Do not silently promote dev or replace Production with it.
+4. After a separately authorized compatible build is verified on the intended
+   environment, use the contract and service checks below with exact `.us` and
+   retained legacy/local Auth paths. Coordinate SMTP/templates and controlled
+   recipient/sandbox proof separately; keep campaigns, tracking, payment modes,
+   support copy and provider settlement endpoints unchanged. This document
+   grants no send or hosted-configuration authority.
+
+## Original baseline and prerequisites (historical inventory)
 
 The parent's fresh dashboard inventory reported:
 
@@ -62,9 +125,14 @@ the selected `.us` host **and** legacy host while continuing to deny immutable
 unreviewed deployments. Keep path and resolved-route coverage and all unrelated
 rules. Do not disable the firewall. This is a mandatory checkout prerequisite.
 
-## Ordered rollout, only with separate delivery authority
+## Historical Preview rollout proposal — destination superseded
 
-The safe first destination is a protected **Preview / dev** deployment of the
+The original proposal below is retained for history; its Preview destination
+and custom-domain reassignment instructions are superseded by the current
+existing-Production decision above. Remaining service-contract details inform
+future separately authorized compatibility work, not current execution.
+
+The originally proposed first destination was a protected **Preview / dev** deployment of the
 reviewed candidate, not the existing `.us` Production attachment. First deploy
 to an unadvertised Vercel Preview URL under separately granted deployment
 authority, keeping the legacy URL configuration. Verify its exact Git SHA,

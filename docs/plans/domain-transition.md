@@ -571,7 +571,7 @@ Browser verification is **not clean**, despite the full runner's exit 0:
   `/tmp/helix-domain-v5-swipe-results`. Local command:
   `pnpm exec tsx /tmp/helix-domain-swipe-verify.mts`.
 - The preserved first-retry trace records rail x positions
-  `85,85,85,84,80,74,65,55,43,31,20,11,5,1,0`, then 0, after touch release.
+  `85,85,85,84,80,74,65,55,43,31,20,11,5,1,0`, then 0, around touch release.
   Page y remains 2054, rail height156 and top494.1875. This is evidence of a
   native rail snap-back, not a diagnosed cause. Neither unchanged PDP source
   nor account-scoped styles proves it unrelated to this composition. No test
@@ -603,3 +603,45 @@ writes, campaigns, tracking or payment flags changed during v5. The existing
 hosted Preview remains frozen at source `929fd47`, without the account merge.
 Keep it distinct from this local candidate. Brandon's project-wide protection
 decision remains with the parent; do not alter or restore settings automatically.
+
+
+## Existing-Production destination decision and read-only exposure inspection
+
+The latest parent delegation relays Brandon's explicit destination choice:
+`helixskin.us` connects to the existing Vercel Production deployment while
+`helixskin.vercel.app` remains dev; a separate worker owns DNS. This supersedes
+earlier proposals to move `.us` to Preview. No dev promotion, security/protection
+change, deployment or DNS mutation is authorized in this worker. Both independent
+reviewers approved this documentation-only delta, including correction of the
+runbook's blanket historical no-remote-changes claim. V4 actions remain recorded.
+
+Read-only Vercel inventory at 2026-11-16T03:06:14.500Z confirms Production
+`dpl_FJ5YpBEjrFzZo7C73Zia4S56exgj`, READY, source `ca88cde` (August31), created
+2026-09-01T22:42:36.913Z. Historical source ref `dev` does not make this a current
+dev deployment. Stable legacy alias serves `dpl_aKJ3ioofSj55aH13qEwzGVyMJmVj`,
+source `3519c00`; current remote dev/main read-only refs are `3519c00`/`74ce8bd`.
+Project protection remains Preview SSO and the existing legacy alias exception;
+no security settings were changed. Sanitized inventory:
+`/tmp/helix-domain-vercel-preflight/production-read-sanitized.json`.
+
+Production's old source is 229 commits behind requested/current dev; the source
+comparison changes 1187 paths, including 32 migration paths. This says nothing
+about current hosted schema and authorizes no migrations. Current dashboard,
+public reviews and newer service code are absent from this source. A local
+execution of its original `lib/site-url.ts` proves all three controlled
+production environment/request origins resolve to `https://helixskin.vercel.app`.
+Old signup/recovery and checkout return construction use that resolver.
+
+Anonymous GET snapshot at 2026-11-16T03:09:29.802Z: generated Production and
+stable dev return200, both canonical legacy; both `.us` names from this machine
+still return parked 114-byte non-Next HTML. Snapshot:
+`/tmp/helix-domain-vercel-preflight/production-probe-sanitized.json`.
+DNS is owned elsewhere and may change later. No Auth token, session, send,
+checkout creation or payment was exercised. Runtime compatibility is unproven;
+source predicts legacy destinations and possible cross-host PKCE/cookie failure.
+The updated operations runbook states the chosen split and safe service sequence.
+
+Local candidate79cb69b/source37d4391 remains undeployed, source-approved and
+browser-blocked as above. This inspection made only GET requests and local
+source reads/checks; it did not change provider environment, deployments,
+protection, aliases, domains, DNS, data, campaigns, payment modes or remote Git.
