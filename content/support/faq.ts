@@ -1,7 +1,5 @@
 import {
-  formatFreeShippingThreshold,
   returnsPolicy,
-  shippingPolicy,
   supportPolicy,
 } from "@/content/support/policy";
 
@@ -138,31 +136,32 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "shipping",
     label: "Shipping",
-    summary: "Unavailable shipping capability and current planning assumptions.",
+    summary: "Standard shipping, order processing, and tracking updates.",
     items: [
       {
         id: "free-shipping",
         question: "Is standard shipping available?",
-        answer: `No real shipping or Fulfillment capability is available. The current planning assumption is free standard shipping on eligible United States Orders of ${formatFreeShippingThreshold()} before taxes and any discounts that change the merchandise subtotal.`,
+        answer:
+          "Helix offers free standard shipping to delivery addresses within the United States. Available shipping options are shown at checkout.",
       },
       {
         id: "shipping-destinations",
-        question: "Which destinations are being considered?",
+        question: "Where is standard shipping available?",
         answer:
-          "No Shipment service is available. " +
-          shippingPolicy.destinationSummary +
-          " International, expedited, freight-forwarder, and resale shipping are not current or committed capabilities.",
+          "Free standard shipping is available to delivery addresses within the United States. Check the available shipping options at checkout.",
       },
       {
         id: "shipping-timing",
-        question: "Are processing and transit estimates in effect?",
-        answer: `No. These planning assumptions are not a Service Status commitment: ${shippingPolicy.processingWindow} for processing, ${shippingPolicy.transitWindow} for transit, and ${shippingPolicy.trackingWindow} before Tracking may update.`,
+        question: "When will my order ship and tracking become available?",
+        answer:
+          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Tracking information becomes available within 48 hours after a shipment is dispatched. Once tracking is available, Helix will email a link to track the package. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
       },
       {
         id: "shipping-address-changes",
         question: "Can I change my shipping address after checkout?",
         answer:
-          "Sandbox Checkout can collect a shipping address for testing, but no real shipment is created. Address-change support and tracking are launch dependencies outside the sandbox flow.",
+          "Contact Customer Care about an address change. Orders may be canceled before they are processed for shipment, with a full refund to the original payment method. Once an order is processed for shipment, it must be returned in accordance with the Return Policy.",
+        links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
   },
@@ -174,23 +173,30 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "return-window",
         question: "What is the return policy?",
-        answer: `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition}`,
+        answer: `Helix offers free returns on all orders. Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition} Products must not otherwise be altered, marked or damaged. Return the product with its original packaging where available. When a return is approved, a prepaid return label will be sent by email. Expedited shipping fees are non-refundable. Rejected items may be held until a reshipment fee is paid; Customer Care will explain the available options.`,
+        links: [{ label: "Request a return", href: "/contact" }],
       },
       {
         id: "damaged-missing",
-        question: "Can I submit an Item Claim?",
-        answer: `No. Real Fulfillment and an Item Claim process are unavailable. The Contact page shows whether general Support Intake is open. A ${returnsPolicy.issueReportWindowDays}-day reporting window is only a planning assumption.`,
+        question: "What should I do about an issue with my order?",
+        answer:
+          "Contact Customer Care about damaged, missing, or incorrect items and review the Return Policy for return conditions.",
+        links: [
+          { label: "Customer Care", href: "/contact" },
+          { label: "Return Policy", href: "/terms" },
+        ],
       },
       {
         id: "refund-timing",
-        question: "Are real refunds available?",
-        answer: `No live payment is accepted, so no real refund service is available. The ${returnsPolicy.refundProcessingWindow} estimate is a planning assumption, not an operative commitment.`,
+        question: "When will I receive my refund?",
+        answer:
+          "Each return is inspected against its original order record. Once a return is completed, a refund will be issued to your original payment method within 2 business days. Refunds are processed through Stripe and typically appear within 7–12 business days after they are issued, depending on your bank and payment processing times.",
       },
       {
         id: "exchanges",
         question: "Are Exchanges available?",
         answer:
-          "Direct Exchanges are not planned as a default flow. A future Item Claim process may provide a Replacement only after a Legal Operator, real Fulfillment, and Support Intake exist.",
+          "Helix does not offer direct exchanges. Return the merchandise for a refund and place a new order for the preferred item.",
       },
       {
         id: "shipping-costs",
@@ -255,7 +261,8 @@ export const faqCategories: FAQCategory[] = [
         question: "Can I submit a Support Inquiry through the site?",
         answer:
           supportPolicy.contactStatus +
-          " When the form is available, it stores accepted inquiries privately for review. Wait for the form to confirm acceptance. Email replies are limited during development testing, and acceptance does not mean an email has been delivered.",
+          " When the form is available, it stores accepted inquiries privately for review. Wait for the form to confirm acceptance; acceptance does not mean an email has been delivered. You can also email support@helixskin.us. We'll get back to you within the countdown shown on the Contact page, ending at the next weekday reply target: noon Pacific.",
+        links: [{ label: "Contact", href: "/contact" }],
       },
       {
         id: "private-details",
@@ -274,21 +281,21 @@ export const faqCategories: FAQCategory[] = [
         id: "privacy",
         question: "Where is the Privacy Policy?",
         answer:
-          "The Privacy Policy explains account, cart, search, cookie, support-intake, and provider data practices for the current site.",
+          "The Privacy Policy explains how we collect, use and protect personal information. We may keep order and billing records for up to 7 years as required for accounting and tax purposes. When information is no longer needed, we delete it or anonymize it securely. For account-deletion requests, we promptly delete or de-identify data unless there is a legal reason to retain it. We regularly review our security procedures and use appropriate safeguards for international data transfers. For privacy requests, email support@helixskin.us with Privacy in the subject line. We may verify your identity before completing a request and will respond within the period required by applicable law.",
         links: [{ label: "Privacy Policy", href: "/privacy" }],
       },
       {
         id: "terms",
-        question: "Where are the Terms of Service?",
+        question: "Where are the Terms & Conditions?",
         answer:
-          "The Terms status page explains the absent Legal Operator boundary, Account and sandbox commerce status, current providers, and the unavailable public contact destination. It is not an operative Terms of Service.",
-        links: [{ label: "Terms of Service", href: "/terms" }],
+          "The Terms & Conditions explain use of the Helix website and services, ordering, shipping, returns, refunds, and other conditions. The linked policies and FAQs form part of those Terms.",
+        links: [{ label: "Terms & Conditions", href: "/terms" }],
       },
       {
         id: "accessibility",
         question: "Where is the Accessibility Statement?",
         answer:
-          "The Accessibility Statement explains the helix Accessibility Commitment, WCAG target, implemented practices, testing approach, and unavailable feedback channel.",
+          "We strive to maintain compliance with WCAG 2.1 Level AA and continuously work to improve website accessibility. If you encounter a barrier, email support@helixskin.us with Accessibility Barriers in the subject line and describe the feature or suggest an improvement.",
         links: [{ label: "Accessibility Statement", href: "/accessibility" }],
       },
       {
