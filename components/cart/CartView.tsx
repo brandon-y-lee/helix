@@ -43,7 +43,7 @@ export function CartView({
   const error = mutationError ?? queryError;
   const retryable = mutationError ? mutationRetryable : queryRetryable;
   const isDrawer = mode === "drawer";
-  const freeShippingQualified = qualifiesForFreeStandardShipping(subtotal);
+  const subtotalThresholdReached = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
   const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
   const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} cartUpdatedAt={dataUpdatedAt} />;
@@ -239,15 +239,16 @@ export function CartView({
         <div className="cart-shipping">
           <progress
             className="cart-shipping__progress"
-            aria-label="Free standard shipping progress"
+            aria-label="Merchandise subtotal before discounts"
             aria-valuetext={`${formatPrice(subtotal)} of ${formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} merchandise subtotal before discounts`}
             max={FREE_STANDARD_SHIPPING_THRESHOLD_CENTS}
             value={Math.max(0, FREE_STANDARD_SHIPPING_THRESHOLD_CENTS - freeShippingRemaining)}
           />
           <p className="cart-shipping__message" role="status">
-            {freeShippingQualified
-              ? <>FREE shipping threshold reached</>
-              : <>Add <strong>{formatPrice(freeShippingRemaining)}</strong> more for <strong>FREE shipping</strong></>}
+            {subtotalThresholdReached
+              ? <>Subtotal is at least {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} before discounts.</>
+              : <>Add <strong>{formatPrice(freeShippingRemaining)}</strong> to reach {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} before discounts.</>}
+            {" "}Free standard US shipping applies at {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)}+ after discounts and before taxes.
           </p>
         </div>
         <div className="summary-row">
