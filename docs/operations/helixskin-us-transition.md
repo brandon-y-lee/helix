@@ -46,12 +46,12 @@ before account or checkout links use it. Merely owning the domain is insufficien
 | Operator tooling | `scripts/resend-operations/operations.ts`, `scripts/stripe/sandbox-webhook.ts`, `scripts/vercel/helix-project-audit.ts`, and the checkout firewall JSON intentionally target the old staging host. They are not generic .us activation tools. Do not run apply commands expecting this code change to migrate them. |
 
 The retained-build cold-canonical browser verifier in
-`test-support/storefront-cold-canonical.ts` also pins its expected canonical URL
-to the legacy constant. The existing default-origin Integration Gate can still
-run, but using that verifier to certify a `.us` build requires a separately
-reviewed environment-aware expected origin; do not suppress its identity checks.
-This candidate adds direct configured-origin sitemap/robots tests, not full
-configured-domain Chromium or provider proof.
+`test-support/storefront-cold-canonical.ts` uses the same validated configured
+origin as the application. Regression proof requires correct `.us` canonical,
+OpenGraph and Product structured-data identity, rejects stale legacy metadata
+in a `.us` build, and retains its loopback-only request and artifact guards.
+Local configured-domain browser proof still does not prove hosted DNS/TLS,
+provider settings, Auth cookies across real hosts, or customer mailbox delivery.
 
 The sandbox rollout runbook and
 [`sandbox-checkout-host-rule.json`](../../scripts/vercel/sandbox-checkout-host-rule.json)
@@ -63,6 +63,27 @@ unreviewed deployments. Keep path and resolved-route coverage and all unrelated
 rules. Do not disable the firewall. This is a mandatory checkout prerequisite.
 
 ## Ordered rollout, only with separate delivery authority
+
+The safe first destination is a protected **Preview / dev** deployment of the
+reviewed candidate, not the existing `.us` Production attachment. First deploy
+to an unadvertised Vercel Preview URL under separately granted deployment
+authority, keeping the legacy URL configuration. Verify its exact Git SHA,
+environment, deployment protection and catalog provider selection without
+changing either custom domain or website DNS. Generated deployment URLs remain
+inspection addresses, never canonical/Auth/checkout fallback origins. Preview
+testing must preserve the non-production Supabase project, sandbox Stripe mode,
+and current disabled/restricted flags.
+
+Once that candidate is verified, stage the chosen `.us` URL values only in the
+approved Preview/dev scope and build a second protected Preview. Before any
+website DNS cutover, separately review changing the existing `.us`/`www`
+assignment from the old Production destination to that exact approved Preview
+branch/deployment. Verify the Vercel alias mapping again before requesting DNS
+validation; do not use successful DNS validation as evidence that the attached
+deployment is correct. If the available Vercel plan cannot provide the required
+protection or branch mapping, stop and resolve that limitation without exposing
+the old Production deployment or buying an upgrade. Leave `main` and Production
+environment values untouched. Public launch remains a separate decision.
 
 1. Integrate the reviewed local candidate through the applicable planning/Ticket
    workflow and all required gates. Inspect the exact deployment in staging;

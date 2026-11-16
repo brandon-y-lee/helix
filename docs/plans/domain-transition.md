@@ -120,3 +120,40 @@ Local run command: `pnpm dev --hostname 127.0.0.1 --port 3208` from
 `/tmp/helix-domain-transition`. Apply no `.us` environment values locally to
 claim hosted verification. Operational ordering and limitations are in
 `docs/operations/helixskin-us-transition.md`.
+
+## Candidate v2 — local verification continuation
+
+Goal source: delegated follow-up, 2026-11-16: complete applicable build,
+Chromium, database and origin-verifier checks, diagnose the worker timeout, and
+provide a concrete dev/preview rollout path. No deploy or hosted setting change;
+the `.us` Production mapping remains unsafe to expose.
+
+1. Update only the cold-canonical verifier's expected origin to use the existing
+   validated public-site resolver. Keep its loopback-only fetch, bounded body,
+   retained artifact, exact canonical/OpenGraph/structured-data identity checks
+   and all existing product-selection rules. Add proof that configured `.us`
+   metadata passes and legacy metadata in that `.us` build fails.
+2. Run the dedicated artifact-verification runner against the isolated candidate
+   with only approved non-production public Supabase catalog credentials. Use
+   safe browser fixture configuration, no privileged/provider-send keys, and
+   local `.us` URL configuration; no real domain traffic, deployment or DNS
+   change. Run complete Chromium coverage on its owned loopback server. Record
+   build ID, exact outcome, any external prerequisite failures, and cleanup.
+3. Run maintained affected checkout/payment/idempotency/receipt and catalog
+   disposable-PostgreSQL checks using the existing verified, labeled local
+   PostgreSQL 17 container, each runner's unique synthetic database and cleanup.
+   Preserve all unrelated databases/containers. Do not run hosted migrations.
+4. Diagnose the default-worker Vitest timeout with local process/reporting
+   evidence and controlled runs. Do not raise timeouts, suppress errors, change
+   isolation, delete assertions or change the default gate merely to get green.
+   Propose any durable test-runner change separately for delta review if needed.
+5. Update the runbook with exact safe Preview/dev prerequisites and ordering,
+   preserving old-origin routes, cookies, checkout and settlement. Record all
+   actual checks and remaining blockers without claiming production readiness.
+
+Independent Spec/Standards delta approval is required before the verifier edit.
+
+Candidate v2 approved before implementation by `/root/domain_spec_review` and
+`/root/domain_standards_review`, independently, 2026-11-16; both verdicts approve,
+no blocking findings. Retain all identity/runner guards, use unique synthetic
+databases, and review any separate runner change before implementing it.
