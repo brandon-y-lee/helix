@@ -42,3 +42,5 @@ Expected red proof: the new focused test could not resolve the new source module
 - Typecheck, lint and `git diff --check` passed.
 - The four existing campaign sources and all runtime, database, checkout and worker files are unchanged.
 - Not run: production build/browser integration gate, actual Gmail/Outlook/Apple Mail rendering or real sends. Dependencies were reused from the existing matching isolated lifecycle worktree; a fresh frozen install and required integration gate remain remote-delivery prerequisites.
+
+The initial dependency reuse was subsequently replaced by a successful isolated frozen offline install: 510 cached packages, zero downloads, unchanged lockfile. Spec and Standards independently approved source candidate `e37a2ea0da711cf0f70dbccba086ba6d667eca70` against incorporated dev `ebd9a40ccfb9725dbd17df3d112cf993d28f4e08`, with no actionable findings. Remote integration and any production promotion remain separately gated; this record does not authorize sending.
