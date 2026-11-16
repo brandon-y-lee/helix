@@ -124,3 +124,24 @@ real browser visibility do not prove rich available sticky purchase→cart→foc
 return. The present catalog lacks those prerequisites, and this source repair
 changes no catalog/offer availability. Do not activate those paths without the
 missing native browser proof.
+
+## Reviewed v4 — resolve available rich-PDP selection prerequisite
+
+The actual immutable snapshot has ten Products and one Offer. Its first rich-PDP
+journey selects coming-soon Biotic Reset, but published Super Serum has both an
+Offer and the exact existing rich-media prerequisites. Thus two earlier skips
+were a selection gap, not absent capability. Both independent reviewers approved
+v4 before editing: export the unchanged hasRichPdpMedia predicate; choose a real
+snapshot Product satisfying Offer plus that predicate only for the two available
+PDP/sticky tests. Preserve their actions/assertions and global journey selection.
+No application, catalog or availability changes. Those tests must now execute;
+only the two-Offer Quick Buy prerequisite remains absent. Earlier skip disposition
+is superseded by this more precise evidence, not waived.
+
+Before v4, exact da10aac full configured-us build pp4OCfUZezMaOcKMOXoGA passed
+Chromium209/3catalog skips/0unexpected/0flaky, HTML ok:true and cleanup passed.
+Eight protected candidate Preview GETs also verified exact deployment
+`dpl_FXr7oAhhFCgeNGAfXvrfJzvWrEDc`, correct new contact/Terms identity, private
+account redirects and unchanged firewall denial. Only an existing authorized
+read credential was used in request memory; no security setting changed.
+Fresh v4 source review and full gates remain required.
