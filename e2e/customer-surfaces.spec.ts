@@ -59,7 +59,13 @@ test("private customer content is rendered on the shared surfaces without live c
       await page.goto(`/helix-verification/customer/${view}?state=${state}`);
       await expect(page.locator("h1")).toBeVisible();
       await expectWhiteCanvas(page);
-      await expectGrayPanels(page.locator("#content .account-section, #content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
+      if (view === "account" && state !== "unavailable") {
+        for (const island of await page.locator(".account-intro, .account-disclosures").all()) {
+          await expect(island).toHaveCSS("background-color", "rgb(245, 245, 247)");
+        }
+      } else {
+        await expectGrayPanels(page.locator("#content .account-section, #content .account-panel, #content .checkout-result__panel, #content .public-utility-page > .empty-state"));
+      }
       for (const control of await page.locator('#content .account-form input:not([type="hidden"]), #content .account-form select, #content .account-form textarea').all()) {
         await expect(control).toHaveCSS("background-color", CANVAS_WHITE);
         await expect(control).toHaveCSS("border-top-color", CONTROL_BORDER);
@@ -88,6 +94,7 @@ test("synthetic customer forms expose pending, error and success surfaces locall
     for (const state of ["pending", "error", "success"]) {
       await page.goto(`/helix-verification/customer/account?state=${state}`);
       await page.getByRole("button", { name: "Save profile", exact: true }).click();
+      await page.locator("details summary").filter({ hasText: "Reviews" }).click();
       await page.getByRole("button", { name: "Submit private feedback", exact: true }).click();
       if (state === "pending") {
         await expect(page.getByRole("button", { name: "Working", exact: true })).toBeDisabled();
@@ -203,6 +210,56 @@ test("privacy choices preserves focus and truthful categories through interrupte
     }
     await expectNoMainOverflow(page, viewport.width);
   }
+});
+
+
+test("account disclosures retain drafts, support keyboard toggling and local exit", async ({ page }, testInfo) => {
+  const writes: string[] = [];
+  await page.route("**/*", route => {
+    if (route.request().method() === "POST") {
+      writes.push(route.request().url());
+      return route.abort();
+    }
+    return route.fallback();
+  });
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/helix-verification/customer/account?state=empty");
+    await expect(page.locator(".account-disclosure .faq-item").first()).toHaveAttribute("data-expanded", "true");
+    await page.screenshot({ path: testInfo.outputPath(`account-${viewport.width}.png`), fullPage: true });
+    const summaries = page.locator(".account-disclosure summary");
+    await expect(summaries).toHaveCount(7);
+    const settings = summaries.filter({ hasText: "Account settings" });
+    await page.getByLabel("First name", { exact: true }).fill("Unfinished draft");
+    await settings.focus();
+    await settings.press("Enter");
+    await expect(page.getByLabel("First name", { exact: true })).toBeHidden();
+    await expect(settings).toBeFocused();
+    await settings.press("Space");
+    await expect(page.getByLabel("First name", { exact: true })).toHaveValue("Unfinished draft");
+    for (const summary of await summaries.all()) {
+      if (await summary.getAttribute("aria-expanded") === "true") {
+        await summary.click();
+        await expect(summary.locator("..")).not.toHaveAttribute("open", "");
+      }
+      await summary.press("Enter");
+      await expect(summary.locator("..")).toHaveAttribute("open", "");
+      await expectNoMainOverflow(page, viewport.width);
+      await summary.press("Space");
+      await expect(summary.locator("..")).not.toHaveAttribute("open", "");
+    }
+    await settings.click();
+    await page.getByRole("link", { name: "Reset password" }).click();
+    await expect(page).toHaveURL(/\/account\/forgot-password$/);
+    await expect(page.getByRole("heading", { name: "Reset password" })).toBeVisible();
+    await page.goBack();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+    await expect(page.locator(".account-disclosures")).toHaveCount(0);
+  }
+  await page.goto("/account");
+  await expect(page).toHaveURL(/\/account\/sign-in\?next=%2Faccount$/);
+  expect(writes).toEqual([]);
 });
 
 test("cookie policy retains the current legal layout with readable scoped tables and working links", async ({ page }) => {

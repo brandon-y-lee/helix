@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AccountDashboardView } from "@/components/account/AccountDashboardView";
 import { OrderConfirmationView } from "@/components/cart/OrderConfirmationView";
@@ -96,21 +96,29 @@ describe("customer presentation views", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
-    expect(screen.getByText("customer@example.test")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your account", level: 1 })).toBeVisible();
+    expect(screen.getAllByText("customer@example.test")[0]).toBeVisible();
     expect(screen.getByText("Pending email verification")).toBeVisible();
     expect(screen.getByLabelText("First name")).toHaveValue("Alex");
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
-    const orders = screen.getByRole("heading", { name: "Orders" }).parentElement!;
+    const labels = ["Account settings", "Order history", "Address book", "Payment methods", "Rewards", "Reviews", "Auto-replenishment"];
+    expect(Array.from(document.querySelectorAll("summary > span:first-child"), (node) => node.textContent)).toEqual(labels);
+    const orderHeading = screen.getByText("Order history", { exact: true });
+    fireEvent.click(orderHeading.closest("summary")!);
+    const orders = orderHeading.closest("details")!;
     expect(within(orders).getByText("HLX-1001")).toBeVisible();
     expect(within(orders).getByText("$68.00")).toBeVisible();
     expect(within(orders).getByText("68 pts")).toBeVisible();
+    fireEvent.click(screen.getByText("Reviews").closest("summary")!);
     expect(screen.getByRole("button", { name: "Feedback for HLX-1001" })).toBeVisible();
+    expect(screen.getByText(/Feedback shared here is private/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Your public product reviews" })).toHaveAttribute("href", "/account/reviews");
+    fireEvent.click(screen.getByText("Rewards", { exact: true }).closest("summary")!);
     expect(screen.getByText("Available Points Balance").nextElementSibling)
       .toHaveTextContent("425");
   });
 
-  it("retains empty account history and rewards setup guidance", () => {
+  it("keeps unavailable rewards distinct from a zero balance and unsupported capabilities honest", () => {
     render(
       <AccountDashboardView
         email="customer@example.test"
@@ -124,10 +132,14 @@ describe("customer presentation views", () => {
     );
 
     expect(screen.getByText("Verified")).toBeVisible();
+    for (const summary of document.querySelectorAll("details:not([open]) > summary")) fireEvent.click(summary);
     expect(screen.getByText(/Guest orders do not appear in account history/)).toBeVisible();
-    expect(screen.getByText("Available after rewards setup")).toBeVisible();
-    expect(screen.getByText(/Eligible Paid Orders can unlock one private feedback request/))
-      .toBeVisible();
+    expect(screen.getByText("Rewards are unavailable right now.")).toBeVisible();
+    expect(screen.queryByText("Available Points Balance")).not.toBeInTheDocument();
+    expect(screen.getByText("Feedback requests are unavailable.")).toBeVisible();
+    expect(screen.getByText(/Saving addresses to your account is not available yet/)).toBeVisible();
+    expect(screen.getByText(/Saved payment methods are not available/)).toBeVisible();
+    expect(screen.getByText(/Auto-replenishment is not available yet/)).toBeVisible();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 });

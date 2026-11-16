@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { FAQDisclosure } from "@/components/content/FAQDisclosure";
 import { formatPrice } from "@/lib/products";
 import type { RewardsSummary } from "@/lib/rewards/server";
 
@@ -26,6 +27,25 @@ export type AccountDashboardViewProps = {
   renderFeedback: (request: RewardsSummary["feedbackRequests"][number]) => ReactNode;
 };
 
+function AccountSection({ id, title, open = false, children }: {
+  id: string;
+  title: string;
+  open?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="account-disclosure">
+      <FAQDisclosure question={title} panelId={`account-panel-${id}`} initiallyOpen={open}>
+        <div className="account-disclosure__body">{children}</div>
+      </FAQDisclosure>
+    </div>
+  );
+}
+
+function AccountEmpty({ title, children }: { title: string; children: ReactNode }) {
+  return <div className="account-empty"><h3>{title}</h3><div>{children}</div></div>;
+}
+
 export function AccountDashboardView({
   email,
   verified,
@@ -37,103 +57,104 @@ export function AccountDashboardView({
 }: AccountDashboardViewProps) {
   return (
     <div className="container account-dashboard">
-      <div className="page-head page-head--account">
-        <p className="eyebrow">Account</p>
-        <h1>Dashboard</h1>
-        {signOutControl}
-      </div>
+      <header className="account-intro">
+        <p className="eyebrow">helix / Account</p>
+        <h1>Your account</h1>
+        <p className="account-intro__description">A space for you.<br />The details behind your daily routine.</p>
+        <div className="account-identity">
+          <p>Welcome back.</p>
+          {email && <p className="account-identity__email">{email}</p>}
+          <p className="account-identity__status">{verified ? "Verified" : "Pending email verification"}</p>
+          {signOutControl}
+        </div>
+        <div className="account-help">
+          <p>Here to help.</p>
+          <p>Questions about your account or routine?</p>
+          <Link href="/contact">Contact helix <span aria-hidden="true">↗</span></Link>
+        </div>
+      </header>
 
-      <section className="account-grid" aria-label="Account overview">
-        <article className="account-section">
-          <h2>Overview</h2>
-          <Link href="/account/reviews">Your public product reviews</Link>
-          <dl className="account-details">
-            <div>
-              <dt>Email</dt>
-              <dd>{email}</dd>
-            </div>
-            <div>
-              <dt>Verification</dt>
-              <dd>{verified ? "Verified" : "Pending email verification"}</dd>
-            </div>
-          </dl>
-        </article>
+      <section className="account-disclosures" aria-label="Manage your account">
+        <AccountSection id="settings" title="Account settings" open>
+          <p className="account-panel-intro">Make yourself at home. Keep your personal details up to date.</p>
+          <div className="account-settings-layout">
+            <section aria-labelledby="account-profile-heading">
+              <h3 id="account-profile-heading">Personal information</h3>
+              {profileForm}
+            </section>
+            <section className="account-security" aria-labelledby="account-security-heading">
+              <h3 id="account-security-heading">Sign-in & security</h3>
+              <dl className="account-details"><div><dt>Email address</dt><dd>{email ?? "Email unavailable"}</dd></div></dl>
+              <p className="account-muted">For a new password, request a secure reset link.</p>
+              <Link href="/account/forgot-password" className="account-text-link">Reset password <span aria-hidden="true">↗</span></Link>
+            </section>
+          </div>
+        </AccountSection>
 
-        <article className="account-section">
-          <h2>Profile</h2>
-          {profileForm}
-        </article>
-
-        <article className="account-section">
-          <h2>Password</h2>
-          <p className="account-muted">Change your password through a secure reset link.</p>
-          <Link href="/account/forgot-password" className="btn btn--ghost btn--editorial-rounded">
-            Password reset
-          </Link>
-        </article>
-
-        <article className="account-section">
-          <h2>Orders</h2>
+        <AccountSection id="orders" title="Order history">
           {orders.length > 0 ? (
-            <ul className="order-list">
+            <ul className="account-orders" aria-label="Your orders">
               {orders.map((order) => (
                 <li key={order.id}>
-                  <span>{order.order_number}</span>
-                  <span>{order.status}</span>
-                  <span>{formatPrice(order.total_cents)}</span>
-                  <span>{order.reward_points_earned} pts</span>
+                  <div><h3>{order.order_number}</h3><p className="account-order-status">{order.status.replaceAll("_", " ")}</p></div>
+                  <dl><div><dt className="sr-only">Total</dt><dd>{formatPrice(order.total_cents)}</dd></div><div><dt className="sr-only">Points earned</dt><dd>{order.reward_points_earned} pts</dd></div></dl>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="account-muted">
-              Sandbox order history will appear here after authenticated
-              checkout. Guest orders do not appear in account history.
-            </p>
+            <AccountEmpty title="Your routine starts here.">
+              <p>Sandbox order history will appear here after authenticated checkout. Guest orders do not appear in account history.</p>
+              <Link href="/collections/shop" className="account-text-link">Explore skincare <span aria-hidden="true">↗</span></Link>
+            </AccountEmpty>
           )}
-        </article>
+        </AccountSection>
 
-        <article className="account-section">
-          <h2>helix rewards</h2>
-          <dl className="account-details">
-            <div>
-              <dt>Available Points Balance</dt>
-              <dd>{rewards?.pointsBalance ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Lifetime Points</dt>
-              <dd>{rewards?.lifetimePoints ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Referral Code</dt>
-              <dd>{rewards?.referralCode ?? "Available after rewards setup"}</dd>
-            </div>
-          </dl>
-          <Link href="/rewards" className="btn btn--ghost btn--editorial-rounded">
-            helix rewards
-          </Link>
-        </article>
+        <AccountSection id="addresses" title="Address book">
+          <AccountEmpty title="One less thing to remember. Soon.">
+            <p>Saving addresses to your account is not available yet. You can enter a shipping address during checkout.</p>
+          </AccountEmpty>
+        </AccountSection>
 
-        <article className="account-section">
-          <h2>Private feedback</h2>
+        <AccountSection id="payments" title="Payment methods">
+          <AccountEmpty title="Payment details, kept at checkout.">
+            <p>Saved payment methods are not available in your account. Payment details are entered securely during sandbox checkout.</p>
+          </AccountEmpty>
+        </AccountSection>
+
+        <AccountSection id="rewards" title="Rewards">
+          {rewards ? (
+            <dl className="account-rewards">
+              <div><dt>Available Points Balance</dt><dd>{rewards.pointsBalance}</dd></div>
+              <div><dt>Lifetime Points</dt><dd>{rewards.lifetimePoints}</dd></div>
+              <div><dt>Referral Code</dt><dd>{rewards.referralCode ?? "Available after rewards setup"}</dd></div>
+            </dl>
+          ) : <AccountEmpty title="Rewards are unavailable right now."><p>We cannot show your balance at the moment. Please try again later.</p></AccountEmpty>}
+          <Link href="/rewards" className="account-text-link">Explore helix rewards <span aria-hidden="true">↗</span></Link>
+        </AccountSection>
+
+        <AccountSection id="reviews" title="Reviews">
+          <Link href="/account/reviews" className="account-text-link">Your public product reviews <span aria-hidden="true">↗</span></Link>
+          <p className="account-panel-intro">Your experience matters. Feedback shared here is private, not a published product review or a Trustpilot review.</p>
           {rewards && rewards.feedbackRequests.length > 0 ? (
-            <ul className="feedback-list">
+            <ul className="account-feedback">
               {rewards.feedbackRequests.map((request) => (
                 <li key={request.id}>
-                  <span>{request.order_number}</span>
-                  <span>{request.points} Points</span>
+                  <div className="account-feedback__heading"><h3>{request.order_number}</h3><span>{request.points} Points</span></div>
                   {renderFeedback(request)}
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="account-muted">
-              Eligible Paid Orders can unlock one private feedback request with
-              a 300-Point Award. This is first-party feedback, not a
-              Trustpilot review.
-            </p>
-          )}
-        </article>
+          ) : <AccountEmpty title={rewards ? "Nothing to share just yet." : "Feedback requests are unavailable."}>
+            <p>{rewards ? "Eligible Paid Orders can unlock one private feedback request with a 300-Point Award." : "We cannot check for eligible feedback requests right now. Please try again later."}</p>
+          </AccountEmpty>}
+        </AccountSection>
+
+        <AccountSection id="replenishment" title="Auto-replenishment">
+          <AccountEmpty title="A routine on your terms.">
+            <p>Auto-replenishment is not available yet. No recurring orders or subscription enrollment are offered here.</p>
+            <Link href="/collections/shop" className="account-text-link">Shop when you need it <span aria-hidden="true">↗</span></Link>
+          </AccountEmpty>
+        </AccountSection>
       </section>
     </div>
   );
