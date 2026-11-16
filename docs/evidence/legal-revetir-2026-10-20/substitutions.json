@@ -14,7 +14,7 @@
     ],
     [
       "care@revetir.com",
-      "support@helixskin.com"
+      "support@helixskin.us"
     ],
     [
       "2 Park Avenue, 20th Floor, New York, NY 10016",
@@ -22,7 +22,7 @@
     ],
     [
       "https://www.revetir.com",
-      "https://helixskin.vercel.app"
+      "https://www.helixskin.us"
     ]
   ],
   "linkMap": {
@@ -43,7 +43,7 @@
       "sourceFile": "source/privacy-policy.rendered.article.html",
       "sourceSha256": "ff085f24360c528ff3201159f26b093ab2aec942258a386f1efa3e533e0ecc48",
       "sourceCharacters": 14142,
-      "expectedCharacters": 11643,
+      "expectedCharacters": 12845,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -57,7 +57,7 @@
         },
         {
           "before": "care@revetir.com",
-          "after": "support@helixskin.com",
+          "after": "support@helixskin.us",
           "occurrences": 4
         },
         {
@@ -70,22 +70,22 @@
         {
           "text": "care@revetir.com",
           "href": "mailto:care@revetir.com",
-          "target": "mailto:support@helixskin.com"
+          "target": "mailto:support@helixskin.us"
         },
         {
           "text": "care@revetir.com",
           "href": "mailto:care@revetir.com",
-          "target": "mailto:support@helixskin.com"
+          "target": "mailto:support@helixskin.us"
         },
         {
           "text": "care@revetir.com",
           "href": "mailto:care@revetir.com",
-          "target": "mailto:support@helixskin.com"
+          "target": "mailto:support@helixskin.us"
         },
         {
           "text": "care@revetir.com",
           "href": "mailto:care@revetir.com",
-          "target": "mailto:support@helixskin.com"
+          "target": "mailto:support@helixskin.us"
         }
       ],
       "factualCorrections": [
@@ -112,7 +112,7 @@
         {
           "area": "tracking",
           "find": "We use advertising and measurement technologies to understand how people find Helix, measure advertising results, connect product interactions with our catalog, and show relevant advertisements, subject to your privacy choices.",
-          "replace": "Optional analytics and advertising technologies are not active on this website."
+          "replace": "Optional analytics and advertising technologies run only when enabled on this website and you allow the relevant category in Your Privacy Choices. Analytics covers Google Analytics, Vercel Web Analytics and Vercel Speed Insights; marketing covers the Meta Pixel. These application integrations measure public-page visits and performance without sending your email address, account details, search terms or purchase history."
         },
         {
           "area": "tracking",
@@ -127,12 +127,12 @@
         {
           "area": "tracking",
           "find": "Helix uses Vercel Web Analytics without cookies for anonymous, aggregate page and shopping-event counts. Optional Google Analytics and Vercel performance tools are disabled unless you enable Analytics Cookies in Your Privacy Choices. Marketing tracking, including Meta's advertising technologies, is enabled by default unless you turn off Marketing Cookies or your browser sends a Global Privacy Control signal.",
-          "replace": "Optional analytics and advertising technologies are not active on this website."
+          "replace": "Optional analytics and advertising technologies run only when enabled on this website and you allow the relevant category in Your Privacy Choices. Analytics covers Google Analytics, Vercel Web Analytics and Vercel Speed Insights; marketing covers the Meta Pixel. These application integrations measure public-page visits and performance without sending your email address, account details, search terms or purchase history."
         },
         {
           "area": "tracking",
           "find": "You can review and change these settings through Your Privacy Choices in the website footer. Your selections are saved in the browser you use. You may need to set them again if you clear browser storage or use another browser or device. We recognize Global Privacy Control as a request to opt out of advertising-related sharing for that browser.",
-          "replace": "Your Privacy Choices in the website footer explains our use of required browser storage."
+          "replace": "Your Privacy Choices in the website footer explains required storage and lets you allow or withdraw optional analytics and marketing permissions in this browser. We apply Global Privacy Control to turn off optional marketing while your browser sends that signal."
         },
         {
           "area": "tracking",
@@ -157,7 +157,7 @@
         {
           "area": "tracking",
           "find": "Vercel receives anonymous, aggregate page and shopping-event data through its cookie-free Web Analytics service. We also share website activity and related information with Meta and, when optional analytics is enabled, Google Analytics and Vercel performance tools. Depending on the service and your choices, this can include pages and products viewed, shopping and purchase events, browser identifiers, IP address and device information. For advertising measurement and matching, we may also send a hashed version of your email address or phone number to Meta. Hashing transforms these details for matching; it does not make them anonymous.",
-          "replace": "Optional analytics and advertising technologies are not active on this website."
+          "replace": "Optional analytics and advertising technologies run only when enabled on this website and you allow the relevant category in Your Privacy Choices. Analytics covers Google Analytics, Vercel Web Analytics and Vercel Speed Insights; marketing covers the Meta Pixel. These application integrations measure public-page visits and performance without sending your email address, account details, search terms or purchase history."
         },
         {
           "area": "payments",
@@ -189,7 +189,7 @@
       "sourceFile": "source/terms-conditions.rendered.article.html",
       "sourceSha256": "551d826194e7afe1c37184e1a6f4f3a9b82b261376f21625c3c62982887a1628",
       "sourceCharacters": 35295,
-      "expectedCharacters": 34799,
+      "expectedCharacters": 34849,
       "textSubstitutions": [
         {
           "before": "REVETIR LLC",
@@ -203,7 +203,7 @@
         },
         {
           "before": "care@revetir.com",
-          "after": "support@helixskin.com",
+          "after": "support@helixskin.us",
           "occurrences": 4
         },
         {
@@ -213,7 +213,7 @@
         },
         {
           "before": "https://www.revetir.com",
-          "after": "https://helixskin.vercel.app",
+          "after": "https://www.helixskin.us",
           "occurrences": 1
         }
       ],
@@ -264,6 +264,11 @@
           "area": "payments",
           "find": "Refunds are processed through Square",
           "replace": "Refunds are processed through Stripe"
+        },
+        {
+          "area": "pricing",
+          "find": "Helix offers free standard shipping to delivery addresses within the United States.",
+          "replace": "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes."
         }
       ],
       "terminologyCorrections": [
@@ -305,7 +310,7 @@
       "sourceFile": "source/accessibility.rendered.article.html",
       "sourceSha256": "b4077dabb7391be7e2a425cec4b8bccab9946f460503eab1c13baca8f27fc4e2",
       "sourceCharacters": 1041,
-      "expectedCharacters": 1045,
+      "expectedCharacters": 1044,
       "textSubstitutions": [
         {
           "before": "REVETIR",
@@ -314,7 +319,7 @@
         },
         {
           "before": "care@revetir.com",
-          "after": "support@helixskin.com",
+          "after": "support@helixskin.us",
           "occurrences": 1
         }
       ],
@@ -322,7 +327,7 @@
         {
           "text": "care@revetir.com",
           "href": "mailto:care@revetir.com",
-          "target": "mailto:support@helixskin.com"
+          "target": "mailto:support@helixskin.us"
         },
         {
           "text": "← Customer Care",

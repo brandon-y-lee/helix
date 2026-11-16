@@ -326,6 +326,7 @@ describe("legal and support content", () => {
     expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
     expect(faqText).toContain("free standard shipping to delivery addresses within the United States");
+    expect(faqText).toContain("on orders of $50 or more after discounts and before taxes");
     expect(faqText).toContain("Most orders ship 5–7 business days after being placed.");
     expect(faqText).toContain("within 2 business days");
     expect(faqText).toContain("7–12 business days after they are issued");

@@ -103,7 +103,7 @@ export const termsOfService: PolicyDocument = {
 <h3 data-policy-gap="small">14.3 Legal Title.</h3>
 <p data-policy-gap="normal" data-policy-tone="muted">You will own the goods purchased, once we deliver them to you, at which point responsibility for your goods passes to you.</p>
 <h3 data-policy-gap="small">14.4 Shipping.</h3>
-<p data-policy-gap="normal" data-policy-tone="muted">Helix offers free standard shipping to delivery addresses within the United States. Available shipping options are shown at checkout. Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location.</p>
+<p data-policy-gap="normal" data-policy-tone="muted">Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Available shipping options are shown at checkout. Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location.</p>
 <p data-policy-gap="normal" data-policy-tone="muted">Tracking information becomes available within 48 hours after a shipment is dispatched. Once tracking is available, Helix will send an email with a link to track the package. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced. If additional information or action is required, Helix will contact you directly.</p>
 <p data-policy-gap="normal" data-policy-tone="muted">Further information is available in our <a href="/faq#shipping">Shipping Policy</a>.</p>
 <h4 data-policy-gap="compact">14.4.1 International fulfillment, duties and customs.</h4>

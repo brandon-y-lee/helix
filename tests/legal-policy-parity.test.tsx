@@ -95,6 +95,7 @@ describe("complete authorized local policy copies", () => {
     expect(privacy.textContent).toContain("We provide at least two methods for you to exercise these rights.");
     expect(privacy.textContent).toContain("we may keep order and billing records for up to 7 years");
     expect(terms.textContent).toContain("Most orders ship 5–7 business days after being placed.");
+    expect(terms.textContent).toContain("on orders of $50 or more after discounts and before taxes");
     expect(terms.textContent).toContain("Helix offers free returns on all orders.");
     expect(terms.textContent).toContain("a refund will be issued to your original payment method within 2 business days.");
     expect([privacy.textContent, terms.textContent].join(" ")).not.toMatch(/\b(?:sandbox|development)\b|live payments (?:are|have been) (?:enabled|activated)/i);
