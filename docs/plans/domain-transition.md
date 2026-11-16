@@ -157,3 +157,132 @@ Candidate v2 approved before implementation by `/root/domain_spec_review` and
 `/root/domain_standards_review`, independently, 2026-11-16; both verdicts approve,
 no blocking findings. Retain all identity/runner guards, use unique synthetic
 databases, and review any separate runner change before implementing it.
+
+## Candidate v3 — reporting starvation repair
+
+Temporary local timer observation measured a 101,697 ms event-loop stall in the
+same worker interval as the all-synchronous `github-workflow-tools.test.ts`
+file (101,693 ms). Vitest 3.2.6 schedules worker reporting RPCs without awaiting
+each update and its installed RPC transport times out at 60,000 ms. Prior
+default-worker runs took 67,998/69,100 ms and timed out; the two-worker run took
+46,488 ms and passed. The instrumented run additionally ran alongside Chromium
+and lint/typecheck, so its three test timing failures are load-confounded; they
+are not product regression evidence and must be rerun without that load.
+
+Proposed repair: add a root `afterEach` hook to that real-Git test file which
+awaits Node's promise-based `setImmediate` once between test cases. Preserve
+every fixture operation, assertion, timeout, worker count and isolation policy.
+This lets reporting acknowledgements run instead of postponing I/O for the
+whole synchronous file. It does not make any application change or silence a
+test failure. No new test of the hook itself; verify via the actual affected
+file and complete normal `pnpm test`, without concurrent expensive work.
+Repeat bounded timer observation only if needed to distinguish residual
+starvation; no diagnostic code is added to the product or repository config.
+
+Both independent reviewers must approve exact Candidate v3 before editing.
+
+Candidate v3 approved before implementation by `/root/domain_spec_review` and
+`/root/domain_standards_review`, independently, 2026-11-16; both verdicts approve,
+no blocking findings. Actual file/default-suite reruns must resolve the prior
+timing failures; no test/configuration weakening is approved.
+
+## Continuation verification completed
+
+Candidate v2 source `619209c` approved independently by Spec and Standards
+reviewers against `45483a8`, no actionable findings. Spec independently ran 38
+tests across cold-canonical/global-setup/metadata; Standards independently ran
+46 cold-canonical/site-origin tests. The two new canonical regressions failed
+before implementation (2 failed / 31 passed) and passed after the narrow resolver
+change (38 passed across the affected 3 files).
+
+### Local production artifact and Chromium
+
+The dedicated owned runner built `.us` configuration and verified artifact
+`J-5XzNHBU4ty5CPqH1M5L` at `http://127.0.0.1:58707`. Build passed in 32.304s;
+server identity passed; complete Chromium passed (206 passed, 3 skipped,
+0 unexpected, 0 flaky; 5.7 minutes); cleanup passed and its server was stopped.
+Log: `/tmp/helix-domain-production.log`.
+
+The temporary wrapper `/tmp/helix-domain-verify.mts` selected only the approved
+non-production Supabase URL and verified anonymous/publishable key in memory,
+plus explicit public origin and disabled checkout. No `.env` file was copied,
+no key value printed, and no privileged/payment/email credentials were selected.
+Browser interactions used the maintained fixtures; public catalog reads were
+the only live provider data access. No website request or setting was changed
+on the real `.us` domain. The build ran from the isolated candidate bytes later
+committed as `619209c`; the later reporting-hook change affects tests only.
+
+Global setup validated 10 active public Products. Cold product proof records
+HTTP 200 `/products/beaming-prep`, canonical and structured URL
+`https://www.helixskin.us/products/beaming-prep`, and that exact build ID.
+Artifacts remain under ignored `test-results/` and `playwright-report/`.
+The configured-origin verifier blocker is resolved locally.
+
+The 3 existing catalog-dependent Chromium skips remain explicit: rich-PDP
+available-variant and sticky-purchase proofs had no live Offer; cross-Product
+Quick Buy viewport proof lacked two collection Products with Offers. No skip
+was added or bypassed. Fixture-based cart/checkout coverage still ran. This
+local CLI result does not establish real-domain/provider acceptance or a remote
+Integration Gate result.
+
+### Disposable SQL proof
+
+Verified local container `helix-spec358-pg`: PostgreSQL 17, label
+`helix.task=spec358-synthetic-sql`, port 55438 bound to `127.0.0.1`. All of these
+maintained runners passed with unique databases and their own teardown:
+
+- `node scripts/db/test-checkout-payment-contracts.mjs helix-spec358-pg`
+- `node scripts/db/test-checkout-receipts.mjs helix-spec358-pg`
+- `node scripts/db/test-checkout-single-send.mjs helix-spec358-pg`
+- `node scripts/db/test-checkout-admission.mjs helix-spec358-pg`
+- `node scripts/db/test-catalog-current-contract.mjs --container=helix-spec358-pg`
+
+Logs: `/tmp/helix-domain-db-{payments,receipts,single-send,admission,catalog}.log`.
+This includes private grants/RLS, payment contracts, receipts, concurrency,
+single invocation, admission/recovery and 32 composed Catalog checks. The
+Catalog runner executed all 8 normally skipped SQL-backed Restore service
+tests, then confirmed removal of `helix_catalog_current_27cf5a28f0cc6606`.
+No provider mutation occurred; no unrelated database/container was reset.
+Schema and migration source files are unchanged.
+
+### Reporting timeout diagnosis
+
+The temporary `/tmp/helix-vitest-loop-diagnostic.mjs` only observed timers; it
+did not alter timeouts, assertions, isolation or IPC. Its log
+`/tmp/helix-domain-vitest-eventloop.jsonl` measured a 101,697ms blocked timer in
+the worker matching the synchronous Git suite's 101,693ms. The installed
+Vitest RPC code has a 60,000ms deadline, while runner task updates queue their
+reporting promises until completion. The all-synchronous test file starved its
+worker's I/O. Prior 4-worker failures (67.998s/69.100s) and a passing 2-worker
+file (46.488s) support that diagnosis.
+
+The diagnostic full run was load-confounded by simultaneous browser/lint work:
+Git phase-activation and 2 CatalogEditor timing checks failed, in addition to
+the reporting timeout. Log: `/tmp/helix-domain-vitest-diagnostic.log`. Do not
+interpret those timing failures as resolved until the unloaded rerun passes.
+After the reviewed `setImmediate` scheduling hook, the actual Git suite passed
+52/52 under normal load in 37.95s (`/tmp/helix-domain-git-yield.log`). Normal
+complete `pnpm test` verification is recorded below when finished.
+
+Final normal-load `pnpm test` (default 4 workers, no diagnostic preload), exit 0:
+293 files passed, 2,873 tests passed, the existing 1 file / 8 SQL-fixture tests
+skipped, no failed assertions or unhandled errors; 78.05 seconds. The Git suite
+passed 52/52 in 58.816s; CatalogEditor sections passed 11/11. Thus all three
+load-confounded timing failures passed on the final normal run. Log:
+`/tmp/helix-domain-vitest-normal-final.log`. The separate SQL runner above also
+executed all eight fixture tests. No timeout increase, default-worker change,
+assertion removal, or isolation/suppression was used.
+
+Final `pnpm lint`, `pnpm typecheck`, and `git diff --check` also passed after the
+reporting hook. Logs: `/tmp/helix-domain-lint-final.log` and
+`/tmp/helix-domain-typecheck-final.log`. The retained `.us` application build
+remains applicable: there is no later diff to `app/`, `lib/`, `.env.example`, or
+`next.config.ts`; the subsequent executable change is only the Vitest Git-file
+yield hook. Existing CSS/libvips build/browser warnings were non-fatal.
+
+No hosted acceptance is claimed: actual `.us` DNS/TLS/alias mapping, Supabase
+allowlist/Site URL/SMTP/templates, real browser Auth-cookie continuity across
+serving domains, provider Checkout returns/webhooks and real mailbox exchange
+remain rollout acceptance work. The user subsequently selected Resend's inbox
+instead of Gmail; this task only corrected that prerequisite description and
+did not modify support copy or send mail.
