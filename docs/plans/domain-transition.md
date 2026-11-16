@@ -516,3 +516,90 @@ V5 plan independently approved before merge by `/root/domain_spec_review` and
 `/root/domain_standards_review`, 2026-11-16. Both verdicts approve, no actionable
 findings. Exact final comparison remains `3519c00`; hosted-action freeze remains
 unchanged and no reviewer can replace the required user confirmation.
+
+## Candidate v5 composition and local verification outcome
+
+Local merge candidate `37d43918649337c6e9248e7b8e618c2802d2799c`
+incorporates exact dev `3519c001e9594233fd992e4a0a982eb6adea90e3`
+additively, without conflicts. All nine paths introduced by dashboard PR #510
+are byte-identical to that dev commit, including all three dashboard evidence
+files; composition proof is `/tmp/helix-domain-v5-composition.json`.
+The Reviews panel retains its `/account/reviews` link. No domain executable or
+database changes were introduced by the composition. The unrelated dirty primary
+checkout remains on local dev `2e2f3ac`; it was not edited or updated here.
+
+Independent Spec (`/root/domain_spec_review`) and Standards
+(`/root/domain_standards_review`) source verdicts: **approve**, no actionable
+source findings, comparison exact `3519c00..37d4391`. These approvals do not waive
+verification failures or authorize any remote action.
+
+Passed checks on the reconciled source:
+
+- Focused Auth/origin/checkout/cold-canonical/customer presentation coverage:
+  202 tests, 13 files; `/tmp/helix-domain-v5-focused.log`.
+- Lint and typecheck: exit 0; `/tmp/helix-domain-v5-lint.log` and
+  `/tmp/helix-domain-v5-typecheck.log`.
+- Complete ordinary default-four-worker Vitest: 2873 passed, 293 files;
+  eight existing dedicated-SQL-fixture skips in one file, no worker error.
+  `/tmp/helix-domain-v5-vitest.log`. The prior workflow-tools reporting timeout
+  did not recur; its reviewed event-loop yield remains in the candidate.
+- Fresh local configured-`.us` build `Dv5rGr5bFKqr-K-RUfaZ0`, owned loopback
+  server identity verified at `http://127.0.0.1:63481`, cleanup passed.
+  Cold `/products/beaming-prep` returned 200 with canonical and JSON-LD URL
+  `https://www.helixskin.us/products/beaming-prep`.
+- Dashboard Chromium coverage passed at 1440x1000, 390x844 and 320x640, including
+  keyboard toggles, draft preservation and synthetic local exit. Screenshots
+  are preserved with the full report below. In-app browser inspection of
+  `/helix-verification/customer/account?state=empty` opened Reviews and confirmed
+  the visible “Your public product reviews” link to `/account/reviews`.
+- `git diff --check` and task-helper `prepare` passed. The helper's immutable
+  recorded local base remains `2e2f3ac`; review uses explicitly requested dev
+  `3519c00`, without rewriting the recorded task metadata.
+
+Browser verification is **not clean**, despite the full runner's exit 0:
+
+- Full Chromium: **206 passed, three existing catalog skips, one flaky** out of
+  210 tests. The HTML report records `ok:false`; do not treat retry success as a
+  clean integration gate. `/tmp/helix-domain-v5-production.log`.
+- Flaky test: `e2e/pdp-effects.spec.ts:431`, mobile native Hydration swipe.
+  Initial and first retry failed the line395 monotonic scroll assertion
+  (`expected >=83`, `received 80`); second retry passed.
+- A second fresh owned build `iStC4ZfTjFqS25xD1Vf90` repeated that exact test
+  five times with retries disabled and unchanged assertions: **four passed,
+  one failed**, same assertion. Runner exited 1 and cleaned up its loopback
+  server. `/tmp/helix-domain-v5-swipe.log`; isolated results
+  `/tmp/helix-domain-v5-swipe-results`. Local command:
+  `pnpm exec tsx /tmp/helix-domain-swipe-verify.mts`.
+- The preserved first-retry trace records rail x positions
+  `85,85,85,84,80,74,65,55,43,31,20,11,5,1,0`, then 0, after touch release.
+  Page y remains 2054, rail height156 and top494.1875. This is evidence of a
+  native rail snap-back, not a diagnosed cause. Neither unchanged PDP source
+  nor account-scoped styles proves it unrelated to this composition. No test
+  tolerance, retries, production gesture behavior or assertions were changed.
+  Trace and extracted frame data:
+  `/tmp/helix-domain-v5-full-verification/test-results/pdp-effects-mobile-serum-e-c666d-les-without-moving-the-page-chromium-retry1/trace.zip`
+  and `/tmp/helix-domain-v5-swipe-trace-summary.json`.
+- Full report, screenshots, cold-origin evidence and original build ID preserved
+  under `/tmp/helix-domain-v5-full-verification` before focused diagnostics.
+  Full local run command: `pnpm exec tsx /tmp/helix-domain-verify.mts`.
+- Three catalog skips remain the rich PDP available variant, two-Product
+  Quick Buy viewport and rich PDP sticky purchase; the anonymous catalog lacks
+  their required Offers. They are explicit limitations, not waived proof.
+
+Not rerun in v5: the five previously passing maintained local Postgres suites
+and their eight SQL-backed tests. Database and migration paths are unchanged;
+prior dedicated synthetic-fixture evidence remains applicable as approved in
+v5's plan. Hosted Auth, real login/token exchange, customer mail, live purchase,
+CI integration gate, redeployment and custom-domain exposure were not run.
+
+The local reconciliation is ready for an honest handoff; **integration or
+deployment readiness is blocked** by the reproducible native swipe check and
+requires the appropriate scoped repair/review and verification. Both independent
+reviewers explicitly agree that a local checkpoint is permissible while this
+blocker is recorded, and that retry success cannot waive the gate.
+
+No hosted settings, deployments, security controls, Production, DNS, remote Git
+writes, campaigns, tracking or payment flags changed during v5. The existing
+hosted Preview remains frozen at source `929fd47`, without the account merge.
+Keep it distinct from this local candidate. Brandon's project-wide protection
+decision remains with the parent; do not alter or restore settings automatically.
