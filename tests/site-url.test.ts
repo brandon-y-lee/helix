@@ -21,6 +21,12 @@ describe("public-site URL contract", () => {
     "http://helixskin.vercel.app",
     "https://helix-random-build.vercel.app",
     "https://helixskin.vercel.app/path",
+    "https://helixskin.us/",
+    "https://helixskin.us:8443",
+    "https://helixskin.us.attacker.example",
+    "https://user@helixskin.us",
+    "https://helixskin.us?next=evil",
+    "https://helixskin.us#fragment",
   ])("ignores a noncanonical deployed site URL: %s", (siteUrl) => {
     expect(
       resolvePublicSiteOrigin({
@@ -30,6 +36,11 @@ describe("public-site URL contract", () => {
         },
       }),
     ).toBe("https://helixskin.vercel.app");
+  });
+
+  it.each(["https://helixskin.us", "https://www.helixskin.us"])("selects only an explicitly configured controlled origin: %s", (origin) => {
+    expect(resolvePublicSiteOrigin({ env: { NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: origin }, requestOrigin: "https://attacker.example" })).toBe(origin);
+    expect(resolvePublicSiteOrigin({ env: { NODE_ENV: "production" }, requestOrigin: origin })).toBe(CANONICAL_PUBLIC_SITE_ORIGIN);
   });
 
   it("accepts only loopback configured and request origins during local development", () => {

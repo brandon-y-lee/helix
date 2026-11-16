@@ -1,5 +1,5 @@
 import { CheckoutConfigError } from "@/lib/checkout/config";
-import { CANONICAL_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+import { compatibleRequestOrigin, isControlledPublicSiteOrigin, resolvePublicSiteOrigin } from "@/lib/site-url";
 
 export function resolveCheckoutOrigin(input: {
   env?: NodeJS.ProcessEnv;
@@ -10,7 +10,7 @@ export function resolveCheckoutOrigin(input: {
   const origin = configuredOrigin ?? (
     env.NODE_ENV === "development"
       ? "http://localhost:3000"
-      : CANONICAL_PUBLIC_SITE_ORIGIN
+      : resolvePublicSiteOrigin({ env })
   );
 
   try {
@@ -19,10 +19,10 @@ export function resolveCheckoutOrigin(input: {
       env.NODE_ENV === "development" &&
       url.protocol === "http:" &&
       ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-    if (origin !== url.origin || (url.protocol !== "https:" && !localDevelopment)) {
+    if (origin !== url.origin || (!isControlledPublicSiteOrigin(origin) && !localDevelopment)) {
       throw new Error("Invalid checkout origin");
     }
-    return url.origin;
+    return compatibleRequestOrigin(url.origin, input.requestOrigin, env);
   } catch {
     throw new CheckoutConfigError(
       "checkout_misconfigured",

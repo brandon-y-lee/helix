@@ -18,6 +18,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     assertCheckoutRequestOrigin(request);
     const body = await readCheckoutRequest(request);
     const result = await createStripeCheckoutSession({
+      requestOrigin: new URL(request.url).origin,
       rewardTierId: body.rewardTierId,
       ...(body.offerId ? { offerId: body.offerId } : {}),
     });

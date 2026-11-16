@@ -13,6 +13,20 @@ afterEach(() => vi.unstubAllEnvs());
 const post = (type = "email", next = "/account") => new NextRequest(`${origin}/auth/confirm`, { method: "POST", headers: { origin, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ token_hash: token, type, next }) });
 
 describe("account email confirmation", () => {
+  it.each([origin, "https://www.helixskin.us"])("confirms on the same cookie host after cutover: %s", async (host) => {
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://www.helixskin.us");
+    mocks.verifyOtp.mockResolvedValue({ data: { session: {} }, error: null });
+    const request = new NextRequest(`${host}/auth/confirm`, { method: "POST", headers: { origin: host, "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ token_hash: token, type: "email", next: "/account" }) });
+    expect((await POST(request)).headers.get("location")).toBe(`${host}/account`);
+    expect(mocks.merge).toHaveBeenCalledOnce();
+  });
+  it("rejects cross-host confirmation between two trusted Helix origins", async () => {
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://www.helixskin.us");
+    const request = post();
+    request.headers.set("origin", "https://www.helixskin.us");
+    expect((await POST(request)).status).toBe(403);
+    expect(mocks.verifyOtp).not.toHaveBeenCalled();
+  });
   it("does not consume a link when an email scanner fetches it", async () => {
     const response = await GET(new NextRequest(`${origin}/auth/confirm?token_hash=${token}&type=email`));
     expect(response.status).toBe(200);

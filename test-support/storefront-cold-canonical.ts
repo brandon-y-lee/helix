@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { isValidProductSlug } from "@/lib/catalog/product-slug";
 import { composeProductTitle } from "@/lib/products";
-import { CANONICAL_PUBLIC_SITE_ORIGIN } from "@/lib/site-url";
+import { resolvePublicSiteOrigin } from "@/lib/site-url";
 import type { StorefrontSnapshotProduct } from "@/test-support/storefront-baseline";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -182,7 +182,7 @@ export async function verifyColdCanonicalProduct(
   } finally {
     clearTimeout(timer);
   }
-  const canonicalURL = new URL(product.path, CANONICAL_PUBLIC_SITE_ORIGIN).href;
+  const canonicalURL = new URL(product.path, resolvePublicSiteOrigin()).href;
   validateIdentity(html, product, canonicalURL);
 
   const evidence = {

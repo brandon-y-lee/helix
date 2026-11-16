@@ -54,6 +54,7 @@ let buildDirectory: string;
 let outputDirectory: string;
 
 beforeEach(async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
   directory = await mkdtemp(join(tmpdir(), "helix-cold-canonical-"));
   buildDirectory = join(directory, ".next");
   outputDirectory = join(directory, "test-results");
@@ -64,6 +65,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
   await rm(directory, { recursive: true, force: true });
 });
 
@@ -77,6 +79,23 @@ function options(request = vi.fn<typeof fetch>().mockResolvedValue(htmlResponse(
 }
 
 describe("retained production cold canonical Product proof", () => {
+  it("verifies the selected .us origin without changing the loopback fetch destination", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.helixskin.us");
+    const selectedURL = `https://www.helixskin.us${current.path}`;
+    const request = vi.fn<typeof fetch>().mockResolvedValue(htmlResponse(html({
+      canonical: selectedURL, openGraph: selectedURL, structuredURL: selectedURL,
+    })));
+    const result = await verifyColdCanonicalProduct({ products: [current] }, options(request));
+    expect(JSON.parse(await readFile(result, "utf8"))).toMatchObject({ canonicalURL: selectedURL, structuredDataURL: selectedURL });
+    expect(request.mock.calls[0][0]).toEqual(new URL(current.path, "http://127.0.0.1:34123"));
+  });
+
+  it("rejects stale legacy metadata when the retained build selects .us", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.helixskin.us");
+    await expect(verifyColdCanonicalProduct({ products: [current] }, options()))
+      .rejects.toThrow("current Product identity");
+  });
+
   it("requests an unprerendered published Family member once and records bounded build evidence", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(htmlResponse());
     const result = await verifyColdCanonicalProduct({ products: [current] }, options(request));

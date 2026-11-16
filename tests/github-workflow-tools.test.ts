@@ -9,7 +9,12 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { setImmediate as nextEventLoopTurn } from "node:timers/promises";
+import { afterEach, describe, expect, it } from "vitest";
+
+// Real-Git cases spawn synchronous processes. Let pending worker-reporting
+// acknowledgements run between cases instead of blocking I/O for the full file.
+afterEach(() => nextEventLoopTurn());
 
 const projectRoot = process.cwd();
 const taskHelper = resolve(projectRoot, "scripts/git/codex-task.sh");
