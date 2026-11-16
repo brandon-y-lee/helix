@@ -329,7 +329,7 @@ test.describe("mobile serum effects", () => {
   });
 
   for (const [effectIndex, startingEffect] of effectNames.entries()) {
-    test(`native swipe from ${startingEffect} hides icons and settles without moving the page`, async ({ page, storefront, browserName }) => {
+    test(`native swipe from ${startingEffect} hides icons and settles without moving the page`, async ({ page, storefront, browserName }, testInfo) => {
       test.skip(browserName !== "chromium", "Native touch streams use CDP; shared geometry and keyboard checks also run in WebKit.");
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(productPath(storefront));
@@ -356,9 +356,13 @@ test.describe("mobile serum effects", () => {
       const touch = await page.context().newCDPSession(page);
       try {
         const origin = direction === 1 ? 300 : 90;
-        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: origin, y }] });
+        // Keep a fast flick's input cadence independent of CDP/assertion round trips.
+        // A delayed release otherwise turns this short flick into a paused drag.
+        let touchTimestamp = fast ? Date.now() / 1000 : undefined;
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: origin, y }], timestamp: touchTimestamp });
         for (let distance = fast ? 20 : 14; distance <= (fast ? 100 : 210); distance += fast ? 20 : 14) {
-          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin - distance * direction, y }] });
+          if (touchTimestamp !== undefined) touchTimestamp += .005;
+          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: origin - distance * direction, y }], timestamp: touchTimestamp });
           await page.waitForTimeout(fast ? 5 : 20);
         }
         // A paused finger must not allow the scroll-idle fallback to restore icons or move focus.
@@ -387,9 +391,16 @@ test.describe("mobile serum effects", () => {
           })();
           return { done };
         }, { incomingIndex: targetIndex, direction });
-        await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await touch.send('Input.dispatchTouchEvent', {
+          type: 'touchEnd', touchPoints: [],
+          timestamp: touchTimestamp === undefined ? undefined : touchTimestamp + .005,
+        });
         const samples = await release.evaluate(recording => recording.done);
         await release.dispose();
+        await testInfo.attach('native-swipe-frames', {
+          body: JSON.stringify({ startingEffect, direction, fast, samples }),
+          contentType: 'application/json',
+        });
         expect(new Set(samples.map(sample => sample.x)).size).toBeGreaterThan(3);
         for (let index = 1; index < samples.length; index++) {
           expect(samples[index].x * direction).toBeGreaterThanOrEqual(samples[index - 1].x * direction - 1);

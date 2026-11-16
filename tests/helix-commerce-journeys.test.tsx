@@ -103,6 +103,7 @@ describe("Checkout creation and verified completion", () => {
         url: "https://checkout.stripe.test/cs_test_helix",
       });
       expect(journey.createStripeCheckoutSession).toHaveBeenCalledWith({
+        requestOrigin: "https://helixskin.vercel.app",
         rewardTierId,
       });
     },

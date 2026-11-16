@@ -106,10 +106,10 @@ describe("trusted checkout return origins", () => {
   it("uses an explicit server-configured checkout origin", () => {
     expect(
       resolveCheckoutOrigin({
-        env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "https://staging.helix.test" },
+        env: { NODE_ENV: "production", CHECKOUT_ORIGIN: "https://www.helixskin.us" },
         requestOrigin: "https://attacker.example",
       }),
-    ).toBe("https://staging.helix.test");
+    ).toBe("https://www.helixskin.us");
     expect(
       resolveCheckoutOrigin({
         env: { NODE_ENV: "development", CHECKOUT_ORIGIN: "http://127.0.0.1:3100" },
@@ -125,6 +125,7 @@ describe("trusted checkout return origins", () => {
 
   it.each([
     ["production", "http://localhost:3000"],
+    ["production", "https://staging.helix.test"],
     ["production", "http://staging.helix.test"],
     ["production", "https://staging.helix.test/path"],
     ["production", "https://user:password@staging.helix.test"],
@@ -136,5 +137,12 @@ describe("trusted checkout return origins", () => {
     expect(() => resolveCheckoutOrigin({
       env: { NODE_ENV: nodeEnv, CHECKOUT_ORIGIN: origin } as NodeJS.ProcessEnv,
     })).toThrow("Checkout origin is not configured correctly.");
+  });
+
+  it("uses the configured public domain when no checkout override exists, retaining legacy request returns", () => {
+    const env = { NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "https://www.helixskin.us" } as NodeJS.ProcessEnv;
+    expect(resolveCheckoutOrigin({ env })).toBe("https://www.helixskin.us");
+    expect(resolveCheckoutOrigin({ env, requestOrigin: "https://helixskin.vercel.app" })).toBe("https://helixskin.vercel.app");
+    expect(resolveCheckoutOrigin({ env, requestOrigin: "https://attacker.example" })).toBe("https://www.helixskin.us");
   });
 });
