@@ -20,12 +20,15 @@ describe("customer verification fixture actions", () => {
     const fetch = vi.fn(() => { throw new Error("Provider request escaped fixture"); });
     vi.stubGlobal("fetch", fetch);
     render(<CustomerPresentationFixture view="account" state="success" form="sign-in" />);
-    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Your account" })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Save profile" }));
     expect(await screen.findByText("Profile updated.")).toBeVisible();
+    fireEvent.click(screen.getByText("Reviews", { exact: true }).closest("summary")!);
     await userEvent.click(screen.getByRole("button", { name: "Submit private feedback" }));
     expect(await screen.findByText("Private feedback submitted. 300 points were awarded.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("heading", { name: "Sign in" })).toBeVisible();
+    expect(screen.queryByText("Your account")).not.toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -35,6 +38,7 @@ describe("customer verification fixture actions", () => {
     render(<CustomerPresentationFixture view="account" state="pending" form="sign-in" />);
     await userEvent.click(screen.getByRole("button", { name: "Save profile" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Working" })).toBeDisabled());
+    fireEvent.click(screen.getByText("Reviews", { exact: true }).closest("summary")!);
     await userEvent.click(screen.getByRole("button", { name: "Submit private feedback" }));
     expect(screen.getByRole("button", { name: "Submitting" })).toBeDisabled();
     expect(fetch).not.toHaveBeenCalled();
