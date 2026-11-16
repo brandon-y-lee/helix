@@ -99,9 +99,9 @@ afterEach(() => {
 
 describe("cart client outage recovery", () => {
   it.each([
-    ["page", 2500, 2500, "Add $25.00 more for FREE shipping"],
-    ["drawer", 5000, 5000, "FREE shipping threshold reached"],
-    ["page", 7500, 5000, "FREE shipping threshold reached"],
+    ["page", 2500, 2500, "Add $25.00 to reach $50.00 before discounts."],
+    ["drawer", 5000, 5000, "Subtotal is at least $50.00 before discounts."],
+    ["page", 7500, 5000, "Subtotal is at least $50.00 before discounts."],
   ] as const)("shows bounded shipping progress in a %s cart at %i cents", async (mode, subtotal, progressValue, message) => {
     vi.stubGlobal("fetch", vi.fn<typeof fetch>((input) =>
       response(String(input).startsWith("/api/rewards/summary")
@@ -111,12 +111,13 @@ describe("cart client outage recovery", () => {
 
     render(<CartProvider><CartView mode={mode} /></CartProvider>);
 
-    const progress = await screen.findByRole("progressbar", { name: "Free standard shipping progress" });
+    const progress = await screen.findByRole("progressbar", { name: "Merchandise subtotal before discounts" });
     expect(progress).toHaveAttribute("max", "5000");
     expect(progress).toHaveAttribute("value", String(progressValue));
     expect(progress).toHaveAttribute("aria-valuetext", expect.stringContaining("before discounts"));
     const summary = screen.getByRole("complementary", { name: "Order summary" });
     expect(summary).toHaveTextContent(message);
+    expect(summary).toHaveTextContent("Free standard US shipping applies at $50.00+ after discounts and before taxes.");
     expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
   });
 
@@ -181,7 +182,7 @@ describe("cart client outage recovery", () => {
     expect(cartRequests).toBe(1);
     expect(
       screen.getByRole("complementary", { name: "Order summary" }),
-    ).toHaveTextContent("Add $6.00 more for FREE shipping");
+    ).toHaveTextContent("Add $6.00 to reach $50.00 before discounts.");
     expect(
       screen.getByRole("button", { name: "Checkout $44.00" }),
     ).toBeInTheDocument();
