@@ -22,7 +22,7 @@ After the independently approved Ticket set is published without `ready-for-agen
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 ```
 
-The helper validates the planned Spec, fetches the exact current remote `dev`, creates `codex/spec-<spec-number>-<slug>` at that commit, pushes it, and opens a draft Spec PR to `dev`. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
+The helper validates the planned Spec, fetches the exact current remote `dev`, creates `codex/spec-<spec-number>-<slug>` at that commit, adds one metadata-only bootstrap commit and publishes that initial ref, and opens a draft Spec PR to `dev`. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
 
 ## Start an isolated task
 
@@ -168,3 +168,5 @@ pnpm github:workflow:apply -- \
 ```
 
 The tool never pushes `dev`. It fails closed on missing authentication, the wrong repository, stale or divergent ancestry, unavailable repository, issue, check, ruleset, protection, or label facts, mismatched confirmations, or cleanup before exact replacement activation. Before cleanup, rollback is deletion of the new rules while classic `ci` remains. After cleanup, rollback must restore classic `integration-gate` protection before disabling replacements.
+
+See [Spec bootstrap recovery](agents/engineering-workflow.md#spec-bootstrap-recovery) for metadata and retry validation.

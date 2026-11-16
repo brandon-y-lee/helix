@@ -224,14 +224,29 @@ start_spec() {
   )
   pr_status=$(
     "$gh_bin" pr list --state all --head "$spec_branch" --base dev --limit 1 \
-      --json state,isDraft,url --jq '.[0] | [.state, .isDraft, .url] | @tsv'
+      --json state,isDraft,url --jq '.[] | [.state, .isDraft, .url] | @tsv'
   ) || fail "could not inspect the Spec PR for '$spec_branch'"
 
+  manifest_path="docs/specs/${spec_branch#codex/spec-}.md"
+  manifest_content=$(printf '# Spec #%s delivery boundary\n\nSpec: https://github.com/%s/issues/%s\nBranch: %s\nBase: %s\n' \
+    "$spec_number" "$repository" "$spec_number" "$spec_branch" "$remote_dev")
+  expected_manifest_blob=$(printf '%s\n' "$manifest_content" | git -C "$spec_repository" hash-object --stdin)
+  expected_manifest_entry=$(printf '100644 blob %s\t%s' "$expected_manifest_blob" "$manifest_path")
   setup_complete=0
   if [ -n "$remote_spec" ]; then
+    git -C "$spec_repository" fetch --quiet origin "refs/heads/$spec_branch" ||
+      fail "could not inspect Spec Branch"
+    [ "$(git -C "$spec_repository" rev-parse FETCH_HEAD)" = "$remote_spec" ] ||
+      fail "Spec Branch changed during setup; preserve it and retry"
     if [ -z "$pr_status" ]; then
-      [ "$remote_spec" = "$remote_dev" ] ||
-        fail "partial Spec setup is stale: '$spec_branch' exists without a PR and dev advanced; preserve it and obtain recovery direction"
+      [ "$remote_spec" != "$remote_dev" ] ||
+        fail "partial Spec Branch has no bootstrap; preserve the protected ref and obtain recovery direction"
+      [ "$(git -C "$spec_repository" show -s --format=%P "$remote_spec")" = "$remote_dev" ] &&
+        [ "$(git -C "$spec_repository" diff-tree --no-commit-id --name-only -r "$remote_spec")" = "$manifest_path" ] &&
+        [ "$(git -C "$spec_repository" ls-tree "$remote_spec" -- "$manifest_path")" = "$expected_manifest_entry" ] ||
+        fail "partial Spec setup is stale or unrecognized; preserve it and obtain recovery direction"
+      git -C "$spec_repository" cat-file -e "$remote_dev:$manifest_path" 2>/dev/null &&
+        fail "Spec manifest already exists at base; preserve it and obtain recovery direction"
     else
       setup_complete=1
     fi
@@ -240,15 +255,34 @@ start_spec() {
   fi
 
   if [ -z "$remote_spec" ]; then
+    if git -C "$spec_repository" cat-file -e "$remote_dev:$manifest_path" 2>/dev/null; then
+      fail "Spec manifest already exists at base; preserve it and obtain recovery direction"
+    fi
+    # GitHub cannot open a PR for identical trees. Record only the approved
+    # delivery boundary using a private index, never the caller's checkout.
+    bootstrap_commit=$(
+      bootstrap_dir=$(mktemp -d "${TMPDIR:-/tmp}/helix-spec-bootstrap.XXXXXX") || exit 1
+      trap 'rm -rf "$bootstrap_dir"' EXIT HUP INT TERM
+      export GIT_INDEX_FILE="$bootstrap_dir/index"
+      git -C "$spec_repository" read-tree "$remote_dev" || exit 1
+      manifest_blob=$(printf '%s\n' "$manifest_content" | git -C "$spec_repository" hash-object -w --stdin) || exit 1
+      git -C "$spec_repository" update-index --add --cacheinfo "100644,$manifest_blob,$manifest_path" || exit 1
+      bootstrap_tree=$(git -C "$spec_repository" write-tree) || exit 1
+      printf 'docs: establish Spec #%s delivery boundary\n\nSpec #%s\n' "$spec_number" "$spec_number" |
+        git -C "$spec_repository" commit-tree "$bootstrap_tree" -p "$remote_dev"
+    ) || fail "could not prepare Spec manifest; remote branch preserved"
     current_remote_dev=$(
       git -C "$spec_repository" ls-remote --heads origin refs/heads/dev |
         awk 'NR == 1 { print $1 }'
     )
     [ "$current_remote_dev" = "$remote_dev" ] ||
       fail "remote dev advanced during Spec setup; retry from the new exact commit"
-    git -C "$spec_repository" push origin "$remote_dev:refs/heads/$spec_branch" ||
-      fail "could not create remote Spec Branch '$spec_branch'"
-    remote_spec=$remote_dev
+    # This is initial ref creation, not a protected branch update.
+    [ -z "$(git -C "$spec_repository" ls-remote --heads origin "refs/heads/$spec_branch")" ] ||
+      fail "Spec Branch appeared during setup; preserve it and retry"
+    git -C "$spec_repository" push origin "$bootstrap_commit:refs/heads/$spec_branch" ||
+      fail "could not publish Spec manifest; preserve partial setup and obtain recovery direction"
+    remote_spec=$bootstrap_commit
   fi
 
   if git -C "$spec_repository" show-ref --verify --quiet "refs/heads/$spec_branch"; then

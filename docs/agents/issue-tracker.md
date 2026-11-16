@@ -33,7 +33,7 @@ Publish or update issues, PRs, and delivery state only under the action authorit
 
 - **Claim a ticket**: `gh issue edit <number> --add-assignee @me --remove-label ready-for-agent --add-label workflow:in-progress`
 - **Mark review-ready**: `gh issue edit <number> --remove-label workflow:in-progress --add-label workflow:review`
-- **Establish a Spec Branch**: `scripts/git/codex-task.sh spec-start <spec-number>-<slug>` creates the exact remote-`dev` branch and draft Spec PR before exposing child Tickets.
+- **Establish a Spec Branch**: `scripts/git/codex-task.sh spec-start <spec-number>-<slug>` creates a metadata-only bootstrap commit whose parent is exact remote `dev`, publishes that initial ref, and opens the draft Spec PR before exposing child Tickets.
 - **Open the Ticket PR**: `gh pr create --base codex/spec-<spec-number>-<slug> --head codex/<number>-<slug> --title "..." --body-file <path>`
 - **Inspect checks**: `gh pr checks <number> --watch`
 - **Complete the Ticket**: after Ticket Review and `ticket-gate`, squash-merge into its Spec Branch; comment with the PR, integrated commit, checks, and review result; remove workflow labels and close the Ticket.
@@ -59,3 +59,5 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
 - **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+
+See [Spec bootstrap recovery](./engineering-workflow.md#spec-bootstrap-recovery) for metadata and retry validation.

@@ -46,7 +46,7 @@ With issue-publication authority, `to-spec` publishes the agent-approved specifi
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 ```
 
-The repeat-safe setup creates `codex/spec-<spec-number>-<slug>` from the exact current remote `dev`, pushes it, opens its draft Spec PR to `dev`, and only then exposes the approved child Tickets. A partial setup fails closed; do not reset, retarget, or recreate uncertain state.
+The repeat-safe setup creates `codex/spec-<spec-number>-<slug>` from the exact current remote `dev`, adds one metadata-only bootstrap commit and publishes that initial ref, opens its draft Spec PR to `dev`, and only then exposes the approved child Tickets. A partial setup fails closed; do not reset, retarget, or recreate uncertain state.
 
 A Spec Branch is the visible delivery boundary for one approved multi-Ticket Spec. Adding, removing, or changing required Tickets within the goal requires renewed independent planning approval and returns the Spec PR to draft; changing the goal requires the user.
 
@@ -116,3 +116,9 @@ When implementation exposes new work:
 `pnpm github:workflow:plan` is read-only. It describes overlapping Spec Branch and `dev` ruleset activation, compatibility cleanup, rollback, and the deferred `main` transition. Apply is a separately approved remote mutation with exact repository, remote-`dev`, CI-verified SHA, phase, and GitHub Actions app confirmations. Activation keeps classic `ci` protection; cleanup is allowed only after real `ticket-gate` and `integration-gate` evidence is verified.
 
 Production promotion remains a separate `dev → main` PR with green `integration-gate`, staging inspection, and explicit user authorization. Because `main` protection is deferred, a main-only `ci` reporter remains until that separate transition; it is not part of the active `dev` delivery contract. The solo maintainer does not self-approve through GitHub.
+
+### Spec bootstrap recovery
+
+GitHub rejects PRs with identical base and head. Before initial remote ref creation, `spec-start` creates one commit whose sole parent is exact current remote `dev`. It adds only `docs/specs/<number>-<slug>.md`, recording the Spec URL, branch and immutable base SHA. This is delivery metadata, not Ticket implementation. Existing manifests are never overwritten. A private temporary index preserves the caller checkout. Only normal pushes are used; protection rejection requires recovery direction, never bypass.
+
+Before a PR exists, retry accepts only the single-parent bootstrap from current remote `dev` with the exact expected manifest as its sole change. An existing exact-dev ref without bootstrap, changed base, extra changes or altered manifest fails closed. The helper never directly updates an existing protected Spec branch. PR failure preserves the bootstrap for retry without exposing Tickets. Existing valid draft PRs retain the normal readiness reconciliation.
