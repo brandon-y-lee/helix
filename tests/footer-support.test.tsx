@@ -187,7 +187,7 @@ describe("legal and support content", () => {
     expect(screen.queryByText("Not in effect")).not.toBeInTheDocument();
     expect(screen.queryByText(/No Legal Operator/i)).not.toBeInTheDocument();
     expect(screen.getByRole("table", {name:"Required cookies"})).toHaveTextContent("Duration");
-    expect(screen.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+    expect(screen.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
   });
 
   it("uses helix metadata across trust, support, and policy routes", () => {
@@ -356,7 +356,7 @@ describe("legal and support content", () => {
       expect(screen.queryByRole("button", { name: /submit inquiry/i })).not.toBeInTheDocument();
       await userEvent.click(screen.getByText("Before you send"));
       expect(screen.getByRole("heading", { name: "Helpful details" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+      expect(screen.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
       expect(screen.queryByText(/Planned support hours|Development service|Local design preview/i)).not.toBeInTheDocument();
       expect(screen.queryByText(/message sent successfully/i)).not.toBeInTheDocument();
     } finally { fetcher.mockRestore(); }

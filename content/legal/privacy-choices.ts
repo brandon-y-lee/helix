@@ -21,7 +21,7 @@ export const privacyChoices: LegalDocument = {
       id: "requests",
       title: "Privacy requests",
       body: [
-        "For questions about your personal information or to exercise your privacy rights, contact support@helixskin.com. Read our Privacy Policy for further information.",
+        "For questions about your personal information or to exercise your privacy rights, contact support@helixskin.us. Read our Privacy Policy for further information.",
       ],
     },
   ],

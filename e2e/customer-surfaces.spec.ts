@@ -213,16 +213,16 @@ test("privacy choices preserves focus and truthful categories through interrupte
 });
 
 
-test("account disclosures retain drafts, support keyboard toggling and local exit", async ({ page }, testInfo) => {
-  const writes: string[] = [];
-  await page.route("**/*", route => {
-    if (route.request().method() === "POST") {
-      writes.push(route.request().url());
-      return route.abort();
-    }
-    return route.fallback();
-  });
-  for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
+for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 640 }]) {
+  test(`account disclosures retain drafts, keyboard toggling and local exit at ${viewport.width}px`, async ({ page }, testInfo) => {
+    const writes: string[] = [];
+    await page.route("**/*", route => {
+      if (route.request().method() === "POST") {
+        writes.push(route.request().url());
+        return route.abort();
+      }
+      return route.fallback();
+    });
     await page.setViewportSize(viewport);
     await page.goto("/helix-verification/customer/account?state=empty");
     await expect(page.locator(".account-disclosure .faq-item").first()).toHaveAttribute("data-expanded", "true");
@@ -256,11 +256,11 @@ test("account disclosures retain drafts, support keyboard toggling and local exi
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
     await expect(page.locator(".account-disclosures")).toHaveCount(0);
-  }
-  await page.goto("/account");
-  await expect(page).toHaveURL(/\/account\/sign-in\?next=%2Faccount$/);
-  expect(writes).toEqual([]);
-});
+    await page.goto("/account");
+    await expect(page).toHaveURL(/\/account\/sign-in\?next=%2Faccount$/);
+    expect(writes).toEqual([]);
+  });
+}
 
 test("cookie policy retains the current legal layout with readable scoped tables and working links", async ({ page }) => {
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }, { width: 320, height: 480 }]) {
@@ -272,7 +272,7 @@ test("cookie policy retains the current legal layout with readable scoped tables
     await expect(policy).not.toContainText(/Not in effect|prelaunch|No Legal Operator/);
     await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("columnheader")).toHaveText(["Name", "Function", "Duration"]);
     await expect(policy.getByRole("table", {name:"Required cookies"}).getByRole("row")).toHaveCount(8);
-    await expect(policy.getByRole("link", { name: "support@helixskin.com" })).toHaveAttribute("href", "mailto:support@helixskin.com");
+    await expect(policy.getByRole("link", { name: "support@helixskin.us" })).toHaveAttribute("href", "mailto:support@helixskin.us");
     await expectNoMainOverflow(page, viewport.width);
     await page.locator(".site-footer").getByRole("button", { name: "Your Privacy Choices" }).click();
     await page.getByRole("dialog").getByRole("link", { name: "Privacy Policy", exact: true }).first().click();

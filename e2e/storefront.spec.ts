@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { formatPrice } from "@/lib/products";
+import { hasRichPdpMedia } from "@/test-support/storefront-baseline";
 import type {
   StorefrontJourneys,
   StorefrontPurchase,
@@ -91,6 +92,17 @@ function requirePurchasableProduct(storefront: StorefrontJourneys) {
       "The canonical Catalog does not currently expose a Product Offer.",
     );
     throw new Error("Skipped because the canonical Catalog has no Product Offer.");
+  }
+  return product;
+}
+
+function requirePurchasableRichProduct(storefront: StorefrontJourneys) {
+  const product = storefront.snapshot.products.find(
+    (candidate) => candidate.offer !== null && hasRichPdpMedia(candidate),
+  );
+  if (!product) {
+    test.skip(true, "The canonical Catalog does not currently expose a rich PDP Product with an Offer.");
+    throw new Error("Skipped because the canonical Catalog has no rich PDP Product Offer.");
   }
   return product;
 }
@@ -547,11 +559,7 @@ test("PDP resolves canonical data and exposes an available variant", async ({
   page,
   storefront,
 }) => {
-  const product = storefront.product("richPdp");
-  test.skip(
-    product.offer === null,
-    "The canonical rich PDP Product does not currently expose an Offer.",
-  );
+  const product = requirePurchasableRichProduct(storefront);
   const purchase = storefront.purchase(product);
   const gallery = storefront.gallery(product);
   const serverResponse = await page.request.get(product.path);
@@ -1130,11 +1138,7 @@ test("PDP sticky purchase appears after routine video and hides at the footer", 
   page,
   storefront,
 }) => {
-  const product = storefront.product("richPdp");
-  test.skip(
-    product.offer === null,
-    "The canonical rich PDP Product does not currently expose an Offer.",
-  );
+  const product = requirePurchasableRichProduct(storefront);
   const purchase = storefront.purchase(product);
   await installCartFixture(page, storefront.snapshot.products);
   await page.goto(purchase.product.path);

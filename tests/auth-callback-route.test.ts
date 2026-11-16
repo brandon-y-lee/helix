@@ -31,9 +31,17 @@ describe("existing PKCE email callbacks", () => {
   });
   it("rejects a control-character return URL and uses the reviewed domain", async () => {
     mocks.exchange.mockResolvedValue({ error: null });
-    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://accounts.example.test");
-    const response = await GET(new NextRequest(`https://accounts.example.test/auth/callback?code=code&next=${encodeURIComponent("/\t/evil.example")}`));
-    expect(response.headers.get("location")).toBe("https://accounts.example.test/account");
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://www.helixskin.us");
+    const response = await GET(new NextRequest(`https://www.helixskin.us/auth/callback?code=code&next=${encodeURIComponent("/\t/evil.example")}`));
+    expect(response.headers.get("location")).toBe("https://www.helixskin.us/account");
+  });
+  it("keeps a pre-cutover PKCE callback on its original cookie host after configuring .us", async () => {
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://www.helixskin.us");
+    mocks.exchange.mockResolvedValue({ error: null });
+    const response = await GET(new NextRequest(`${origin}/auth/callback?code=old-code&next=%2Faccount%2Freset-password`));
+    expect(response.headers.get("location")).toBe(`${origin}/account/reset-password`);
+    expect(mocks.exchange).toHaveBeenCalledWith("old-code");
+    expect(mocks.merge).toHaveBeenCalledOnce();
   });
   it("distinguishes temporary provider failure from an expired PKCE link", async () => {
     mocks.exchange.mockResolvedValue({ error: { status: 503, message: "private response" } });

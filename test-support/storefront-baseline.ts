@@ -612,7 +612,7 @@ function normalizeProduct(
   };
 }
 
-function hasRichPdpMedia(product: StorefrontSnapshotProduct): boolean {
+export function hasRichPdpMedia(product: StorefrontSnapshotProduct): boolean {
   const roles = new Set(
     product.media.filter((item) => Boolean(item.url)).map((item) => item.role),
   );

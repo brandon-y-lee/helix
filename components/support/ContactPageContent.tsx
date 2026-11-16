@@ -13,7 +13,7 @@ export function ContactPageContent({ children }: { children: ReactNode }) {
         <p>
           A question about your routine, a product, or your experience with helix?
           Tell us a little more below, or email{" "}
-          <a href="mailto:support@helixskin.com">support@helixskin.com</a>.
+          <a href="mailto:support@helixskin.us">support@helixskin.us</a>.
         </p>
         <Link className={styles.faq} href="/faq">You may find your answer in our FAQ <span aria-hidden="true">↗</span></Link>
       </header>

@@ -227,6 +227,23 @@ describe("customer checkout admission", () => {
     }));
     expect(boundary.from.mock.calls.some(([table]) => table === "payment_attempts")).toBe(false);
   });
+  it.each(["https://www.helixskin.us", "https://helixskin.vercel.app"])("creates Stripe returns on the initiating trusted cookie host: %s", async (requestOrigin) => {
+    useCheckoutFixture();
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    await createStripeCheckoutSession({ requestOrigin });
+    expect(boundary.createSession).toHaveBeenCalledWith(expect.objectContaining({
+      success_url: `${requestOrigin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${requestOrigin}/cart?checkout=cancelled`,
+    }), expect.any(Object));
+  });
+  it("rejects an unreviewed checkout configuration before provider or order side effects", async () => {
+    useCheckoutFixture();
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://attacker.example");
+    await expect(createStripeCheckoutSession()).rejects.toThrow("Checkout origin is not configured correctly.");
+    expect(boundary.retrieveAccount).not.toHaveBeenCalled();
+    expect(boundary.rpc).not.toHaveBeenCalled();
+    expect(boundary.createSession).not.toHaveBeenCalled();
+  });
   it("verifies the Stripe account and binds receipt and immutable terms before exposing a new Session", async () => {
     useCheckoutFixture();
     const result = await createStripeCheckoutSession();

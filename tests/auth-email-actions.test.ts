@@ -39,10 +39,17 @@ describe("account email requests", () => {
     expect(mocks.signUp).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ emailRedirectTo: "https://helixskin.vercel.app/auth/callback?next=%2Faccount" }) }));
   });
   it("uses the reviewed domain after a configuration change without trusting request Origin", async () => {
-    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://accounts.example.test");
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "https://www.helixskin.us");
     mocks.reset.mockResolvedValue({ error: null });
     await forgotPasswordAction({ status: "idle" }, form());
-    expect(mocks.reset).toHaveBeenCalledWith("person@example.test", { redirectTo: "https://accounts.example.test/auth/callback?next=%2Faccount%2Freset-password" });
+    expect(mocks.reset).toHaveBeenCalledWith("person@example.test", { redirectTo: "https://www.helixskin.us/auth/callback?next=%2Faccount%2Freset-password" });
+  });
+  it("falls back to the configured public domain when the account email override is unset", async () => {
+    vi.stubEnv("HELIX_EMAIL_SITE_ORIGIN", "");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://helixskin.us");
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    await signUpAction({ status: "idle" }, form());
+    expect(mocks.signUp).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ emailRedirectTo: "https://helixskin.us/auth/callback?next=%2Faccount" }) }));
   });
   it("preserves loopback callbacks for local development even when hosted email configuration is present", async () => {
     vi.stubEnv("NODE_ENV", "development");

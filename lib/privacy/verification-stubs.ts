@@ -18,5 +18,6 @@ export const privacyVerificationScripts: Record<string, string> = {
   "speed.js": `${start}
     let before=e=>e;window.si=(name,callback)=>{if(name==='beforeSend')before=callback;};for(const a of window.siq||[])window.si(...a);window.siq=[];
     window.addEventListener('helix-privacy-verification-metric',()=>{const e=before({type:'vital',url:location.href});if(e)send('speed',e);});
+    document.documentElement.dataset.helixMockSpeedReady='true';
   })();`,
 };

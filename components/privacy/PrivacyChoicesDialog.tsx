@@ -154,8 +154,8 @@ export function PrivacyChoicesDialog({
                   to your account and protect it. Please do not send sensitive
                   personal information unless it is needed for your request.
                   Contact{" "}
-                  <a href="mailto:support@helixskin.com">
-                    support@helixskin.com
+                  <a href="mailto:support@helixskin.us">
+                    support@helixskin.us
                   </a>{" "}
                   with questions about your information.
                 </p>
@@ -181,8 +181,8 @@ export function PrivacyChoicesDialog({
                   account. They do not change settings on other browsers or
                   devices. For other privacy requests or email preferences,
                   contact{" "}
-                  <a href="mailto:support@helixskin.com">
-                    support@helixskin.com
+                  <a href="mailto:support@helixskin.us">
+                    support@helixskin.us
                   </a>
                   .
                 </p>
