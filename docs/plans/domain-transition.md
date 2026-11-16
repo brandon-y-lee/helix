@@ -468,3 +468,51 @@ Sources checked for these operations:
 and the published `https://vercel.com/openapi.json` schemas. No paid feature or
 subscription was enabled. Keep the candidate protected; do not restore SSO to
 null while the hosted Preview exists.
+
+## Hosted-action freeze and local Candidate v5
+
+The parent clarified that v4's project-wide Preview protection effect required
+Brandon's confirmation first. Independent review did not substitute for that
+confirmation. Subsequent read-only audit reported the original/current settings
+and affected URLs. No further security or hosted change is authorized while
+Brandon decides; preserve the existing hosted state and all work. Historical v4
+records describe actions taken, not ongoing authority to change protection.
+
+Goal source: delegated local-only follow-up, reconcile the domain candidate
+against dev `3519c001e9594233fd992e4a0a982eb6adea90e3`, preserve its dashboard and
+`/account/reviews` link, retest and independently review. No hosted settings,
+deployment, security, Production, DNS, remote Git write or dev update.
+
+Candidate v5:
+
+1. Fetch/read current remote dev and verify the requested commit. Merge exact
+   `3519c00` additively into this isolated `codex/plan-domain-transition` branch;
+   do not rebase, rewrite the recorded base, update primary dev, push or deploy.
+   There is no path overlap between the dashboard integration's nine changed
+   files and the domain candidate's executable changes. Resolve only necessary
+   merge conflicts; any behavioral conflict returns to independent review.
+2. Prove the dashboard component, account styles, customer fixture and existing
+   presentation/browser test files are byte-identical to requested dev after
+   composition. Verify the dashboard's `/account/reviews` link remains present.
+   Preserve origin allowlisting, localhost defaults, legacy callbacks/checkout,
+   CSRF and private-data/payment/idempotency proof.
+3. Run affected domain/Auth/checkout and customer presentation tests, lint,
+   typecheck and the complete ordinary default-worker Vitest suite under normal
+   load. Use the owned local production-artifact runner with the existing safe
+   public-only catalog configuration and `.us` origin to rebuild the combined
+   source and run full Chromium, including dashboard desktop/mobile/keyboard and
+   the reviews link. No real login, token exchange, customer send or purchase.
+   Preserve the eight SQL tests' prior dedicated-fixture evidence; migrations
+   and database code are unchanged, so repeat DB suites only if composition
+   creates a new concern.
+4. Commit the local candidate, run `prepare`, then obtain independent Spec and
+   Standards diff reviews against exact dev `3519c00`. Record exact source,
+   passed/failed/skipped checks and remaining hosted blockers. The existing
+   hosted Preview stays frozen at reviewed source `929fd47`; no redeployment.
+
+Both independent reviewers must approve v5 before the local merge.
+
+V5 plan independently approved before merge by `/root/domain_spec_review` and
+`/root/domain_standards_review`, 2026-11-16. Both verdicts approve, no actionable
+findings. Exact final comparison remains `3519c00`; hosted-action freeze remains
+unchanged and no reviewer can replace the required user confirmation.
