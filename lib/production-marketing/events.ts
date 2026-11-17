@@ -18,7 +18,7 @@ async function rawBody(request:Request) {
     const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{timedOut=true;cancel();reject(new Error());},3000);});
     return await Promise.race([(async()=>{
       for(;;){const value=await reader.read();if(timedOut)throw new Error();if(value.done)break;bytes+=value.value.byteLength;if(bytes>limit){cancel();throw new RangeError();}chunks.push(value.value);}
-      return Buffer.concat(chunks).toString("utf8");
+      return new TextDecoder("utf-8",{fatal:true,ignoreBOM:true}).decode(Buffer.concat(chunks));
     })(),deadline]);
   }finally{clearTimeout(timer);reader.releaseLock();}
 }

@@ -24,6 +24,15 @@ describe("dedicated signed production marketing receiver",()=>{
     expect(record).toHaveBeenCalledWith({eventId:"msg_synthetic_p3",messageId:input.data.tags.helix_message_id,providerId:input.data.email_id,eventType:input.type,
       occurredAt:input.created_at,sender:input.data.from,recipient:input.data.to[0],purpose:"welcome",contractVersion:"production_welcome_delivery_v1",environment:"production"});
   });
+  it("preserves valid Unicode bytes and rejects malformed UTF-8 before verification/private calls",async()=>{
+    const record=vi.fn().mockResolvedValue("recorded"),value={...event(),data:{...event().data,subject:"Unicode café 🎉 replacement \uFFFD"}};
+    expect((await receiveProductionMarketingEvent(signed(value),{env,record})).status).toBe(200);record.mockClear();
+    const valid=signed(value),raw=Buffer.from(await valid.arrayBuffer()),replacement=raw.indexOf(Buffer.from("\uFFFD"));
+    expect(replacement).toBeGreaterThan(0);
+    const altered=Buffer.concat([raw.subarray(0,replacement),Buffer.from([0xff]),raw.subarray(replacement+3)]);
+    const request=new Request(valid.url,{method:"POST",headers:valid.headers,body:altered});
+    expect((await receiveProductionMarketingEvent(request,{env,record})).status).toBe(400);expect(record).not.toHaveBeenCalled();
+  });
   it("rejects altered signatures, stale/future signature timestamps and invalid event bindings before private calls",async()=>{
     const record=vi.fn();
     for(const request of [signed(event(),{alter:true}),signed(event(),{timestamp:"1"}),signed(event(),{timestamp:String(Math.floor(Date.now()/1000)+600)}),
