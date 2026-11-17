@@ -115,3 +115,17 @@ it("maps only fixed SQL domain failures without returning PII/provider diagnosti
       .rejects.toMatchObject({ status });
   }
 });
+
+it("keeps the new public photo route source-disabled and wires photo worker to dedicated metadata RPCs only", async () => {
+  const { POST: photos } = await import("@/app/api/support/production/photos/route");
+  const { POST: photoWorker } = await import("@/app/api/internal/support-production-photos/route");
+  setup(); vi.stubEnv("HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET", "support-production-private");
+  const network = vi.fn(); vi.stubGlobal("fetch", network);
+  expect((await photos(new Request("https://www.helixskin.us/api/support/production/photos", {method:"POST",headers:{origin:"https://www.helixskin.us"}}))).status).toBe(503);
+  expect((await photoWorker(workerRequest("wrong"))).status).toBe(401);
+  expect(network).not.toHaveBeenCalled();
+  network.mockResolvedValueOnce(Response.json({projectRef:env.HELIX_PRODUCTION_SUPPORT_PROJECT_REF,contractId:id,admissionEnabled:false,workerEnabled:true,fullMediaQualified:true,isolationQualified:true,operationsQualified:true,photoBucket:"support-production-private",photoWorkerLimit:1}))
+    .mockResolvedValueOnce(Response.json(null)).mockResolvedValueOnce(Response.json(null));
+  expect(await (await photoWorker(new Request("https://www.helixskin.us/api/internal/support-production-photos",{method:"POST",headers:{authorization:`Bearer ${env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET}`}}))).json()).toEqual({ok:true,processed:0,deferred:0,prepared:0});
+  expect(network.mock.calls.map(c=>c[0])).toEqual(["read_support_prod_contract","claim_support_prod_photo","prepare_support_prod_media"].map(n=>`${env.HELIX_PRODUCTION_SUPPORT_PROJECT_URL}/rest/v1/rpc/${n}`));
+});
