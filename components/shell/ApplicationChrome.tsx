@@ -46,7 +46,7 @@ export function ApplicationChrome({ children }: { children: ReactNode }) {
           children
         )}
       </main>
-      <SiteFooter />
+      <SiteFooter signup={!pathname.startsWith("/helix-verification/") && pathname !== "/email-preferences"} />
       {!commerceDisabled && <CartDrawerHost />}
     </CartProvider>
   );

@@ -1,0 +1,18 @@
+.section { background: #e5edf4; color: #172126; }
+.inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: clamp(2rem, 5vw, 6rem); padding-block: clamp(2rem, 4vw, 3.5rem); }
+.copy h2 { max-width: 19ch; margin: 0 0 1rem; font-size: clamp(1.75rem, 3vw, 2.75rem); font-weight: 600; line-height: 1.2; letter-spacing: -.045em; }
+.copy p { margin: 0; font-size: .875rem; line-height: 1.6; }
+.wordmark { display: inline-block; width: 2.25em; vertical-align: -.06em; }
+.signup { min-width: 0; }
+.fields { display: flex; align-items: center; gap: .75rem; }
+.fields input { min-width: 0; width: 100%; flex: 1; border: 1px solid transparent; border-radius: 999px; padding: .9rem 1.25rem; background: #fff; color: #172126; font: inherit; font-size: 1rem; min-height: 48px; }
+.fields input::placeholder { color: #59646a; opacity: 1; }
+.fields button { flex-shrink: 0; border: 1px solid #172126; border-radius: 999px; padding: .9rem 1.6rem; min-height: 48px; background: #172126; color: white; font: inherit; font-size: .875rem; font-weight: 600; cursor: pointer; }
+.fields button:disabled { cursor: not-allowed; background: #4d5b65; border-color: #4d5b65; }
+.fields input:disabled { background: #f8fafc; }
+.consent { display: flex; align-items: flex-start; gap: .6rem; margin-top: .9rem; font-size: .6875rem; line-height: 1.55; cursor: pointer; }
+.consent input { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 2px; accent-color: #172126; }
+.consent a { text-decoration: underline; text-underline-offset: 3px; }
+.section :is(input, button, a):focus-visible { outline: 2px solid #172126; outline-offset: 4px; }
+.result { min-height: 1.5em; margin: .5rem 0 0; font-size: .75rem; line-height: 1.5; }
+@media (max-width: 760px) { .inner { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; } .copy h2 { max-width: 20ch; } .fields { gap: .5rem; } .fields button { padding-inline: 1.2rem; } .consent { font-size: .75rem; } }

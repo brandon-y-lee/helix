@@ -55,9 +55,11 @@ for (const viewport of viewports) {
     await page.waitForLoadState("networkidle");
     const dialog = page.getByRole("dialog", { name: "Your first step. 15% off." });
     await expect(dialog).toHaveCount(0);
-    expect(campaign.readinessReads()).toBe(0);
+    expect(campaign.readinessReads()).toBe(1); // Footer only; popup still waits.
+
     await finishDelay(page);
     await expect(dialog).toBeVisible();
+    expect(campaign.readinessReads()).toBe(2); // Footer plus delayed popup.
     await expect(dialog).toContainText("verified account with the same email");
     await expect(dialog).toContainText("14 days");
     await expect(dialog).toContainText("excluding shipping and tax");
@@ -102,6 +104,7 @@ for (const viewport of viewports) {
     await finishDelay(page);
     const dialog = page.getByRole("dialog", { name: "Your first step. 15% off." });
     await expect(dialog).toBeVisible();
+    expect(campaign.readinessReads()).toBe(2); // Footer plus delayed popup.
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(focusTarget).toBeFocused();
@@ -112,7 +115,7 @@ for (const viewport of viewports) {
     await page.waitForLoadState("networkidle");
     await finishDelay(page);
     await expect(dialog).toHaveCount(0);
-    expect(campaign.readinessReads()).toBe(1);
+    expect(campaign.readinessReads()).toBe(3); // Two footer mounts, one popup read.
     expect(campaign.submissions).toEqual([]);
     expect(campaign.unexpected).toEqual([]);
   });
@@ -124,14 +127,14 @@ test("popup stays hidden when readiness fails and never appears on excluded rout
   await page.waitForLoadState("networkidle");
   await finishDelay(page);
   await expect(page.getByRole("dialog", { name: "Your first step. 15% off." })).toHaveCount(0);
-  expect(campaign.readinessReads()).toBe(1);
+  expect(campaign.readinessReads()).toBe(2);
   for (const path of ["/checkout", "/account/sign-in", "/privacy", "/email-preferences"]) {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
     await finishDelay(page);
     await expect(page.getByRole("dialog", { name: "Your first step. 15% off." })).toHaveCount(0);
   }
-  expect(campaign.readinessReads()).toBe(1);
+  expect(campaign.readinessReads()).toBe(5); // Three eligible footer routes; no excluded popup reads.
   expect(campaign.submissions).toEqual([]);
   expect(campaign.unexpected).toEqual([]);
 });
