@@ -6,7 +6,7 @@ import { assertCanonicalRequest, assertProductionContext, assertStoredContract, 
 import { boundedText, failure, object, response } from "./request";
 
 export type SentMetadata = { projectRef: string; contractId: string; outboxId: string; deliveryToken: string; providerEmailId: string;
-  messageId: string; from: string; to: string; eventId: string };
+  messageId: string; subject: string; from: string; to: string; eventId: string };
 export type SentDependencies = { env: ProductionEnvironment; contract(config: ProductionConfig): Promise<unknown>;
   record(input: SentMetadata, config: ProductionConfig): Promise<unknown> };
 export async function handleProductionSent(request: Request, dependencies: SentDependencies): Promise<Response> {
@@ -51,14 +51,14 @@ export async function handleProductionSent(request: Request, dependencies: SentD
       || data.from !== SUPPORT_FROM || !Array.isArray(data.to) || data.to.length !== 1 || data.to[0] !== SUPPORT_TO
       || (data.cc !== undefined && (!Array.isArray(data.cc) || data.cc.length !== 0))
       || (data.bcc !== undefined && (!Array.isArray(data.bcc) || data.bcc.length !== 0))
-      || data.subject !== `Helix Website inquiry ${tags.helix_support_outbox}`
+      || !/^Helix Website inquiry [a-f0-9-]{36}$/.test(data.subject)
       || typeof data.email_id !== "string" || !UUID.test(data.email_id) || !supportRfcMessageId(data.message_id)) throw new ProductionSupportError(400, "invalid_event");
     // Admission and sending pause do not prevent reconciliation of already-owned attempts.
     const contract = await dependencies.contract(config);
     assertStoredContract(contract, config);
     const status = await dependencies.record({ projectRef: config.projectRef, contractId: config.contractId,
       outboxId: tags.helix_support_outbox, deliveryToken: tags.helix_support_delivery, providerEmailId: data.email_id,
-      messageId: data.message_id, from: SUPPORT_FROM, to: SUPPORT_TO, eventId }, config);
+      messageId: data.message_id, subject: data.subject, from: SUPPORT_FROM, to: SUPPORT_TO, eventId }, config);
     if (!["matched", "duplicate", "conflict", "unmatched"].includes(String(status))) throw new ProductionSupportError();
     return response({ ok: true });
   } catch (error) { return failure(error); }

@@ -3,7 +3,9 @@ import { ProductionSupportError, type ProductionConfig } from "./config";
 import { boundedText, object } from "./request";
 
 const rpcs = new Set(["read_support_prod_contract", "submit_support_prod_inquiry", "claim_support_prod_outbox", "start_support_prod_send",
-  "complete_support_prod_send", "record_support_prod_sent"]);
+  "complete_support_prod_send", "record_support_prod_sent",
+  "reserve_support_prod_photo", "complete_support_prod_photo", "read_support_prod_photos", "claim_support_prod_photo",
+  "record_support_prod_photo_raw", "finish_support_prod_photo", "prepare_support_prod_media", "finalize_support_prod_media", "reconcile_support_prod_media"]);
 /** Explicit project only. No generic admin/client or shared environment inheritance. */
 export async function productionRpc(config: ProductionConfig, name: string, input?: Record<string, unknown>, network: typeof fetch = fetch): Promise<unknown> {
   if (!rpcs.has(name)) throw new ProductionSupportError();

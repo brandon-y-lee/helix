@@ -39,7 +39,7 @@ export function assertCanonicalRequest(request: Request): void {
 export function admissionConfigured(config: ProductionConfig): boolean {
   return config.admissionEnabled && config.fullMediaQualified && config.isolationQualified && config.operationsQualified;
 }
-export type StoredContract = { projectRef: string; contractId: string; admissionEnabled: boolean; workerEnabled: boolean;
+export type StoredContract = { photoBucket?: string | null; photoWorkerLimit?: number; projectRef: string; contractId: string; admissionEnabled: boolean; workerEnabled: boolean;
   fullMediaQualified: boolean; isolationQualified: boolean; operationsQualified: boolean };
 export function assertStoredContract(value: unknown, config: ProductionConfig): asserts value is StoredContract {
   if (!value || typeof value !== "object" || Array.isArray(value)
