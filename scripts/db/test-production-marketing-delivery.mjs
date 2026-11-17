@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-const events=process.argv.length===3&&process.argv[2]==='--events';
-assert.ok(process.argv.length===2||events,'Only --events is accepted; no database URL/container argument');
-const ticket=events?'541':'540';
+const readiness=process.argv.length===3&&process.argv[2]==='--readiness';
+const events=readiness||(process.argv.length===3&&process.argv[2]==='--events');
+assert.ok(process.argv.length===2||events,'Only --events/--readiness are accepted; no database URL/container argument');
+const ticket=readiness?'542':events?'541':'540';
 assert.ok(!process.env.DOCKER_HOST&&!process.env.DOCKER_CONTEXT,'Remote Docker overrides refused');
 const docker=(args,options={})=>execFileSync('docker',args,{encoding:'utf8',stdio:['pipe','pipe','pipe'],...options});
 assert.ok(JSON.parse(docker(['context','inspect']))[0].Endpoints.docker.Host.startsWith('unix://'),'Local Unix Docker only');
@@ -17,9 +18,21 @@ try {
   assert.equal(sql("select current_setting('server_version_num')::int/10000;"),'17');
   sql('create role anon;create role authenticated;create role service_role bypassrls;create schema private;revoke all on schema private from public;');
   sql(file('../../supabase/migrations/20261117090000_production_marketing_consent.sql'));
-  sql(file('../../supabase/tests/production_marketing_consent.integration.sql'));
+  if(!readiness)sql(file('../../supabase/tests/production_marketing_consent.integration.sql'));
   sql(file('../../supabase/operations/production-marketing/delivery.sql'));
   if(events){sql('create table public.admin_memberships(user_id uuid primary key,role text not null,active boolean not null);');sql(file('../../supabase/operations/production-marketing/events.sql'));}
+  if(readiness){
+    assert.equal(sql("SELECT NOT enrollment_enabled AND NOT dispatch_enabled AND NOT events_enabled AND NOT status_enabled AND daily_limit=0 AND monthly_limit=0 AND delivery_contract_text IS NULL FROM private.production_marketing_controls;"),'t','all three packages cold/off');
+    assert.equal(sql("SELECT sum(n) FROM (SELECT count(*) n FROM private.production_marketing_subscribers UNION ALL SELECT count(*) FROM private.production_marketing_confirmation_intents UNION ALL SELECT count(*) FROM private.production_marketing_messages UNION ALL SELECT count(*) FROM private.production_marketing_events UNION ALL SELECT count(*) FROM private.production_marketing_suppressions) x;"),'0','no historical data imported');
+    const browserOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-readiness.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_READINESS_CONTAINER:name}});
+    assert.equal(/Tests\s+(\d+) passed/.exec(browserOutput)?.[1],'1','combined real browser/database journey executes');
+    // Discard only this owned fixture database, then reapply pristine packages for retained suites.
+    sql('DROP SCHEMA private CASCADE;DROP SCHEMA public CASCADE;CREATE SCHEMA public;GRANT USAGE ON SCHEMA public TO PUBLIC;CREATE SCHEMA private;REVOKE ALL ON SCHEMA private FROM PUBLIC;');
+    sql(file('../../supabase/migrations/20261117090000_production_marketing_consent.sql'));
+    sql(file('../../supabase/tests/production_marketing_consent.integration.sql'));
+    sql(file('../../supabase/operations/production-marketing/delivery.sql'));
+    sql('create table public.admin_memberships(user_id uuid primary key,role text not null,active boolean not null);');sql(file('../../supabase/operations/production-marketing/events.sql'));
+  }
   sql(file('../../supabase/tests/production_marketing_delivery.integration.sql'));
   function session(){
     const child=spawn('docker',['exec','-i',name,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-Atq'],{stdio:['pipe','pipe','pipe']});
@@ -124,5 +137,5 @@ try {
     const eventOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-events.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_EVENTS_CONTAINER:name}});
     assert.equal(/Tests\s+(\d+) passed/.exec(eventOutput)?.[1],'3','all three signed event/database adapter cases execute');
   }
-  console.log(JSON.stringify({eventsPackage:events,status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
+  console.log(JSON.stringify({readinessBrowser:readiness,viewports:readiness?['390x844','1440x1000']:[],eventsPackage:events,status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
 }finally{if(owned){assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',name]).trim(),`production-marketing-${ticket}-synthetic`);docker(['rm','--force','--volumes',name]);}}
