@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FooterSignup } from "@/components/marketing/FooterSignup";
 import {
   footerLinkGroups,
   footerServiceCards,
@@ -46,6 +47,7 @@ export function SiteFooter() {
       data-site-footer
       aria-labelledby="site-footer-heading"
     >
+      <FooterSignup />
       <div
         className="storefront-shell site-footer__inner"
         data-layout-shell="storefront"
