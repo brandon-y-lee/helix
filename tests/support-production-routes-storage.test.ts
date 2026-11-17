@@ -20,8 +20,8 @@ function workerRequest(token = env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET, host 
 }
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-it("ships no public text-only route availability or bypass despite true operator flags", async () => {
-  setup(); const network = vi.fn(); vi.stubGlobal("fetch", network);
+it("ships no public admission when operational admission is closed despite completed source", async () => {
+  setup(); vi.stubEnv("HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED", "false"); const network = vi.fn(); vi.stubGlobal("fetch", network);
   expect(await (await intakeGet(new Request("https://www.helixskin.us/api/support/production/intake"))).json()).toEqual({ available: false, photosAvailable: false });
   expect((await intakePost(new Request("https://www.helixskin.us/api/support/production/intake", { method: "POST", headers: { origin: "https://www.helixskin.us" } }))).status).toBe(503);
   expect(network).not.toHaveBeenCalled();
@@ -116,14 +116,16 @@ it("maps only fixed SQL domain failures without returning PII/provider diagnosti
   }
 });
 
-it("keeps the new public photo route source-disabled and wires photo worker to dedicated metadata RPCs only", async () => {
+it("keeps unqualified photo access closed and wires photo worker to dedicated metadata RPCs only", async () => {
   const { POST: photos } = await import("@/app/api/support/production/photos/route");
   const { POST: photoWorker } = await import("@/app/api/internal/support-production-photos/route");
   setup(); vi.stubEnv("HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET", "support-production-private");
   const network = vi.fn(); vi.stubGlobal("fetch", network);
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED", "false");
   expect((await photos(new Request("https://www.helixskin.us/api/support/production/photos", {method:"POST",headers:{origin:"https://www.helixskin.us"}}))).status).toBe(503);
   expect((await photoWorker(workerRequest("wrong"))).status).toBe(401);
   expect(network).not.toHaveBeenCalled();
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED", "true");
   network.mockResolvedValueOnce(Response.json({projectRef:env.HELIX_PRODUCTION_SUPPORT_PROJECT_REF,contractId:id,admissionEnabled:false,workerEnabled:true,fullMediaQualified:true,isolationQualified:true,operationsQualified:true,photoBucket:"support-production-private",photoWorkerLimit:1}))
     .mockResolvedValueOnce(Response.json(null)).mockResolvedValueOnce(Response.json(null));
   expect(await (await photoWorker(new Request("https://www.helixskin.us/api/internal/support-production-photos",{method:"POST",headers:{authorization:`Bearer ${env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET}`}}))).json()).toEqual({ok:true,processed:0,deferred:0,prepared:0});

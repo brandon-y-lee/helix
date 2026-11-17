@@ -98,6 +98,8 @@ export async function handleProductionPhotos(
         value.photos.length > 5
       )
         throw new ProductionSupportError();
+      const handoffs = ["queued", "provider_accepted", "unconfirmed", "needs_review"];
+      if (!handoffs.includes(String(value.primaryHandoff))) throw new ProductionSupportError();
       const ids = new Set<string>();
       const photos = value.photos.map((p) => {
         if (
@@ -114,10 +116,11 @@ export async function handleProductionPhotos(
           ].includes(String(p.status))
         )
           throw new ProductionSupportError();
+        if (![...handoffs, "not_ready"].includes(String(p.handoff))) throw new ProductionSupportError();
         ids.add(p.uploadId);
-        return { uploadId: p.uploadId, status: p.status };
+        return { uploadId: p.uploadId, status: p.status, handoff: p.handoff };
       });
-      return response({ ok: true, photos });
+      return response({ ok: true, primaryHandoff: value.primaryHandoff, photos });
     }
     if (
       typeof data.uploadId !== "string" ||
