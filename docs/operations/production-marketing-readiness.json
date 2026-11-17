@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "spec": 538,
+  "ticket": 542,
+  "assessment": "blocked",
+  "recordIsRuntimeAuthority": false,
+  "productionActivated": false,
+  "customerSendsAuthorized": false,
+  "ownedRecipientRehearsalAuthorized": false,
+  "source": {
+    "ticketSnapshot": "612789cddb0bfa1d53cba42070f11d6f21169c4d",
+    "reviewedCandidateCommit": null,
+    "combinedSpecReviewEvidence": null,
+    "integrationGateEvidence": null
+  },
+  "qualifiedIdentity": {
+    "vercelProjectId": null,
+    "vercelDeploymentId": null,
+    "canonicalOrigin": "https://www.helixskin.us",
+    "productionSupabaseProject": "erasogmsqpgiirovubjh",
+    "developmentChildProject": null,
+    "sender": null,
+    "replyTo": null,
+    "postalAddress": null,
+    "topicId": null,
+    "templateHash": null,
+    "contractHash": null
+  },
+  "allocatedBudget": {
+    "verifiedAt": null,
+    "providerDailyAvailable": null,
+    "providerMonthlyAvailable": null,
+    "marketingDailyLimit": null,
+    "marketingMonthlyLimit": null,
+    "transactionalInboundHeadroomEvidence": null,
+    "otherProducerCoordinationEvidence": null
+  },
+  "gates": [
+    {"id":"reviewed-source-and-required-gates","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"deployed-production-and-restored-development-identity","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"fresh-empty-off-schema-rls-and-grants","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"dedicated-database-caller-capability-custody","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"approved-sender-reply-postal-template-contract","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"sending-key-least-privilege-purpose-isolation","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"native-contact-global-topic-read-capability","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"account-wide-events-support-continuity-and-rollback","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"current-shared-budget-and-headroom","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"cleanup-cadence-and-read-only-reconciliation","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"canonical-production-operator-authorization","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null},
+    {"id":"separately-approved-owned-recipient-rehearsal","status":"unmet","evidenceReference":null,"verifiedAt":null,"expiresAt":null}
+  ],
+  "laterActionApprovals": {
+    "exactProviderConfigurationChange": null,
+    "exactDatabaseInstallation": null,
+    "exactDeploymentPromotion": null,
+    "exactActivationScope": null,
+    "exactRecipientAndSendScope": null
+  }
+}
