@@ -9,9 +9,9 @@ import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe 
 import { productionMarketingTemplateHash } from "../../lib/production-marketing/templates";
 import { sealProductionMarketingCapabilities } from "../../lib/production-marketing/capabilities";
 const container=process.env.HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER??"";
-if(!/^helix-production-marketing-540-[0-9]+-[0-9]+$/.test(container)||process.env.DOCKER_HOST||process.env.DOCKER_CONTEXT)throw new Error("Owned local database required.");
+if(!/^helix-production-marketing-(540|541)-[0-9]+-[0-9]+$/.test(container)||process.env.DOCKER_HOST||process.env.DOCKER_CONTEXT)throw new Error("Owned local database required.");
 const docker=(args:string[],input?:string)=>execFileSync("docker",args,{encoding:"utf8",input,stdio:["pipe","pipe","pipe"]});
-if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWith("unix://")||docker(["inspect","-f",'{{index .Config.Labels "helix.task"}}',container]).trim()!=="production-marketing-540-synthetic")throw new Error("Owned local database required.");
+if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWith("unix://")||docker(["inspect","-f",'{{index .Config.Labels "helix.task"}}',container]).trim()!==`production-marketing-${container.split("-")[3]}-synthetic`)throw new Error("Owned local database required.");
 function sql(input:string){try{return docker(["exec","-i",container,"psql","-X","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-Atq"],input).trim();}catch{throw new Error("Synthetic database operation failed.");}}
 const literal=(v:unknown)=>v===null?"NULL":typeof v==="boolean"?String(v):typeof v==="number"?String(v):`'${(typeof v==="string"?v:JSON.stringify(v)).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",topic="11111111-1111-4111-8111-111111111111";

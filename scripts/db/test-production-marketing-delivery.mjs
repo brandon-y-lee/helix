@@ -1,22 +1,25 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-assert.equal(process.argv.length,2,'No database URL/container argument is accepted');
+const events=process.argv.length===3&&process.argv[2]==='--events';
+assert.ok(process.argv.length===2||events,'Only --events is accepted; no database URL/container argument');
+const ticket=events?'541':'540';
 assert.ok(!process.env.DOCKER_HOST&&!process.env.DOCKER_CONTEXT,'Remote Docker overrides refused');
 const docker=(args,options={})=>execFileSync('docker',args,{encoding:'utf8',stdio:['pipe','pipe','pipe'],...options});
 assert.ok(JSON.parse(docker(['context','inspect']))[0].Endpoints.docker.Host.startsWith('unix://'),'Local Unix Docker only');
-const name=`helix-production-marketing-540-${process.pid}-${Date.now()}`;
+const name=`helix-production-marketing-${ticket}-${process.pid}-${Date.now()}`;
 const sql=input=>docker(['exec','-i',name,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-Atq'],{input}).trim();
 const file=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 let owned=false;
 try {
-  docker(['run','--pull=never','--detach','--network=none','--name',name,'--label','helix.task=production-marketing-540-synthetic','-e','POSTGRES_HOST_AUTH_METHOD=trust','postgres:17-alpine']);owned=true;
+  docker(['run','--pull=never','--detach','--network=none','--name',name,'--label',`helix.task=production-marketing-${ticket}-synthetic`,'-e','POSTGRES_HOST_AUTH_METHOD=trust','postgres:17-alpine']);owned=true;
   for(let i=0;i<100;i++){try{docker(['exec',name,'pg_isready','-h','127.0.0.1','-U','postgres']);break;}catch{await new Promise(r=>setTimeout(r,100));}}
   assert.equal(sql("select current_setting('server_version_num')::int/10000;"),'17');
   sql('create role anon;create role authenticated;create role service_role bypassrls;create schema private;revoke all on schema private from public;');
   sql(file('../../supabase/migrations/20261117090000_production_marketing_consent.sql'));
   sql(file('../../supabase/tests/production_marketing_consent.integration.sql'));
   sql(file('../../supabase/operations/production-marketing/delivery.sql'));
+  if(events){sql('create table public.admin_memberships(user_id uuid primary key,role text not null,active boolean not null);');sql(file('../../supabase/operations/production-marketing/events.sql'));}
   sql(file('../../supabase/tests/production_marketing_delivery.integration.sql'));
   function session(){
     const child=spawn('docker',['exec','-i',name,'psql','-X','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-Atq'],{stdio:['pipe','pipe','pipe']});
@@ -87,5 +90,39 @@ try {
   sql(`UPDATE private.production_marketing_controls SET dispatch_enabled=true;UPDATE private.production_marketing_messages SET state='cancelled' WHERE id='${pauseId}';`);
   const workerOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-delivery.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER:name}});
   const workerCases=/Tests\s+(\d+) passed/.exec(workerOutput)?.[1];assert.equal(workerCases,'7','all seven actual-worker cases must execute');
-  console.log(JSON.stringify({status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
-}finally{if(owned){assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',name]).trim(),'production-marketing-540-synthetic');docker(['rm','--force','--volumes',name]);}}
+  if(events){
+    sql('DELETE FROM private.production_marketing_request_limits;');
+    sql(file('../../supabase/tests/production_marketing_events.integration.sql'));
+    const eventLease='77777777-7777-4777-8777-777777777777';
+    const eventMessage=label=>sql(`SELECT public.test_event_prepared('${label}','${eventLease}');`);
+    const eventCall=(id,provider,event,type='email.sent')=>`SELECT public.test_event('${id}','${provider}','${event}','${type}');`;
+    for(const eventFirst of [true,false]){
+      const id=eventMessage(eventFirst?'event-first-race':'finish-first-race'),provider=sql('SELECT gen_random_uuid();');
+      const event=eventCall(id,provider,`race-${eventFirst}`),finish=`SELECT public.finish_production_marketing_message('${id}','${eventLease}','accepted','${provider}');`;
+      await race(eventFirst?event:finish,eventFirst?finish:event);
+      assert.equal(sql(`SELECT state='accepted' AND provider_id='${provider}' AND NOT reconciliation_required FROM private.production_marketing_messages WHERE id='${id}';`),'t','both callback/finish lock orderings preserve first acceptance');
+    }
+    const duplicate=eventMessage('event-duplicate-race'),provider=sql('SELECT gen_random_uuid();');
+    const duplicateCall=`SELECT public.test_event('${duplicate}','${provider}','duplicate-race','email.delivered','2026-11-17T00:00:00Z');`;
+    // Event occurrence must follow this fixture preparation; freeze once across contenders.
+    const occurred=sql('SELECT private.production_marketing_iso(clock_timestamp());');
+    await race(duplicateCall.replace('2026-11-17T00:00:00Z',occurred),duplicateCall.replace('2026-11-17T00:00:00Z',occurred));
+    assert.equal(sql("SELECT count(*) FROM private.production_marketing_events WHERE event_id='duplicate-race';"),'1','concurrent duplicate ID admits one normalized event');
+    const a=eventMessage('provider-one-race'),b=eventMessage('provider-two-race'),shared=sql('SELECT gen_random_uuid();');
+    await race(eventCall(a,shared,'provider-one'),eventCall(b,shared,'provider-two'));
+    assert.equal(sql(`SELECT count(*) FROM private.production_marketing_messages WHERE provider_id='${shared}';`),'1','provider ID never binds two messages');
+    assert.equal(sql(`SELECT reconciliation_required FROM private.production_marketing_messages WHERE id='${b}';`),'t','losing conflicting message held');
+    const restricted=eventMessage('suppression-race'),restrictedProvider=sql('SELECT gen_random_uuid();');
+    const subscriber=sql(`SELECT subscriber_id FROM private.production_marketing_messages WHERE id='${restricted}';`);
+    const requestLabel='suppression-race';
+    sql(`SELECT public.withdraw_production_marketing_subscription(md5('${requestLabel}p')||md5('${requestLabel}p'));SELECT public.request_production_marketing_subscription('${requestLabel}@example.invalid',md5('suppression-fresh-c')||md5('suppression-fresh-c'),md5('suppression-fresh-p')||md5('suppression-fresh-p'),md5('suppression-fresh-r')||md5('suppression-fresh-r'),true,'production_welcome_v1',public.test_envelope());SELECT public.confirm_production_marketing_subscription(md5('suppression-fresh-c')||md5('suppression-fresh-c'));`);
+    const fresh=sql(`SELECT id FROM private.production_marketing_messages WHERE subscriber_id='${subscriber}' AND purpose='welcome' AND generation=2;`);
+    sql(`UPDATE private.production_marketing_messages SET lease_token='${eventLease}',lease_until=clock_timestamp()+interval '60 seconds' WHERE id='${fresh}';`);
+    const suppression=eventCall(restricted,restrictedProvider,'suppression-before-prepare','email.bounced');
+    const result=await race(suppression,`SELECT public.test_prepare('${fresh}','${eventLease}') IS NULL;`);
+    assert.ok(result[1].split('\n').includes('t'),'committed old-generation suppression blocks new preparation');
+    const eventOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-events.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_EVENTS_CONTAINER:name}});
+    assert.equal(/Tests\s+(\d+) passed/.exec(eventOutput)?.[1],'3','all three signed event/database adapter cases execute');
+  }
+  console.log(JSON.stringify({eventsPackage:events,status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
+}finally{if(owned){assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',name]).trim(),`production-marketing-${ticket}-synthetic`);docker(['rm','--force','--volumes',name]);}}
