@@ -16,12 +16,16 @@ async function hasExactLegacyAliasException(recipients: string[]): Promise<boole
   const hashes = other.map((address) => createHash("sha256").update(address).digest("hex"));
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<false>((resolve) => { timer = setTimeout(() => { controller.abort(); resolve(false); }, 2_000); });
+  const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => {
+    controller.abort(); reject(new Error("Legacy reply alias resolution is unavailable."));
+  }, 2_000); });
   try {
     // Only opaque exact-address digests enter this read-only resolver. No sender,
     // provider event identity or content is stored while deciding isolation.
-    return await Promise.race([inboundRpc("support_legacy_reply_aliases_match", { p_address_hashes: hashes }, controller.signal), deadline]) === true;
-  } catch { return false; }
+    const resolved = await Promise.race([inboundRpc("support_legacy_reply_aliases_match", { p_address_hashes: hashes }, controller.signal), deadline]);
+    if (typeof resolved !== "boolean") throw new Error("Legacy reply alias resolution is unavailable.");
+    return resolved;
+  }
   finally { if (timer) clearTimeout(timer); }
 }
 

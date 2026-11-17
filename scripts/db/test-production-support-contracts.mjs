@@ -52,6 +52,46 @@ async function concurrent(firstInput, secondInput = firstInput) {
     await first.done.catch(() => {}); if(second) await second.done.catch(() => {});
   }
 }
+// A real locked expired row must not stall either the bounded batch or a useful claim.
+async function proveBoundedBacklog() {
+  sql(`UPDATE support_production_private.contract SET global_hour_limit=10000;
+    UPDATE support_production_private.outbox SET next_attempt_at=clock_timestamp()+interval '1 day'
+      WHERE state IN ('queued','leased','unknown');
+    SELECT production_support_test.submit(n,'{"photos":[]}'::jsonb) FROM generate_series(2000,2025) n;
+    UPDATE support_production_private.outbox SET first_attempt_at=clock_timestamp()-interval '21 hours',attempt_count=1,state='unknown'
+      WHERE inquiry_id IN (SELECT id FROM support_production_private.inquiries WHERE submission_id IN
+        (SELECT md5('submission'||n)::uuid FROM generate_series(2000,2025) n));`);
+  const lockedId = sql("SELECT id FROM support_production_private.outbox WHERE state='unknown' AND first_attempt_at<clock_timestamp()-interval '20 hours' ORDER BY first_attempt_at,id LIMIT 1;");
+  const receipt = JSON.parse(sql(`SELECT production_support_test.submit(2100,'{"photos":[]}'::jsonb);`));
+  const reader = session(); let worker;
+  try {
+    reader.child.stdin.write(`BEGIN; SET LOCAL statement_timeout='15s';
+      SELECT id FROM support_production_private.outbox WHERE id='${lockedId}'::uuid FOR UPDATE;
+      \\echo support-backlog-held\n`);
+    await Promise.race([until(() => reader.output().includes("support-backlog-held"), "Expired lock barrier timed out"), reader.done.then(() => { throw new Error("Expired lock escaped barrier"); })]);
+    worker = session();
+    worker.child.stdin.end(`SET ROLE service_role; SELECT public.claim_support_prod_outbox(
+      production_support_test.context(jsonb_build_object('leaseId',gen_random_uuid(),'leaseSeconds',120)));`);
+    // The expired-row transaction is still open while this awaited worker completes.
+    let workerDeadline;
+    try {
+      await Promise.race([worker.done, new Promise((_, reject) => {
+        workerDeadline = setTimeout(() => reject(new Error("Locked expired row blocked useful work")), 10000);
+      })]);
+    } finally { clearTimeout(workerDeadline); }
+    const claim = JSON.parse(worker.output().split("\n").find((line) => line.startsWith("{")));
+    assert.equal(claim.outboxId, receipt.outboxId);
+    assert.equal(sql("SELECT count(*) FROM support_production_private.outbox WHERE state='unknown' AND first_attempt_at<clock_timestamp()-interval '20 hours';"), "6", "Exactly twenty of twenty-six expired rows reconcile per invocation");
+    assert.equal(sql(`SELECT state FROM support_production_private.outbox WHERE id='${lockedId}'::uuid;`), "unknown", "Locked expired row remains untouched");
+    reader.child.stdin.end("COMMIT;\n"); await reader.done;
+    sql("SET ROLE service_role; SELECT public.claim_support_prod_outbox(production_support_test.context(jsonb_build_object('leaseId',gen_random_uuid(),'leaseSeconds',120)));");
+    assert.equal(sql(`SELECT state FROM support_production_private.outbox WHERE id='${lockedId}'::uuid;`), "reconciliation", "Later invocation reconciles released row");
+    assert.equal(sql("SELECT count(*) FROM support_production_private.outbox WHERE state='unknown' AND first_attempt_at<clock_timestamp()-interval '20 hours';"), "0");
+  } finally {
+    if (!reader.child.stdin.destroyed) reader.child.stdin.end("ROLLBACK;\n");
+    await reader.done.catch(() => {}); if (worker) await worker.done.catch(() => {});
+  }
+}
 let created = false;
 try {
   assert.equal(docker(["inspect", "-f", '{{index .Config.Labels "helix.task"}}', container]).trim(), "spec358-synthetic-sql");
@@ -83,6 +123,8 @@ try {
   stage = "separately installed legacy resolver";
   sql(source("supabase/operations/support-production/legacy-alias-resolver.sql"));
   sql(source("supabase/tests/production-support.legacy-alias.sql"));
+  stage = "bounded expired backlog with actual locked row";
+  await proveBoundedBacklog();
   stage = "concurrent stable submission";
   const same = await concurrent("SELECT production_support_test.submit(1000);", "SELECT production_support_test.submit(1000,jsonb_build_object('sourceHash',repeat('c',64)));" );
   assert.deepEqual(same[0], same[1]);
@@ -114,6 +156,7 @@ try {
     actualConcurrentGlobalLimit:true,actualConcurrentSourceLimit:true,actualConcurrentEmailLimit:true,independentLimits:true,transactionRollback:true,
     legacyExactHashResolver:true,legacyResolverUnauthorizedDenial:true,
     frozenProviderBytes:true,permanentFirstAttempt:true,leaseFencing:true,unknown20HourHold:true,
+    boundedReconciliationBatch20:true,actualLockedExpiredRowSkipped:true,laterExpiredReconciliation:true,
     earlyAndPausedCallbacks:true,immutableProviderAndRfcBindings:true,providerMutations:0},null,2));
 } catch (error) {
   console.error(JSON.stringify({status:"failed",stage,message:error.message,providerMutations:0})); process.exitCode=1;

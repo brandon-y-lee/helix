@@ -7,6 +7,8 @@ LANGUAGE plpgsql AS $$ DECLARE denied boolean:=false; BEGIN
 END $$;
 SELECT production_support_test.assert((SELECT bool_and(relrowsecurity AND relforcerowsecurity)
  FROM pg_class WHERE relnamespace='support_production_private'::regnamespace AND relkind='r'),'every private table forces RLS');
+SELECT production_support_test.assert((SELECT count(*)=2 FROM pg_index WHERE indpred IS NOT NULL AND indexrelid IN
+ ('support_production_private.support_prod_outbox_due'::regclass,'support_production_private.support_prod_outbox_expiry'::regclass)),'active work has partial due and expiry indexes');
 SELECT production_support_test.assert(NOT has_schema_privilege('service_role','support_production_private','USAGE'),'bypass role lacks private schema grant');
 SELECT production_support_test.assert((SELECT bool_and(NOT has_table_privilege('service_role',oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'))
  FROM pg_class WHERE relnamespace='support_production_private'::regnamespace AND relkind='r'),'bypass role lacks every direct table grant');
@@ -95,6 +97,8 @@ DO $$ DECLARE claim jsonb; work jsonb; retry jsonb; event jsonb; o support_produ
  PERFORM production_support_test.assert(work->>'attemptCount'='1' AND work->>'firstAttemptAt' IS NOT NULL,'permanent first attempt before external call');
  PERFORM production_support_test.assert(encode(sha256(convert_to(work->>'requestText','UTF8')),'hex')=work->>'requestHash','frozen serialized bytes hash');
  PERFORM production_support_test.assert((work->>'requestText')::jsonb->>'subject'='Helix Website inquiry '||o.id,'opaque provider subject');
+ PERFORM production_support_test.assert(starts_with((work->>'requestText')::jsonb->>'text',
+ E'Unverified visitor content: visitor-provided identity and Reply-To are unverified. Do not disclose Account, Order or private information based on them.\n\nInquiry: '),'actual frozen primary body warns against trusting visitor identity');
  PERFORM production_support_test.assert((work->>'requestText')::jsonb->'tags'=jsonb_build_array(
  jsonb_build_object('name','helix_support_outbox','value',o.id::text),
  jsonb_build_object('name','helix_support_contract','value',o.contract_id),

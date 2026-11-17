@@ -1,7 +1,12 @@
 -- Synthetic only. The resolver is independently packaged for the legacy target, not new production SQL.
-SELECT production_support_test.assert(NOT public.support_legacy_reply_aliases_match(ARRAY[repeat('a',64)]),'missing legacy table fails closed');
+DO $$ DECLARE unavailable boolean:=false; BEGIN
+ BEGIN PERFORM public.support_legacy_reply_aliases_match(ARRAY[repeat('a',64)]);
+ EXCEPTION WHEN SQLSTATE '55000' THEN unavailable:=SQLERRM='support_legacy_aliases_unavailable'; END;
+ PERFORM production_support_test.assert(unavailable,'missing alias relation raises retryable unavailable not definitive unmatched');
+END $$;
 CREATE SCHEMA private;
 CREATE TABLE private.support_reply_routes(address text NOT NULL);
+SELECT production_support_test.assert(NOT public.support_legacy_reply_aliases_match(ARRAY[repeat('a',64)]),'existing empty alias relation definitively unmatched');
 INSERT INTO private.support_reply_routes(address) VALUES(' Reply+Exact@Example.Invalid '),('second@example.invalid');
 DO $$ DECLARE exact_hash text:=encode(sha256(convert_to('reply+exact@example.invalid','UTF8')),'hex');
  second_hash text:=encode(sha256(convert_to('second@example.invalid','UTF8')),'hex'); BEGIN
@@ -20,3 +25,11 @@ END $$;
 SET ROLE service_role;
 SELECT production_support_test.assert(public.support_legacy_reply_aliases_match(ARRAY[encode(sha256(convert_to('reply+exact@example.invalid','UTF8')),'hex')]),'service role exact alias resolver callable');
 RESET ROLE;
+
+ALTER TABLE private.support_reply_routes RENAME COLUMN address TO unavailable_address;
+DO $$ DECLARE unavailable boolean:=false; BEGIN
+ BEGIN PERFORM public.support_legacy_reply_aliases_match(ARRAY[repeat('a',64)]);
+ EXCEPTION WHEN SQLSTATE '55000' THEN unavailable:=SQLERRM='support_legacy_aliases_unavailable'; END;
+ PERFORM production_support_test.assert(unavailable,'incompatible alias relation raises bounded retryable unavailable');
+END $$;
+ALTER TABLE private.support_reply_routes RENAME COLUMN unavailable_address TO address;

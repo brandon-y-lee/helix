@@ -58,6 +58,11 @@ CREATE TABLE support_production_private.outbox (
  CHECK ((lease_id IS NULL)=(lease_until IS NULL)),
  CHECK ((first_attempt_at IS NULL)=(attempt_count=0))
 );
+-- Active work only: bound the ordered due scan and the oldest-first reconciliation scan.
+CREATE INDEX support_prod_outbox_due ON support_production_private.outbox(next_attempt_at,created_at,id)
+ WHERE state IN ('queued','leased','unknown');
+CREATE INDEX support_prod_outbox_expiry ON support_production_private.outbox(first_attempt_at,id)
+ WHERE state IN ('queued','leased','unknown') AND first_attempt_at IS NOT NULL;
 CREATE TABLE support_production_private.leases (
  id uuid PRIMARY KEY, outbox_id uuid NOT NULL REFERENCES support_production_private.outbox(id),
  issued_at timestamptz NOT NULL DEFAULT clock_timestamp()
@@ -171,7 +176,7 @@ BEGIN
  v_outbox:=gen_random_uuid(); v_token:=replace(gen_random_uuid()::text||gen_random_uuid()::text,'-','');
  v_request:=jsonb_build_object('from','Helix Website <contact@helixskin.us>','to',jsonb_build_array('support@helixskin.us'),
  'reply_to',p_input->>'email','subject','Helix Website inquiry '||v_outbox,
- 'text','Inquiry: '||v_id||E'\nType: '||(p_input->>'inquiryType')||E'\nName: '||(p_input->>'name')||E'\nEmail: '||(p_input->>'email')||E'\nSubject: '||(p_input->>'subject')||E'\n\n'||(p_input->>'body'),
+ 'text',E'Unverified visitor content: visitor-provided identity and Reply-To are unverified. Do not disclose Account, Order or private information based on them.\n\nInquiry: '||v_id||E'\nType: '||(p_input->>'inquiryType')||E'\nName: '||(p_input->>'name')||E'\nEmail: '||(p_input->>'email')||E'\nSubject: '||(p_input->>'subject')||E'\n\n'||(p_input->>'body'),
  'tags',jsonb_build_array(jsonb_build_object('name','helix_support_outbox','value',v_outbox::text),
  jsonb_build_object('name','helix_support_contract','value',c.contract_id),jsonb_build_object('name','helix_support_delivery','value',v_token)))::text;
  INSERT INTO support_production_private.outbox(id,inquiry_id,contract_id,delivery_token,request_text,request_hash,idempotency_key)
@@ -192,13 +197,18 @@ BEGIN
  IF NOT support_production_private.identity_matches(p_input) THEN RAISE EXCEPTION 'support_wrong_contract'; END IF;
  IF NOT(c.worker_enabled AND c.full_media_qualified AND c.isolation_qualified AND c.operations_qualified) THEN RETURN NULL; END IF;
  -- Expired uncertain requests cannot escape the provider's conservative 20-hour window.
- UPDATE support_production_private.outbox SET state='reconciliation',lease_id=NULL,lease_until=NULL
- WHERE state IN ('queued','leased','unknown') AND first_attempt_at<=clock_timestamp()-interval '20 hours'
- AND (lease_until IS NULL OR lease_until<=clock_timestamp());
+ WITH expired AS (
+  SELECT id FROM support_production_private.outbox
+  WHERE state IN ('queued','leased','unknown') AND first_attempt_at<=clock_timestamp()-interval '20 hours'
+  AND (lease_until IS NULL OR lease_until<=clock_timestamp())
+  ORDER BY first_attempt_at,id FOR UPDATE SKIP LOCKED LIMIT 20
+ )
+ UPDATE support_production_private.outbox o SET state='reconciliation',lease_id=NULL,lease_until=NULL
+ FROM expired WHERE o.id=expired.id;
  SELECT id INTO v_id FROM support_production_private.outbox WHERE state IN ('queued','leased','unknown')
  AND (lease_until IS NULL OR lease_until<=clock_timestamp()) AND next_attempt_at<=clock_timestamp()
  AND (first_attempt_at IS NULL OR first_attempt_at>clock_timestamp()-interval '20 hours')
- ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1;
+ ORDER BY next_attempt_at,created_at,id FOR UPDATE SKIP LOCKED LIMIT 1;
  IF NOT FOUND THEN RETURN NULL; END IF;
  INSERT INTO support_production_private.leases(id,outbox_id) VALUES(v_lease,v_id) ON CONFLICT DO NOTHING;
  IF NOT FOUND THEN RETURN NULL; END IF;

@@ -31,10 +31,13 @@ it("permits the narrow exact positively stored alias exception and passes no sen
   expect(JSON.stringify(mocks.rpc.mock.calls[0][1])).not.toContain(alias);
   expect(mocks.rpc.mock.calls[1][0]).toBe("record_support_inbound");
 });
-it("fails closed for unknown extra recipients, resolver failure or malformed/oversized sets", async () => {
-  for (const resolve of [() => Promise.resolve(false), () => Promise.resolve("true"), () => Promise.reject(new Error("private diagnostic"))]) {
+it("excludes definitive unknown recipients but retries unavailable or malformed resolver results without persistence", async () => {
+  mocks.rpc.mockResolvedValue(false);
+  await record({ ...event, cc: [alias, "unknown@example.invalid"] });
+  expect(mocks.rpc).not.toHaveBeenCalledWith("record_support_inbound", expect.anything());
+  for (const resolve of [() => Promise.resolve("true"), () => Promise.resolve(undefined), () => Promise.reject(new Error("private diagnostic"))]) {
     mocks.rpc.mockClear(); mocks.rpc.mockImplementation(resolve);
-    await record({ ...event, cc: [alias, "unknown@example.invalid"] });
+    await expect(record({ ...event, cc: [alias] })).rejects.toThrow();
     expect(mocks.rpc).not.toHaveBeenCalledWith("record_support_inbound", expect.anything());
   }
   for (const changed of [{ cc: "support@helixskin.us" }, { cc: null }, { bcc: [null] }, { received_for: ["bad\r\naddress"] },
@@ -48,8 +51,9 @@ it("bounds a stalled resolver and never persists after timeout", async () => {
   try {
     mocks.rpc.mockImplementation(() => new Promise(() => undefined));
     const pending = record({ ...event, cc: [alias] });
+    const proof = expect(pending).rejects.toThrow();
     await vi.advanceTimersByTimeAsync(2_001);
-    await pending;
+    await proof;
     expect(mocks.rpc).not.toHaveBeenCalledWith("record_support_inbound", expect.anything());
   } finally { vi.useRealTimers(); }
 });

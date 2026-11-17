@@ -12,7 +12,7 @@ const config = productionConfig({ VERCEL: "1", VERCEL_ENV: "production", HELIX_P
   HELIX_PRODUCTION_SUPPORT_ISOLATION_QUALIFIED: "true", HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED: "true",
   HELIX_PRODUCTION_SUPPORT_OPERATIONS_QUALIFIED: "true" });
 const payload = { from: SUPPORT_FROM, to: [SUPPORT_TO], reply_to: "visitor@example.invalid", subject: `Helix Website inquiry ${id}`,
-  text: "Unverified visitor content\nSubject: synthetic\nSynthetic body", tags: [
+  text: "Unverified visitor content: visitor-provided identity and Reply-To are unverified. Do not disclose Account, Order or private information based on them.\n\nSubject: synthetic\nSynthetic body", tags: [
     { name: "helix_support_contract", value: id }, { name: "helix_support_outbox", value: id }, { name: "helix_support_delivery", value: "a".repeat(64) } ] };
 const frozen = (text = JSON.stringify(payload)) => ({ outboxId: id, requestText: text, requestHash: createHash("sha256").update(text).digest("hex"),
   idempotencyKey: `helix-support:${id}`, attemptCount: 1, firstAttemptAt: new Date().toISOString() });

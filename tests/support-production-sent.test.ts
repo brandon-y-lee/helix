@@ -32,6 +32,41 @@ it("rejects raw-body tampering before any contract lookup or recording", async (
   const d = deps(); expect((await handleProductionSent(signed(event, true), d)).status).toBe(400);
   expect(d.contract).not.toHaveBeenCalled(); expect(d.record).not.toHaveBeenCalled();
 });
+it("acknowledges unrelated signed Auth, campaign and manual Inbox sends without database access", async () => {
+  const unrelated = [
+    { email_id: id, from: "Helix Auth <auth@helixskin.us>", to: ["owned@example.invalid"], subject: "Synthetic verification",
+      message_id: "<synthetic-auth@example.invalid>" },
+    { email_id: id, from: "Helix <contact@helixskin.us>", to: ["owned@example.invalid"], subject: "Synthetic campaign",
+      message_id: "<synthetic-campaign@example.invalid>", tags: { helix_environment: "sandbox", helix_message_id: id } },
+    { email_id: id, from: "Helix Support <support@helixskin.us>", to: ["owned@example.invalid"], subject: `Re: Helix Website inquiry ${id}`,
+      message_id: "<synthetic-manual-reply@example.invalid>" },
+    { email_id: id, from: "Helix Auth <auth@helixskin.us>", to: ["owned@example.invalid"], subject: "Synthetic untagged send",
+      message_id: "<synthetic-empty-tags@example.invalid>", tags: {} },
+  ];
+  for (const data of unrelated) {
+    const d = deps();
+    // A signed unrelated account-level notification does not need support storage credentials.
+    d.env = { VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: env.HELIX_PRODUCTION_SUPPORT_ORIGIN,
+      HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET: env.HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET };
+    const result = await handleProductionSent(signed({ ...event, data }), d);
+    expect(result.status).toBe(200); expect(await result.json()).toEqual({ ok: true });
+    expect(d.contract).not.toHaveBeenCalled(); expect(d.record).not.toHaveBeenCalled();
+  }
+});
+it("does not acknowledge forged unrelated events or malformed support namespace claims as correlation", async () => {
+  const unrelated = { ...event, data: { ...event.data, tags: undefined } };
+  const d = deps();
+  expect((await handleProductionSent(signed(unrelated, true), d)).status).toBe(400);
+  for (const tags of [{ helix_support_outbox: id }, { helix_support_delivery: "invalid" }, { helix_support_unknown: "attempt" },
+    { helix_support_outbox: null }, null, "invalid-tags", []]) {
+    expect((await handleProductionSent(signed({ ...event, data: { ...event.data, tags } }), d)).status).toBe(400);
+  }
+  for (const data of [{ ...event.data, tags: {}, email_id: "not-a-provider-uuid" }, { ...event.data, tags: {}, to: [] },
+    { ...event.data, tags: {}, message_id: undefined }]) {
+    expect((await handleProductionSent(signed({ ...event, data }), d)).status).toBe(400);
+  }
+  expect(d.contract).not.toHaveBeenCalled(); expect(d.record).not.toHaveBeenCalled();
+});
 it("rejects expired valid signatures and oversized signed payloads before storage", async () => {
   const d = deps();
   expect((await handleProductionSent(signed(event, false, String(Math.floor(Date.now() / 1000) - 600)), d)).status).toBe(400);
