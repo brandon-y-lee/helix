@@ -192,50 +192,61 @@ function writeSpecSetupFakeGh(tempRoot: string): {
 } {
   const executable = join(tempRoot, "fake-spec-setup-gh.mjs");
   const statePath = join(tempRoot, "spec-setup-state.json");
-  writeFileSync(
-    statePath,
-    JSON.stringify({ draftPr: false, prCreates: 0, readyTickets: [] }),
-  );
-  writeFileSync(
-    executable,
-    `#!/usr/bin/env node
+  writeFileSync(statePath, JSON.stringify({ draftPr: false, prCreates: 0, readyTickets: [] }));
+  writeFileSync(executable, `#!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 const args = process.argv.slice(2);
 const statePath = process.env.FAKE_SPEC_SETUP_STATE;
 const state = JSON.parse(readFileSync(statePath, "utf8"));
 const save = () => writeFileSync(statePath, JSON.stringify(state));
+const git = (...args) => execFileSync("git", args, { encoding: "utf8" }).trim();
+const head = () => git("ls-remote", "origin", "refs/heads/codex/spec-45-checkout").split(/\\s+/)[0];
+const url = "https://github.com/brandon-y-lee/helix/pull/1";
 if (args[0] === "repo" && args[1] === "view") {
-  process.stdout.write("brandon-y-lee/helix\\n");
-  process.exit(0);
+  process.stdout.write("brandon-y-lee/helix\\n"); process.exit(0);
 }
 if (args[0] === "api" && args[1] === "repos/brandon-y-lee/helix/issues/45") {
-  process.stdout.write("OPEN\\ttrue\\n");
-  process.exit(0);
+  process.stdout.write("OPEN\\ttrue\\n"); process.exit(0);
 }
 if (args[0] === "pr" && args[1] === "list") {
-  process.stdout.write(state.draftPr ? "OPEN\\ttrue\\thttps://example.test/pr/1\\n" : "");
+  const query = args[args.indexOf("--jq") + 1];
+  // Reproduce gh's actual null-row projection, not the old mock's false empty output.
+  if (process.env.FAKE_SPEC_LOOKUP === "failure") process.exit(1);
+  if (process.env.FAKE_SPEC_LOOKUP === "hidden-base" && args.includes("--base")) process.exit(0);
+  if (!state.draftPr && query.includes(".[0]")) process.stdout.write("\\t\\t\\n");
+  else if (process.env.FAKE_SPEC_LOOKUP === "malformed") process.stdout.write("\\t\\t\\n");
+  else if (process.env.FAKE_SPEC_LOOKUP === "multiple") {
+    if (args[args.indexOf("--limit") + 1] !== "2") process.exit(2);
+    process.stdout.write("OPEN\\ttrue\\t" + url + "\\nOPEN\\ttrue\\t" + url + "\\n");
+  } else if (state.draftPr) process.stdout.write("OPEN\\ttrue\\t" + url + "\\n");
   process.exit(0);
 }
 if (args[0] === "pr" && args[1] === "create") {
-  state.draftPr = true;
+  if (head() === git("rev-parse", "refs/remotes/origin/dev")) {
+    process.stderr.write("No commits between dev and Spec Branch\\n"); process.exit(1);
+  }
   state.prCreates += 1;
-  save();
-  process.stdout.write("https://example.test/pr/1\\n");
+  if (process.env.FAKE_SPEC_CREATE_FAIL === "1") { save(); process.exit(1); }
+  state.draftPr = true; save(); process.stdout.write((process.env.FAKE_SPEC_CREATE_URL ?? url) + "\\n"); process.exit(0);
+}
+if (args[0] === "pr" && args[1] === "view") {
+  const mode = process.env.FAKE_SPEC_VIEW;
+  process.stdout.write([mode === "closed" ? "CLOSED" : "OPEN", mode === "ready" ? "false" : "true",
+    mode === "base" ? "main" : "dev", "codex/spec-45-checkout", mode === "head" ? "0".repeat(40) : head(),
+    mode === "repository" ? "someone/else" : "brandon-y-lee/helix", url].join("\\t") + "\\n");
+  if (process.env.FAKE_SPEC_HEAD_RACE) git("--git-dir=" + process.env.FAKE_SPEC_REMOTE,
+    "update-ref", "refs/heads/codex/spec-45-checkout", process.env.FAKE_SPEC_HEAD_RACE);
   process.exit(0);
 }
 if (args[0] === "api" && args[1] === "repos/brandon-y-lee/helix/issues/45/sub_issues") {
-  process.stdout.write("123\\tOPEN\\ttrue\\n124\\tOPEN\\ttrue\\n");
-  process.exit(0);
+  process.stdout.write("123\\tOPEN\\ttrue\\n124\\tOPEN\\ttrue\\n"); process.exit(0);
 }
 if (args[0] === "issue" && args[1] === "edit") {
-  state.readyTickets.push(Number(args[2]));
-  save();
-  process.exit(0);
+  state.readyTickets.push(Number(args[2])); save(); process.exit(0);
 }
-process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n");
-process.exit(2);
-`,
-  );
+process.stderr.write("unexpected fake gh call: " + args.join(" ") + "\\n"); process.exit(2);
+`);
   chmodSync(executable, 0o755);
   return { executable, statePath };
 }
@@ -669,18 +680,14 @@ describe("Codex workflow task helper", () => {
       );
       expectSuccess(started);
       expect(started.stdout).toContain(
-        `Spec Branch: codex/spec-45-checkout @ ${devSha}`,
+        "Spec Branch: codex/spec-45-checkout @",
       );
-      expect(started.stdout).toContain("Draft Spec PR: https://example.test/pr/1");
-      expect(
-        git(
-          root,
-          "ls-remote",
-          "--heads",
-          "origin",
-          "refs/heads/codex/spec-45-checkout",
-        ).stdout.split(/\s+/)[0],
-      ).toBe(devSha);
+      expect(started.stdout).toContain("Draft Spec PR: https://github.com/brandon-y-lee/helix/pull/1");
+      const bootstrap = git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout.split(/\s+/)[0];
+      expect(bootstrap).not.toBe(devSha);
+      expect(git(root, "rev-list", "--parents", "-n", "1", bootstrap).stdout.trim()).toBe(`${bootstrap} ${devSha}`);
+      expect(git(root, "diff", "--name-only", devSha, bootstrap).stdout).toBe("");
+      expect(git(root, "show", "-s", "--format=%B", bootstrap).stdout).toContain(`Spec-Base: ${devSha}`);
 
       const repeated = run(
         taskHelper,
@@ -698,6 +705,184 @@ describe("Codex workflow task helper", () => {
     } finally {
       cleanupFixture(tempRoot);
     }
+  });
+
+  it("preserves a failed draft-PR bootstrap and reuses it without exposing Tickets", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      const failed = run(taskHelper, ["spec-start", "45-checkout"], root, { env: { ...env, FAKE_SPEC_CREATE_FAIL: "1" } });
+      expect(failed.status).not.toBe(0);
+      const bootstrap = git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout;
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+      expectSuccess(run(taskHelper, ["spec-start", "45-checkout"], root, { env }));
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout).toBe(bootstrap);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([123, 124]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["malformed", "multiple", "failure"])("refuses %s PR lookup before a branch is created", (mode) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath, FAKE_SPEC_LOOKUP: mode,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout).toBe("");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["closed", "ready", "base", "head", "repository"])("never exposes Tickets for an actual PR with wrong %s", (mode) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath, FAKE_SPEC_VIEW: mode,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("preserves a failed push and never creates a PR or exposes Tickets", () => {
+    const { root, tempRoot, remote } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const hook = join(remote, "hooks", "pre-receive");
+      writeFileSync(hook, "#!/bin/sh\nexit 1\n"); chmodSync(hook, 0o755);
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout).toBe("");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: false, prCreates: 0, readyTickets: [] });
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("refuses an unrecognized existing branch without replacing it", () => {
+    const { root, tempRoot, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      expectSuccess(git(root, "push", "origin", `${devSha}:refs/heads/codex/spec-45-checkout`));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("stale or unrecognized");
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout.split(/\s+/)[0]).toBe(devSha);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("holds stale partial bootstrap after remote dev advances, without rewriting it", () => {
+    const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      const failed = run(taskHelper, ["spec-start", "45-checkout"], root, { env: { ...env, FAKE_SPEC_CREATE_FAIL: "1" } });
+      expect(failed.status).not.toBe(0);
+      const bootstrap = git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout;
+      const advanced = git(root, "commit-tree", `${devSha}^{tree}`, "-p", devSha, "-m", "Dev advances").stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${advanced}:refs/heads/dev`));
+      const retry = run(taskHelper, ["spec-start", "45-checkout"], root, { env });
+      expect(retry.status).not.toBe(0);
+      expect(retry.stderr).toContain("stale or unrecognized");
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout).toBe(bootstrap);
+      expect(git(root, "--git-dir=" + remote, "rev-parse", "dev").stdout.trim()).toBe(advanced);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("holds readiness if the Spec head changes after actual PR inspection", () => {
+    const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+        FAKE_SPEC_HEAD_RACE: devSha, FAKE_SPEC_REMOTE: remote,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("changed before readiness");
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["ancestor", "sibling"])("preserves a concurrent %s branch creation rather than overwriting it", (kind) => {
+    const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const competitor = kind === "ancestor" ? devSha : git(root, "commit-tree", `${devSha}^{tree}`, "-p", devSha, "-m", "Other owner").stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${competitor}:refs/heads/competitor`));
+      const marker = writeRemoteRaceHook(root, tempRoot);
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+        RACE_MARKER: marker, RACE_REMOTE: remote, RACE_REF: "refs/heads/codex/spec-45-checkout", RACE_HEAD: competitor,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout.split(/\s+/)[0]).toBe(competitor);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("holds new setup when dev advances during the bootstrap push", () => {
+    const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const advanced = git(root, "commit-tree", `${devSha}^{tree}`, "-p", devSha, "-m", "Dev advances during push").stdout.trim();
+      expectSuccess(git(root, "push", "origin", `${advanced}:refs/heads/advanced`));
+      const marker = writeRemoteRaceHook(root, tempRoot);
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath,
+        RACE_MARKER: marker, RACE_REMOTE: remote, RACE_REF: "refs/heads/dev", RACE_HEAD: advanced,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("dev advanced before draft PR creation");
+      const partial = git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout.split(/\s+/)[0];
+      expect(git(root, "rev-parse", partial + "^").stdout.trim()).toBe(devSha);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: false, prCreates: 0, readyTickets: [] });
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["https://github.com/someone/else/pull/1", "https://github.com/brandon-y-lee/helix/pull/not-a-number", ""])("rejects creation URL %j before readiness", (url) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath, FAKE_SPEC_CREATE_URL: url,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("finds a wrong-base existing PR rather than creating a second PR", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      expectSuccess(run(taskHelper, ["spec-start", "45-checkout"], root, { env }));
+      const state = JSON.parse(readFileSync(fakeGh.statePath, "utf8"));
+      state.readyTickets = []; writeFileSync(fakeGh.statePath, JSON.stringify(state));
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        ...env, FAKE_SPEC_LOOKUP: "hidden-base", FAKE_SPEC_VIEW: "base",
+      } });
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: true, prCreates: 1, readyTickets: [] });
+    } finally { cleanupFixture(tempRoot); }
   });
 
   it("prepares Ticket Review against the snapshot when sibling work advances the Spec Branch", () => {
