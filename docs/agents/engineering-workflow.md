@@ -46,7 +46,7 @@ With issue-publication authority, `to-spec` publishes the agent-approved specifi
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 ```
 
-The repeat-safe setup creates `codex/spec-<spec-number>-<slug>` from the exact current remote `dev`, pushes it, opens its draft Spec PR to `dev`, and only then exposes the approved child Tickets. A partial setup fails closed; do not reset, retarget, or recreate uncertain state.
+The repeat-safe setup anchors one additive empty bootstrap commit to the exact current remote `dev` (same tree, sole parent and recorded base), pushes it as `codex/spec-<spec-number>-<slug>`, opens its draft Spec PR to `dev`, verifies the actual repository/head/base/open-draft identity, and only then exposes the approved child Tickets. The empty bootstrap supplies GitHub's required distinct commit without implementing a Ticket or changing any file. A partial setup fails closed; do not reset, retarget, or recreate uncertain state.
 
 A Spec Branch is the visible delivery boundary for one approved multi-Ticket Spec. Adding, removing, or changing required Tickets within the goal requires renewed independent planning approval and returns the Spec PR to draft; changing the goal requires the user.
 

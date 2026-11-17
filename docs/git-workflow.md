@@ -22,7 +22,7 @@ After the independently approved Ticket set is published without `ready-for-agen
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 ```
 
-The helper validates the planned Spec, fetches the exact current remote `dev`, creates `codex/spec-<spec-number>-<slug>` at that commit, pushes it, and opens a draft Spec PR to `dev`. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
+The helper validates the planned Spec, fetches the exact current remote `dev`, creates one additive empty bootstrap commit with that exact commit as its sole parent and the identical tree, pushes `codex/spec-<spec-number>-<slug>` at the bootstrap commit, and opens a draft Spec PR to `dev`. The bootstrap changes no file and records `Spec-Bootstrap` / `Spec-Base` trailers; it provides the distinct commit required by GitHub without implementing a Ticket. The helper verifies the actual PR repository, head SHA/branch, base and open-draft state before exposing Tickets. Zero lookup results mean absence; multiple or malformed results fail closed. A recognized partial bootstrap can resume only against the same current remote base; stale or unrecognized state requires recovery. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
 
 ## Start an isolated task
 

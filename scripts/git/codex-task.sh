@@ -223,15 +223,39 @@ start_spec() {
       awk 'NR == 1 { print $1 }'
   )
   pr_status=$(
-    "$gh_bin" pr list --state all --head "$spec_branch" --base dev --limit 1 \
-      --json state,isDraft,url --jq '.[0] | [.state, .isDraft, .url] | @tsv'
+    "$gh_bin" pr list --state all --head "$spec_branch" --base dev --limit 2 \
+      --json state,isDraft,url --jq '.[] | [.state, .isDraft, .url] | @tsv'
   ) || fail "could not inspect the Spec PR for '$spec_branch'"
+  if [ -n "$pr_status" ]; then
+    previous_ifs=$IFS
+    IFS="$(printf '\t')
+"
+    set -- $pr_status
+    IFS=$previous_ifs
+    [ "$#" -eq 3 ] || fail "ambiguous or malformed Spec PR lookup; preserve state"
+    case "$1:$2" in OPEN:true|OPEN:false|CLOSED:true|CLOSED:false|MERGED:true|MERGED:false) ;;
+      *) fail "malformed Spec PR lookup; preserve state" ;; esac
+    case "$3" in "https://github.com/$repository/pull/"*) ;;
+      *) fail "unexpected Spec PR destination; preserve state" ;; esac
+    pr_number=${3##*/}
+    case "$pr_number" in ''|*[!0-9]*) fail "malformed Spec PR URL; preserve state" ;; esac
+  fi
 
+  bootstrap_message=$(printf 'Establish Spec #%s delivery boundary\n\nSpec-Bootstrap: #%s\nSpec-Base: %s' \
+    "$spec_number" "$spec_number" "$remote_dev")
+  bootstrap_tree=$(git -C "$spec_repository" rev-parse "$remote_dev^{tree}")
   setup_complete=0
   if [ -n "$remote_spec" ]; then
+    git -C "$spec_repository" fetch --quiet origin \
+      "refs/heads/$spec_branch:refs/remotes/origin/$spec_branch" ||
+      fail "could not fetch existing Spec Branch; preserve state"
+    [ "$(git -C "$spec_repository" rev-parse "refs/remotes/origin/$spec_branch")" = "$remote_spec" ] ||
+      fail "Spec Branch changed during inspection; preserve state"
     if [ -z "$pr_status" ]; then
-      [ "$remote_spec" = "$remote_dev" ] ||
-        fail "partial Spec setup is stale: '$spec_branch' exists without a PR and dev advanced; preserve it and obtain recovery direction"
+      [ "$(git -C "$spec_repository" rev-list --parents -n 1 "$remote_spec")" = "$remote_spec $remote_dev" ] &&
+      [ "$(git -C "$spec_repository" rev-parse "$remote_spec^{tree}")" = "$bootstrap_tree" ] &&
+      [ "$(git -C "$spec_repository" show -s --format=%B "$remote_spec")" = "$bootstrap_message" ] ||
+        fail "partial Spec setup is stale or unrecognized; preserve it and obtain recovery direction"
     else
       setup_complete=1
     fi
@@ -246,9 +270,13 @@ start_spec() {
     )
     [ "$current_remote_dev" = "$remote_dev" ] ||
       fail "remote dev advanced during Spec setup; retry from the new exact commit"
-    git -C "$spec_repository" push origin "$remote_dev:refs/heads/$spec_branch" ||
-      fail "could not create remote Spec Branch '$spec_branch'"
-    remote_spec=$remote_dev
+    # One additive empty commit makes a draft PR possible without changing any file.
+    bootstrap_commit=$(printf '%s\n' "$bootstrap_message" |
+      git -C "$spec_repository" commit-tree "$bootstrap_tree" -p "$remote_dev") ||
+      fail "could not create the local Spec bootstrap commit"
+    git -C "$spec_repository" push origin "$bootstrap_commit:refs/heads/$spec_branch" ||
+      fail "could not create remote Spec Branch '$spec_branch'; inspect before retrying"
+    remote_spec=$bootstrap_commit
   fi
 
   if git -C "$spec_repository" show-ref --verify --quiet "refs/heads/$spec_branch"; then
@@ -260,6 +288,8 @@ start_spec() {
   fi
 
   if [ -z "$pr_status" ]; then
+    [ "$(git -C "$spec_repository" ls-remote --heads origin refs/heads/dev | awk 'NR == 1 { print $1 }')" = "$remote_dev" ] ||
+      fail "remote dev advanced before draft PR creation; preserve partial Spec setup"
     pr_url=$(
       "$gh_bin" pr create --draft --base dev --head "$spec_branch" \
         --title "Spec #$spec_number: $spec_suffix" \
@@ -276,6 +306,15 @@ start_spec() {
     case "$pr_state" in open|OPEN) ;; *) fail "existing Spec PR is not open" ;; esac
     [ "$pr_draft" = true ] || fail "existing Spec PR must remain draft during Ticket delivery"
   fi
+
+  actual_pr=$(
+    "$gh_bin" pr view "$pr_url" --json state,isDraft,baseRefName,headRefName,headRefOid,headRepository,url \
+      --jq '[.state, .isDraft, .baseRefName, .headRefName, .headRefOid, .headRepository.nameWithOwner, .url] | @tsv'
+  ) || fail "could not verify the actual Spec PR; no Tickets exposed"
+  expected_pr=$(printf 'OPEN\ttrue\tdev\t%s\t%s\t%s\t%s' "$spec_branch" "$remote_spec" "$repository" "$pr_url")
+  [ "$actual_pr" = "$expected_pr" ] || fail "actual Spec PR identity/state differs; preserve state without exposing Tickets"
+  [ "$(git -C "$spec_repository" ls-remote --heads origin "refs/heads/$spec_branch" | awk 'NR == 1 { print $1 }')" = "$remote_spec" ] ||
+    fail "Spec Branch changed before readiness; preserve state without exposing Tickets"
 
   child_tickets=$(
     "$gh_bin" api "repos/$repository/issues/$spec_number/sub_issues" --paginate --jq \
