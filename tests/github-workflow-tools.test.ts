@@ -213,6 +213,7 @@ if (args[0] === "pr" && args[1] === "list") {
   const query = args[args.indexOf("--jq") + 1];
   // Reproduce gh's actual null-row projection, not the old mock's false empty output.
   if (process.env.FAKE_SPEC_LOOKUP === "failure") process.exit(1);
+  if (process.env.FAKE_SPEC_LOOKUP === "hidden-base" && args.includes("--base")) process.exit(0);
   if (!state.draftPr && query.includes(".[0]")) process.stdout.write("\\t\\t\\n");
   else if (process.env.FAKE_SPEC_LOOKUP === "malformed") process.stdout.write("\\t\\t\\n");
   else if (process.env.FAKE_SPEC_LOOKUP === "multiple") {
@@ -227,7 +228,7 @@ if (args[0] === "pr" && args[1] === "create") {
   }
   state.prCreates += 1;
   if (process.env.FAKE_SPEC_CREATE_FAIL === "1") { save(); process.exit(1); }
-  state.draftPr = true; save(); process.stdout.write(url + "\\n"); process.exit(0);
+  state.draftPr = true; save(); process.stdout.write((process.env.FAKE_SPEC_CREATE_URL ?? url) + "\\n"); process.exit(0);
 }
 if (args[0] === "pr" && args[1] === "view") {
   const mode = process.env.FAKE_SPEC_VIEW;
@@ -816,11 +817,11 @@ describe("Codex workflow task helper", () => {
     } finally { cleanupFixture(tempRoot); }
   });
 
-  it("preserves a concurrent branch creation rather than overwriting it", () => {
+  it.each(["ancestor", "sibling"])("preserves a concurrent %s branch creation rather than overwriting it", (kind) => {
     const { root, tempRoot, remote, devSha } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "push", "origin", "dev"));
-      const competitor = git(root, "commit-tree", `${devSha}^{tree}`, "-p", devSha, "-m", "Other owner").stdout.trim();
+      const competitor = kind === "ancestor" ? devSha : git(root, "commit-tree", `${devSha}^{tree}`, "-p", devSha, "-m", "Other owner").stdout.trim();
       expectSuccess(git(root, "push", "origin", `${competitor}:refs/heads/competitor`));
       const marker = writeRemoteRaceHook(root, tempRoot);
       const fakeGh = writeSpecSetupFakeGh(tempRoot);
@@ -851,6 +852,36 @@ describe("Codex workflow task helper", () => {
       const partial = git(root, "ls-remote", "origin", "refs/heads/codex/spec-45-checkout").stdout.split(/\s+/)[0];
       expect(git(root, "rev-parse", partial + "^").stdout.trim()).toBe(devSha);
       expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: false, prCreates: 0, readyTickets: [] });
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it.each(["https://github.com/someone/else/pull/1", "https://github.com/brandon-y-lee/helix/pull/not-a-number", ""])("rejects creation URL %j before readiness", (url) => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath, FAKE_SPEC_CREATE_URL: url,
+      } });
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8")).readyTickets).toEqual([]);
+    } finally { cleanupFixture(tempRoot); }
+  });
+
+  it("finds a wrong-base existing PR rather than creating a second PR", () => {
+    const { root, tempRoot } = initialiseRemoteRepository();
+    try {
+      expectSuccess(git(root, "push", "origin", "dev"));
+      const fakeGh = writeSpecSetupFakeGh(tempRoot);
+      const env = { GH_BIN: fakeGh.executable, FAKE_SPEC_SETUP_STATE: fakeGh.statePath };
+      expectSuccess(run(taskHelper, ["spec-start", "45-checkout"], root, { env }));
+      const state = JSON.parse(readFileSync(fakeGh.statePath, "utf8"));
+      state.readyTickets = []; writeFileSync(fakeGh.statePath, JSON.stringify(state));
+      const result = run(taskHelper, ["spec-start", "45-checkout"], root, { env: {
+        ...env, FAKE_SPEC_LOOKUP: "hidden-base", FAKE_SPEC_VIEW: "base",
+      } });
+      expect(result.status).not.toBe(0);
+      expect(JSON.parse(readFileSync(fakeGh.statePath, "utf8"))).toEqual({ draftPr: true, prCreates: 1, readyTickets: [] });
     } finally { cleanupFixture(tempRoot); }
   });
 

@@ -12,7 +12,7 @@ This document owns branch, worktree, PR, integration, and release mechanics. The
 - `codex/plan-<slug>` carries domain documentation resolved during planning.
 - `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
-Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges into `dev`, preserving the Ticket commits and visible Spec boundary. Urgent, standalone, planning, and trivial branches remain direct-to-`dev`. The human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and history rewriting are outside the workflow.
+Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges into `dev`, preserving the Ticket commits and visible Spec boundary. Urgent, standalone, planning, and trivial branches remain direct-to-`dev`. The human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and history rewriting are outside the workflow. The Spec helper's explicit absent-ref creation lease is a narrow create-only compare-and-swap: it refuses every existing ref, including an ancestor, and does not authorize rewriting a branch. The separately documented cleanup deletion leases remain unchanged.
 
 ## Establish a Spec Branch and draft Spec PR
 

@@ -223,7 +223,7 @@ start_spec() {
       awk 'NR == 1 { print $1 }'
   )
   pr_status=$(
-    "$gh_bin" pr list --state all --head "$spec_branch" --base dev --limit 2 \
+    "$gh_bin" pr list --state all --head "$spec_branch" --limit 2 \
       --json state,isDraft,url --jq '.[] | [.state, .isDraft, .url] | @tsv'
   ) || fail "could not inspect the Spec PR for '$spec_branch'"
   if [ -n "$pr_status" ]; then
@@ -274,7 +274,8 @@ start_spec() {
     bootstrap_commit=$(printf '%s\n' "$bootstrap_message" |
       git -C "$spec_repository" commit-tree "$bootstrap_tree" -p "$remote_dev") ||
       fail "could not create the local Spec bootstrap commit"
-    git -C "$spec_repository" push origin "$bootstrap_commit:refs/heads/$spec_branch" ||
+    git -C "$spec_repository" push --force-with-lease="refs/heads/$spec_branch:" \
+      origin "$bootstrap_commit:refs/heads/$spec_branch" ||
       fail "could not create remote Spec Branch '$spec_branch'; inspect before retrying"
     remote_spec=$bootstrap_commit
   fi
@@ -306,6 +307,12 @@ start_spec() {
     case "$pr_state" in open|OPEN) ;; *) fail "existing Spec PR is not open" ;; esac
     [ "$pr_draft" = true ] || fail "existing Spec PR must remain draft during Ticket delivery"
   fi
+
+  # Validate both existing lookup and creation output against the destination repo.
+  case "$pr_url" in "https://github.com/$repository/pull/"*) ;;
+    *) fail "unexpected Spec PR destination; preserve state without exposing Tickets" ;; esac
+  pr_number=${pr_url##*/}
+  case "$pr_number" in ''|*[!0-9]*) fail "malformed Spec PR URL; preserve state without exposing Tickets" ;; esac
 
   actual_pr=$(
     "$gh_bin" pr view "$pr_url" --json state,isDraft,baseRefName,headRefName,headRefOid,headRepository,url \
