@@ -16,6 +16,7 @@ const env: ProductionEnvironment = {
   HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED: "true", HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED: "true",
   HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED: "true", HELIX_PRODUCTION_SUPPORT_ISOLATION_QUALIFIED: "true",
   HELIX_PRODUCTION_SUPPORT_OPERATIONS_QUALIFIED: "true",
+  HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET: "support-production-private",
 };
 const input = { submissionId: id, name: "Synthetic visitor", email: "visitor@example.invalid", inquiryType: "general",
   subject: "Synthetic subject", body: "Synthetic message only", photos: [], uploadCapability: "a".repeat(64) };
@@ -25,15 +26,16 @@ function request(body: unknown = input, headers: Record<string, string> = {}, or
 }
 function dependencies(overrides: Partial<IntakeDependencies> = {}): IntakeDependencies {
   return { env, fullMediaImplemented: () => true,
-    contract: vi.fn().mockResolvedValue({ projectRef: env.HELIX_PRODUCTION_SUPPORT_PROJECT_REF, contractId: id,
+    contract: vi.fn().mockResolvedValue({ projectRef: env.HELIX_PRODUCTION_SUPPORT_PROJECT_REF, contractId: id, photoBucket: "support-production-private", photoWorkerLimit: 1,
       admissionEnabled: true, workerEnabled: true, fullMediaQualified: true, isolationQualified: true, operationsQualified: true }),
     submit: vi.fn().mockResolvedValue({ inquiryId: id, submissionId: id, outboxId: id, status: "saved", photoStatus: "declared", reservedBytes: 0 }),
     ...overrides };
 }
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-it("keeps deployed availability closed even with every operator assertion true; no test/env bypass", async () => {
+it("keeps deployed availability closed with operational admission disabled despite completed source", async () => {
   for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value!);
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED", "false");
   vi.stubEnv("NODE_ENV", "test");
   const network = vi.fn(); vi.stubGlobal("fetch", network);
   const response = await deployedIntake(new Request("https://www.helixskin.us/api/support/production/intake"));
@@ -135,4 +137,23 @@ it("bounds streamed bytes and stalled bodies, and never calls submit after a fai
   const failure = dependencies({ submit: vi.fn().mockRejectedValue(new Error("private visitor@example.invalid diagnostic")) });
   const response = await handleProductionIntake(request(), failure);
   expect(response.status).toBe(503); expect(await response.text()).not.toContain("visitor");
+});
+it("exposes only the exact public Storage binding after full stored identity and bucket qualification", async () => {
+  const deps = dependencies();
+  const result = await handleProductionIntake(new Request("https://www.helixskin.us/api/support/production/intake"), deps);
+  expect(await result.json()).toEqual({available:true,photosAvailable:true,uploadBinding:{origin:env.HELIX_PRODUCTION_SUPPORT_PROJECT_URL,bucket:"support-production-private"}});
+  const wrong = dependencies({env:{...env,HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET:"helix-support-photos"}});
+  expect(await (await handleProductionIntake(new Request("https://www.helixskin.us/api/support/production/intake"), wrong)).json()).toEqual({available:false,photosAvailable:false});
+});
+
+it("refuses availability and admission without bounded nonzero stored photo worker capacity", async () => {
+  for (const limit of [undefined, null, 0, -1, 17, 1.5, "1", true]) {
+    const deps = dependencies();
+    const contract = await deps.contract(productionConfig(env));
+    vi.mocked(deps.contract).mockResolvedValue({ ...contract as object, photoWorkerLimit: limit });
+    const availability = await handleProductionIntake(new Request("https://www.helixskin.us/api/support/production/intake"), deps);
+    expect(await availability.json()).toEqual({ available: false, photosAvailable: false });
+    expect((await handleProductionIntake(request(), deps)).status).toBe(503);
+    expect(deps.submit).not.toHaveBeenCalled();
+  }
 });

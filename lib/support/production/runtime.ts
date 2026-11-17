@@ -14,12 +14,13 @@ import { handleProductionSent } from "./sent";
 import { productionRpc } from "./storage";
 import { dispatchProductionOutbox } from "./worker";
 
-// T1 declares photos; T2/T3 have not implemented or qualified full private media.
-// Deliberately not an environment flag: no deployed test/text-only bypass exists.
+// The full source path is implemented. This is NOT operational qualification:
+// production context, dedicated identity/bucket and every applicable stored/env gate
+// still fail closed by default. No deployed local/test bypass exists.
 import { handleProductionPhotos } from "./photo-request";
 import { createProductionPhotoStorage } from "./photo-storage";
 import { processProductionPhoto } from "./photo-worker";
-const FULL_MEDIA_IMPLEMENTED = false;
+const FULL_MEDIA_IMPLEMENTED = true;
 const identity = (config: ProductionConfig) => ({
   projectRef: config.projectRef,
   contractId: config.contractId,

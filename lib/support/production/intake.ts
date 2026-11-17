@@ -52,7 +52,13 @@ export async function handleProductionIntake(request: Request, dependencies: Int
     const contract = await dependencies.contract(config);
     assertStoredContract(contract, config);
     if (contract.admissionEnabled !== true || contract.fullMediaQualified !== true || contract.isolationQualified !== true || contract.operationsQualified !== true) throw new ProductionSupportError();
-    if (request.method === "GET") return response({ available: true, photosAvailable: true });
+    if (typeof contract.photoWorkerLimit !== "number" || !Number.isInteger(contract.photoWorkerLimit)
+      || contract.photoWorkerLimit < 1 || contract.photoWorkerLimit > 16) throw new ProductionSupportError();
+    const bucket = dependencies.env.HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET;
+    if (!bucket || bucket !== contract.photoBucket || !/^[a-z0-9][a-z0-9_-]{2,62}$/.test(bucket)
+      || ["helix-support-photos", "helix-catalog"].includes(bucket)) throw new ProductionSupportError();
+    if (request.method === "GET") return response({ available: true, photosAvailable: true,
+      uploadBinding: { origin: config.projectUrl, bucket } });
     if (!/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/i.test(request.headers.get("content-type") ?? "")) throw new ProductionSupportError(400, "invalid_input");
     const raw = await boundedText(request, 48 * 1024);
     let parsed: unknown;
