@@ -65,6 +65,27 @@ try {
   assert.deepEqual(quota.map(v=>v.split('\n').filter(x=>x==='t'||x==='f')),[['t'],['f']]);
   assert.equal(sql(`SELECT count(*) FROM private.production_marketing_quota_reservations WHERE message_id='${two}';`),'0','denied competing quota must not partially charge');
   sql("UPDATE private.production_marketing_controls SET daily_limit=100;UPDATE private.production_marketing_messages SET state='cancelled' WHERE state IN ('held','uncertain');");
-  execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-delivery.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER:name}});
-  console.log(JSON.stringify({status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,rlsAndGrants:true,competingClaims:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
+  // Hold the message row to pause the actual preparer after its address lock. A
+  // repeated confirmation and controller pause must not create a control/address inversion.
+  const pauseId=sql("SELECT public.test_delivery('control-order');");
+  sql(`UPDATE private.production_marketing_messages SET lease_token='${lease}',lease_until=clock_timestamp()+interval '60 seconds' WHERE id='${pauseId}';`);
+  const holder=session(),preparer=session(),confirmer=session(),controller=session();
+  for(const s of [holder,preparer,confirmer,controller])s.done.catch(()=>{});
+  try{
+    holder.child.stdin.write(`BEGIN;SET LOCAL statement_timeout='15s';SELECT id FROM private.production_marketing_messages WHERE id='${pauseId}' FOR UPDATE;\n\\echo held\n`);
+    await until(()=>holder.output().includes('held'),'control-order row barrier');
+    preparer.child.stdin.end(`BEGIN;SET LOCAL statement_timeout='15s';SET LOCAL application_name='marketing_540_control_prepare';SELECT public.test_prepare('${pauseId}','${lease}') IS NOT NULL;COMMIT;`);
+    await until(()=>sql("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='marketing_540_control_prepare' AND wait_event_type='Lock');")==='t','preparer row wait');
+    confirmer.child.stdin.end("BEGIN;SET LOCAL statement_timeout='15s';SET LOCAL application_name='marketing_540_control_confirm';SELECT public.confirm_production_marketing_subscription(md5('control-orderc')||md5('control-orderc'));COMMIT;");
+    await until(()=>sql("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='marketing_540_control_confirm' AND wait_event_type='Lock');")==='t','confirmation address wait');
+    controller.child.stdin.end("BEGIN;SET LOCAL statement_timeout='15s';SET LOCAL application_name='marketing_540_control_pause';UPDATE private.production_marketing_controls SET dispatch_enabled=false;COMMIT;");
+    await until(()=>sql("SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='marketing_540_control_pause' AND wait_event_type='Lock');")==='t','controller control wait');
+    holder.child.stdin.end('COMMIT;\n');await Promise.all([holder.done,preparer.done,confirmer.done,controller.done]);
+    assert.ok(preparer.output().split('\n').includes('t')&&confirmer.output().split('\n').includes('t'),'admitted work and idempotent confirmation complete before control pause');
+    assert.equal(sql("SELECT dispatch_enabled FROM private.production_marketing_controls;"),'f');
+  }finally{for(const s of [holder,preparer,confirmer,controller])if(!s.child.stdin.destroyed)s.child.stdin.end('ROLLBACK;\n');await Promise.all([holder,preparer,confirmer,controller].map(s=>s.done.catch(()=>{})));}
+  sql(`UPDATE private.production_marketing_controls SET dispatch_enabled=true;UPDATE private.production_marketing_messages SET state='cancelled' WHERE id='${pauseId}';`);
+  const workerOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-delivery.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER:name}});
+  const workerCases=/Tests\s+(\d+) passed/.exec(workerOutput)?.[1];assert.equal(workerCases,'7','all seven actual-worker cases must execute');
+  console.log(JSON.stringify({status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
 }finally{if(owned){assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',name]).trim(),'production-marketing-540-synthetic');docker(['rm','--force','--volumes',name]);}}

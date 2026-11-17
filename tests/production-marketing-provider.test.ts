@@ -7,7 +7,7 @@ const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLO
   HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db",
   HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send",HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-read",
   HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract)};
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
 it("sends exact frozen bytes to the fixed provider endpoint with the dedicated key and bounded deadline",async()=>{
   const id="22222222-2222-4222-8222-222222222222",body='{"synthetic":"frozen"}',key="production-marketing/one";
   const fetcher=vi.fn().mockResolvedValue(Response.json({id}));vi.stubGlobal("fetch",fetcher);
@@ -19,6 +19,17 @@ it("holds ambiguous responses and expiry without leaking errors or starting anot
   expect(await productionMarketingProvider.send("{}","key",new Date(Date.now()+60000).toISOString(),env)).toEqual({kind:"uncertain"});
   expect(fetcher).toHaveBeenCalledTimes(1);fetcher.mockClear();
   expect(await productionMarketingProvider.send("{}","key",new Date(Date.now()-1).toISOString(),env)).toEqual({kind:"uncertain"});expect(fetcher).not.toHaveBeenCalled();
+});
+it("bounds the provider timeout by the smaller of remaining confirmation eligibility and eight seconds",async()=>{
+  vi.useFakeTimers();
+  for(const [remaining,deadline] of [[250,250],[20000,8000]]) {
+    const fetcher=vi.fn().mockImplementation(()=>new Promise<Response>(()=>{}));vi.stubGlobal("fetch",fetcher);
+    let settled=false;
+    const pending=productionMarketingProvider.send("{}","same-key",new Date(Date.now()+remaining).toISOString(),env).then(value=>{settled=true;return value;});
+    await vi.advanceTimersByTimeAsync(deadline-1);expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);expect(await pending).toEqual({kind:"uncertain"});
+    expect(fetcher).toHaveBeenCalledTimes(1);expect(fetcher.mock.calls[0][1].signal.aborted).toBe(true);
+  }
 });
 it("reads only native contact/topic permission using the separate read capability and never creates or changes contacts",async()=>{
   const contactId="33333333-3333-4333-8333-333333333333";

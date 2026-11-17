@@ -67,7 +67,7 @@ describe("production marketing worker boundary", () => {
       expect(f.storage.prepare).not.toHaveBeenCalled(); expect(f.provider.send).not.toHaveBeenCalled();
     }
   });
-  it("resolves only explicitly retained capability key IDs and never extends expired input",async()=>{
+  it("resolves only explicitly retained capability key IDs and rejects a changed expiry binding",async()=>{
     const f=fixture();Object.assign(f.env,{HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"d".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"new-key"});
     expect((await dispatchProductionMarketing(f.request(),f.deps)).status).toBe(503);expect(f.provider.send).not.toHaveBeenCalled();
     Object.assign(f.env,{HELIX_PRODUCTION_MARKETING_CAPABILITY_KEYS:JSON.stringify({"test-v1":"c".repeat(64)})});

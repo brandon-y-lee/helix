@@ -7,6 +7,7 @@ import { createProductionMarketingDeliveryStorage } from "../../lib/production-m
 import { createProductionMarketingStorage } from "../../lib/production-marketing/storage";
 import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
 import { productionMarketingTemplateHash } from "../../lib/production-marketing/templates";
+import { sealProductionMarketingCapabilities } from "../../lib/production-marketing/capabilities";
 const container=process.env.HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER??"";
 if(!/^helix-production-marketing-540-[0-9]+-[0-9]+$/.test(container)||process.env.DOCKER_HOST||process.env.DOCKER_CONTEXT)throw new Error("Owned local database required.");
 const docker=(args:string[],input?:string)=>execFileSync("docker",args,{encoding:"utf8",input,stdio:["pipe","pipe","pipe"]});
@@ -56,7 +57,23 @@ async function enroll(label:string){expect((await handleProductionMarketingReque
 const message=(label:string,purpose="confirmation")=>JSON.parse(sql(`SELECT jsonb_build_object('id',m.id,'state',m.state,'body',m.body_text,'hash',m.body_hash,'providerId',m.provider_id,'reconciliation',m.reconciliation_required)
   FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id WHERE s.normalized_email=${literal(label+"@example.invalid")} AND m.purpose=${literal(purpose)};`)) as {id:string;state:string;body:string|null;hash:string|null;providerId:string|null;reconciliation:boolean};
 beforeEach(()=>{sends.length=0;rpcCalls=0;faultAfterRpc="";sendUncertain=false;nativeAllowed=true;vi.stubGlobal("fetch",transport);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))};`);});
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
+function seedAgedRequest(label:string) {
+  const now=Date.now();
+  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(now-86_400_000+30_000);
+  const sealed=sealProductionMarketingCapabilities(`${label}@example.invalid`,env);
+  vi.useRealTimers();
+  const subscriber=randomUUID(),id=randomUUID(),e=sealed.deliveryPayload;
+  // Owned historical fixture: the real issuance API correctly rejects a caller's backdated request.
+  // All persisted fields and the authenticated envelope represent the same valid prior issuance.
+  sql(`BEGIN;INSERT INTO private.production_marketing_subscribers(id,normalized_email,state) VALUES(${literal(subscriber)},${literal(label+"@example.invalid")},'pending');
+    INSERT INTO private.production_marketing_generations(subscriber_id,generation,request_revision,wording_version,requested_at,expires_at,confirmation_hash,preference_hash)
+      VALUES(${literal(subscriber)},1,1,'production_welcome_v1',${literal(e.issuedAt)},${literal(e.expiresAt)},${literal(sealed.confirmationHash)},${literal(sealed.preferenceHash)});
+    INSERT INTO private.production_marketing_evidence(subscriber_id,generation,revision,event) VALUES(${literal(subscriber)},1,1,'requested');
+    INSERT INTO private.production_marketing_confirmation_intents(id,subscriber_id,generation,request_revision,request_id,delivery_payload,expires_at,created_at)
+      VALUES(${literal(id)},${literal(subscriber)},1,1,${literal(e.requestId)},${literal(JSON.stringify(e))}::jsonb,${literal(e.expiresAt)},${literal(e.issuedAt)});COMMIT;`);
+  return {id,expiresAt:e.expiresAt,issuedAt:e.issuedAt};
+}
 
 it("runs real production consent, worker/storage/provider adapters, explicit confirmation and independent paused withdrawal through PostgreSQL",async()=>{
   expect((await dispatchProductionMarketing(new Request(`${origin}/api/internal/marketing/production/dispatch`,{method:"POST"}),{env,storage,provider:productionMarketingProvider})).status).toBe(401);
@@ -119,4 +136,29 @@ it("does not resend after acceptance persisted but the finish response was lost"
   await enroll("lost-finish");faultAfterRpc="finish_production_marketing_message";
   expect((await worker()).status).toBe(503);expect(sends.length).toBe(1);expect(message("lost-finish").state).toBe("accepted");
   expect(await (await worker()).json()).toEqual({status:"idle"});expect(sends.length).toBe(1);
+},20000);
+
+it("prepares a valid authenticated aged request without restarting its original confirmation deadline",async()=>{
+  const source=seedAgedRequest("aged-valid");
+  expect(await (await worker()).json()).toEqual({status:"accepted"});expect(sends.length).toBe(1);
+  expect(sql(`SELECT private.production_marketing_iso(payload_expires_at)=${literal(source.expiresAt)} AND first_prepared_at>${literal(source.issuedAt)}::timestamptz+interval '23 hours' FROM private.production_marketing_messages WHERE id=${literal(source.id)};`)).toBe("t");
+  expect(message("aged-valid").state).toBe("accepted");
+},20000);
+
+it("blocks provider handoff when an authenticated aged request expires after real durable preparation",async()=>{
+  const source=seedAgedRequest("aged-paused");let preparedBeforeExpiry=false;
+  const wrapped={...storage,prepare:async(...args:Parameters<typeof storage.prepare>)=>{
+    const p=await storage.prepare(...args);
+    expect(p!==null).toBe(true);
+    if(p){
+      expect(p.payloadExpiresAt===source.expiresAt).toBe(true);
+      preparedBeforeExpiry=Date.parse(p.payloadExpiresAt)>Date.now();
+      expect(Date.parse(p.leaseUntil)>Date.parse(p.payloadExpiresAt)+1).toBe(true);
+      vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(Date.parse(p.payloadExpiresAt)+1);
+    }
+    return p;
+  }};
+  expect(await (await dispatchProductionMarketing(workerRequest(),{env,storage:wrapped,provider:productionMarketingProvider})).json()).toEqual({status:"deferred"});
+  expect(preparedBeforeExpiry).toBe(true);expect(sends.length).toBe(0);
+  expect(message("aged-paused").state).toBe("prepared");
 },20000);
