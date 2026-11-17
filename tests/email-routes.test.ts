@@ -87,6 +87,40 @@ it("retains copied and forwarded conversation routes for quarantine without gran
   }));
 });
 
+it("retries unavailable native-Inbox legacy alias resolution over HTTP without persistence, then accepts an exact successful retry", async () => {
+  vi.stubEnv("HELIX_SUPPORT_RECEIVING_ADDRESS", "support@synthetic.resend.app");
+  const incoming = { type: "email.received", created_at: event.created_at, data: {
+    email_id: event.data.email_id, from: "synthetic@example.invalid", to: ["support@helixskin.us"],
+    cc: ["reply-" + "a".repeat(48) + "@previous.example"],
+  } };
+  for (const resolve of [() => Promise.reject(new Error("RPC unavailable private diagnostic")), () => Promise.resolve("invalid")]) {
+    mocks.inbound.mockClear(); mocks.inbound.mockImplementation(resolve);
+    const result = await receive(webhook(incoming));
+    expect(result.status).toBe(500); expect(await result.text()).not.toContain("diagnostic");
+    expect(mocks.inbound).not.toHaveBeenCalledWith("record_support_inbound", expect.anything());
+  }
+  mocks.inbound.mockClear();
+  mocks.inbound.mockImplementation(async (name: string) => name === "support_legacy_reply_aliases_match" ? true : { status: "queued" });
+  expect((await receive(webhook(incoming))).status).toBe(200);
+  expect(mocks.inbound).toHaveBeenCalledWith("record_support_inbound", expect.objectContaining({ p_event_id: "msg_synthetic" }));
+});
+
+it("returns retryable HTTP failure on alias resolver timeout without persisting native metadata", async () => {
+  vi.stubEnv("HELIX_SUPPORT_RECEIVING_ADDRESS", "support@synthetic.resend.app");
+  vi.useFakeTimers();
+  try {
+    mocks.inbound.mockImplementation(() => new Promise(() => undefined));
+    const incoming = { type: "email.received", created_at: event.created_at, data: {
+      email_id: event.data.email_id, from: "synthetic@example.invalid", to: ["support@helixskin.us"],
+      cc: ["reply-" + "a".repeat(48) + "@previous.example"],
+    } };
+    const pending = receive(webhook(incoming));
+    await vi.advanceTimersByTimeAsync(2_001);
+    expect((await pending).status).toBe(500);
+    expect(mocks.inbound).not.toHaveBeenCalledWith("record_support_inbound", expect.anything());
+  } finally { vi.useRealTimers(); }
+});
+
 it("does not acknowledge failed RFC recording and retries it even after delivery was already recorded", async () => {
   const sent = { ...event, data: { ...event.data, message_id: "<actual-provider@example.test>" } };
   mocks.rfc.mockRejectedValueOnce(new Error("private provider metadata"));
