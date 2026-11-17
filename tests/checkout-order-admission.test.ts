@@ -204,6 +204,21 @@ describe("customer checkout admission", () => {
     expect(boundary.expireSession).not.toHaveBeenCalled();
     expect(boundary.rpc.mock.calls.some(([name]) => ["bind_guest_checkout_receipt", "expire_checkout_order_from_stripe", "fail_checkout_attempt"].includes(name))).toBe(false);
   });
+  it("keeps an authenticated cart's earlier payable attempt after its generation and merchandise change", async () => {
+    vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
+    // The accepted Session remains $55; the edited cart is now $25 and has the
+    // fixture's new generation. Neither change makes the old Session nonpayable.
+    useCheckoutFixture({ stripe_checkout_session_id: sessionId, user_id: "user-1",
+      checkout_generation: "00000000-0000-4000-8000-000000000099" }, 2500);
+    boundary.identity.mockResolvedValue({ id: "user-1", email: "customer@example.test" });
+    await expect(createStripeCheckoutSession({ requestOrigin: "https://www.helixskin.us" }))
+      .rejects.toMatchObject({ code: "checkout_origin_changed" });
+    expect(boundary.createSession).not.toHaveBeenCalled();
+    expect(boundary.expireSession).not.toHaveBeenCalled();
+    expect(boundary.cookieSet).not.toHaveBeenCalled();
+    expect(boundary.rpc.mock.calls.some(([name]) => ["admit_checkout_creation",
+      "reserve_checkout_order_snapshot_v2", "prepare_checkout_attempt_once"].includes(name))).toBe(false);
+  });
   it.each(["https://www.helixskin.us", "https://helixskin.vercel.app"])("resumes only provider-proven same-origin returns on %s", async (origin) => {
     vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
     const { session } = useCheckoutFixture({ stripe_checkout_session_id: sessionId });

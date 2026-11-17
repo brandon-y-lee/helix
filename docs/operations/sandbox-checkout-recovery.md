@@ -53,3 +53,10 @@ return proof stays blocked for verification/support. Keep legacy routes and
 callbacks reachable for previously issued links; do not redirect dev globally or
 copy cookies across hosts. This repair does not change sandbox mode, provider
 configuration, email delivery, or reservation/settlement contracts.
+
+Editing or emptying the Cart does not cancel an already accepted payable Session.
+The unresolved-attempt barrier is attached to the Cart identity, independently of
+its current generation or merchandise. Use the explicit verified cancellation
+flow, or allow provider expiry and subsequent verification; never delete Order
+or Attempt records or change idempotency keys to manufacture a fresh checkout.
+The browser now explains this distinction beside the origin-recovery action.
