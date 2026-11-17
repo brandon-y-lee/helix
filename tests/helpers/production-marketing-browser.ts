@@ -1,12 +1,35 @@
-/** Local-only synthetic browser proof. No runtime bypass, database or provider. */
-import { createServer } from "node:http";
+/** Local-only browser proof. Shared lifecycle also supports the owned synthetic database composition. */
+import { createServer, type RequestListener } from "node:http";
+import { fileURLToPath } from "node:url";
+import { realpathSync } from "node:fs";
 import assert from "node:assert/strict";
-import { chromium } from "@playwright/test";
+import { chromium, type BrowserContext } from "@playwright/test";
 import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
 
+/** Test-only owned-loopback browser lifecycle shared by synthetic and database proofs. */
+export async function withProductionMarketingBrowser(handler:RequestListener, proof:(context:BrowserContext,origin:string)=>Promise<void>, options:{actualOrigin?:string;viewports?:Array<{width:number;height:number}>}={}) {
+  if(options.actualOrigin&&!/^http:\/\/127\.0\.0\.1:\d+$/.test(options.actualOrigin))throw new Error("Actual-route proof must use localhost only.");
+  const server=createServer(handler);server.listen(0,"127.0.0.1");
+  await new Promise<void>((resolve,reject)=>{server.once("listening",resolve);server.once("error",reject);});
+  const address=server.address();assert(address&&typeof address==="object");const origin=`http://127.0.0.1:${address.port}`;
+  let browser:Awaited<ReturnType<typeof chromium.launch>>|undefined;
+  try {
+    browser=await chromium.launch({headless:true});
+    for(const viewport of options.viewports??[{width:390,height:844}]){
+      const context=await browser.newContext({viewport}),external:string[]=[],errors:string[]=[];
+      context.on("page",page=>page.on("pageerror",error=>errors.push(error.message)));
+      await context.route("**/*",route=>{
+        if(![origin,options.actualOrigin].includes(new URL(route.request().url()).origin)){external.push("external request blocked");return route.abort();}return route.continue();
+      });
+      try{await proof(context,origin);assert.deepEqual(external,[]);assert.deepEqual(errors,[]);}finally{await context.close();}
+    }
+  }finally{try{await browser?.close();}finally{await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}}
+}
+
+async function main(){
 let enabled = false;
 const posts: Array<{ path: string; body: unknown }> = [];
-const server = createServer(async (request, response) => {
+const handler:RequestListener = async (request, response) => {
   const path = (request.url ?? "/").split("?")[0];
   if (request.method === "POST" && path.startsWith("/api/marketing/production/")) {
     let body = "";
@@ -25,25 +48,10 @@ const server = createServer(async (request, response) => {
   const rendered = productionMarketingLanding(view, enabled, request.method as "GET" | "HEAD");
   response.writeHead(rendered.status, Object.fromEntries(rendered.headers));
   response.end(await rendered.text());
-});
-server.listen(0, "127.0.0.1");
-await new Promise<void>((resolve) => server.once("listening", resolve));
-const address = server.address();
-assert(address && typeof address === "object");
-const origin = `http://127.0.0.1:${address.port}`;
-const actualOrigin = process.argv[2];
-if (actualOrigin && !/^http:\/\/127\.0\.0\.1:\d+$/.test(actualOrigin)) throw new Error("Actual-route proof must use localhost only.");
-const browser = await chromium.launch({ headless: true });
-try {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const external: string[] = [];
-  await context.route("**/*", (route) => {
-    if (![origin, actualOrigin].includes(new URL(route.request().url()).origin)) { external.push(route.request().url()); return route.abort(); }
-    return route.continue();
-  });
+};
+const actualOrigin=process.argv[2];
+await withProductionMarketingBrowser(handler,async(context,origin)=>{
   const page = await context.newPage();
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
   const enrollment = await page.goto(`${origin}/marketing/production`);
   assert.equal(enrollment?.headers()["referrer-policy"], "no-referrer");
   assert.equal(await page.getByRole("checkbox").isChecked(), false);
@@ -116,10 +124,7 @@ try {
     await page.screenshot({ path: "/tmp/helix-539-production-preferences-mobile.png", fullPage: true });
     console.log("PASS actual Next routes: all HEAD responses private/non-consuming; default-off enrollment/confirm; no-login withdrawal action available while paused; synthetic fragments stripped; no actual API requests.");
   }
-  assert.deepEqual(external, []);
-  assert.deepEqual(errors, []);
   console.log("PASS mobile Chromium: default unchecked/disabled; explicit welcome consent; held not sent; scanner HEAD/GET inert; fragment stripped; keyboard explicit confirm; no-login withdrawal while paused; refresh cannot replay; no storage/external resources/errors/overflow.");
-} finally {
-  await browser.close();
-  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+},{actualOrigin});
 }
+if(process.argv[1]&&realpathSync(fileURLToPath(import.meta.url))===realpathSync(process.argv[1]))await main();

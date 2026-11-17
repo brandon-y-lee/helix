@@ -5,9 +5,9 @@ import { receiveProductionMarketingEvent } from "../../lib/production-marketing/
 import { createProductionMarketingEventStorage } from "../../lib/production-marketing/event-storage";
 import { handleProductionMarketingStatus } from "../../lib/production-marketing/operator-status";
 const container=process.env.HELIX_SYNTHETIC_MARKETING_EVENTS_CONTAINER??"";
-if(!/^helix-production-marketing-541-[0-9]+-[0-9]+$/.test(container)||process.env.DOCKER_HOST||process.env.DOCKER_CONTEXT)throw new Error("Owned local database required.");
+if(!/^helix-production-marketing-(541|542)-[0-9]+-[0-9]+$/.test(container)||process.env.DOCKER_HOST||process.env.DOCKER_CONTEXT)throw new Error("Owned local database required.");
 const docker=(args:string[],input?:string)=>execFileSync("docker",args,{encoding:"utf8",input,stdio:["pipe","pipe","pipe"]});
-if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWith("unix://")||docker(["inspect","-f",'{{index .Config.Labels "helix.task"}}',container]).trim()!=="production-marketing-541-synthetic")throw new Error("Owned local database required.");
+if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWith("unix://")||docker(["inspect","-f",'{{index .Config.Labels "helix.task"}}',container]).trim()!==`production-marketing-${container.split("-")[3]}-synthetic`)throw new Error("Owned local database required.");
 const sql=(input:string)=>docker(["exec","-i",container,"psql","-X","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-Atq"],input).trim();
 const literal=(v:unknown)=>v===null?"NULL":`'${String(v).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-events-pg-signature-only").toString("base64");
