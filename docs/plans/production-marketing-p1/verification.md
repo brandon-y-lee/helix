@@ -44,3 +44,11 @@ Repository AGENTS, engineering workflow, testing strategy and applicable platfor
 - All new SQL/UI implementation workers finished. The owned database containers and owned Next server were removed/stopped. No unrelated container was modified.
 
 Next: local checkpoint with Ticket/Spec footers and `codex-task.sh prepare`, then independent Spec and Standards Ticket Review by the delivery lead. This is not an activation/readiness claim. P2/P3/P4 remain separate approved Tickets; no worker/event/operator or live provider work is delivered by P1.
+
+## Standards review alias correction
+
+The Standards review of checkpoint `3f30d9aac11116d914d11ffb5fdca730cd4b68c1` found that comparing the canonical request origin directly with `VERCEL_PROJECT_PRODUCTION_URL` would reject the normal apex system alias. Vercel documents that variable as the shortest attached production custom domain: https://vercel.com/docs/environment-variables/system-environment-variables#vercel_project_production_url . The existing storefront transition records both approved hostnames and the canonical www origin.
+
+The correction accepts only exact `helixskin.us` or `www.helixskin.us` system aliases independently of the exact canonical `https://www.helixskin.us` request/config origin. Production environment, project, deployment, Supabase and dedicated-credential assertions remain required. It changes no UI, SQL, retention, dispatch or provider behavior and grants no activation authority.
+
+The new apex-alias success test failed before the correction and passed afterward. It also verifies apex Origin/config rejection; the existing rejection loop now covers the old dev domain and a lookalike suffix. Focused request/storage checks: 2 files / 11 tests PASS. Full lint and typecheck PASS. Full Vitest exits 0: 299 files / 2,969 tests passed; the same one pre-existing opt-in Catalog Restore SQL file / 8 tests skipped. No P1 skip was added. `git diff --check` PASS. The unchanged real PostgreSQL/browser results above are prior checkpoint evidence; those suites were not rerun for this configuration-only correction. No production build, hosted operations or send occurred. Independent delta review is required on the new committed candidate before publication.

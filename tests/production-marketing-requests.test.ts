@@ -22,10 +22,22 @@ function post(body: unknown, headers: Record<string, string> = {}) {
 }
 
 describe("dedicated production marketing consent boundary", () => {
+  it("accepts either approved Vercel production alias while keeping requests on the canonical www origin", async () => {
+    const deps = setup();
+    deps.env.VERCEL_PROJECT_PRODUCTION_URL = "helixskin.us";
+    expect(readProductionMarketingConfiguration(deps.env).siteOrigin).toBe(origin);
+    expect(productionMarketingEnrollmentEnabled(deps.env)).toBe(true);
+    expect((await handleProductionMarketingRequest(post({ email: "visitor@example.invalid", consent: true }), "subscription", deps)).status).toBe(202);
+    expect(deps.storage.request).toHaveBeenCalledTimes(1);
+    expect((await handleProductionMarketingRequest(post({ email: "visitor@example.invalid", consent: true }, { origin: "https://helixskin.us" }), "subscription", deps)).status).toBe(403);
+    expect(deps.storage.request).toHaveBeenCalledTimes(1);
+    expect(productionMarketingEnrollmentEnabled({ ...deps.env, HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://helixskin.us" })).toBe(false);
+  });
   it("stays off by default and rejects wrong deployment, project, origin and shared credentials", async () => {
     expect(productionMarketingEnrollmentEnabled({})).toBe(false);
     for (const changes of [{ HELIX_PRODUCTION_MARKETING_ENABLED: "false" }, { VERCEL_ENV: "preview" }, { HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "not-a-key" }, { HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "../unsafe" },
       { HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://other.invalid", VERCEL_PROJECT_PRODUCTION_URL: "other.invalid" }, { VERCEL_PROJECT_ID: "other" }, { VERCEL_DEPLOYMENT_ID: "other" }, { VERCEL_PROJECT_PRODUCTION_URL: "other.invalid" },
+      { VERCEL_PROJECT_PRODUCTION_URL: "helixskin.vercel.app" }, { VERCEL_PROJECT_PRODUCTION_URL: "helixskin.us.other.invalid" },
       { HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://other.supabase.co" }, { SUPABASE_SERVICE_ROLE_KEY: env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY }]) {
       const deps = setup(); Object.assign(deps.env, changes);
       expect(productionMarketingEnrollmentEnabled(deps.env)).toBe(false);

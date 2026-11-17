@@ -12,7 +12,9 @@ export function readProductionMarketingConfiguration(env: ProductionMarketingEnv
     || origin.username || origin.password || env.VERCEL !== "1" || env.VERCEL_ENV !== "production"
     || !env.VERCEL_PROJECT_ID || env.VERCEL_PROJECT_ID !== env.HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID
     || !env.VERCEL_DEPLOYMENT_ID || env.VERCEL_DEPLOYMENT_ID !== env.HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID
-    || origin.host !== env.VERCEL_PROJECT_PRODUCTION_URL
+    // Vercel reports the shortest attached production domain, which may be apex.
+    // This hosting alias assertion is separate from the exact canonical request origin.
+    || (env.VERCEL_PROJECT_PRODUCTION_URL !== "helixskin.us" && env.VERCEL_PROJECT_PRODUCTION_URL !== "www.helixskin.us")
     || env.HELIX_PRODUCTION_MARKETING_SUPABASE_URL !== PROJECT_URL || !serviceKey
     || serviceKey === env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Production marketing is unavailable.");
   return { siteOrigin: origin.origin, supabaseUrl: PROJECT_URL, serviceKey };
