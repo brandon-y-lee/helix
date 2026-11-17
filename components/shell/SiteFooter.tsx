@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FooterSignup } from "@/components/marketing/FooterSignup";
 import {
   footerLinkGroups,
   footerServiceCards,
@@ -36,7 +37,7 @@ function FooterServiceIcon({ name }: { name: FooterServiceCard["icon"] }) {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
   const year = new Date().getFullYear();
 
   return (
@@ -46,6 +47,7 @@ export function SiteFooter() {
       data-site-footer
       aria-labelledby="site-footer-heading"
     >
+      {signup && <FooterSignup />}
       <div
         className="storefront-shell site-footer__inner"
         data-layout-shell="storefront"

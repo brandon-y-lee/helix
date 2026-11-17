@@ -62,7 +62,8 @@ describe("global footer", () => {
     expect(identityLink).not.toHaveTextContent(/helix/);
     expect(screen.queryByText("Stay in the system.")).not.toBeInTheDocument();
     expect(screen.queryByText("Email updates are not open")).not.toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: /email/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /email/i })).toBeDisabled();
+    expect(screen.getByRole("checkbox")).not.toBeChecked();
 
     for (const [name, href] of [
       ["Shop", "/collections/shop"],

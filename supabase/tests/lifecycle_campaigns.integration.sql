@@ -23,6 +23,33 @@ SELECT campaign_test.assert(public.admit_lifecycle_campaign(s.id,'welcome','welc
 SELECT campaign_test.assert(NOT public.admit_lifecycle_campaign(s.id,'welcome','welcome:'||s.id,(SELECT id FROM private.lifecycle_offers WHERE email=s.normalized_email)),'duplicate scheduler no new intent') FROM private.marketing_subscribers s WHERE normalized_email='campaign@example.invalid';
 SELECT campaign_test.assert((SELECT count(*)=1 FROM private.email_intents WHERE recipient='campaign@example.invalid' AND purpose='lifecycle_welcome'),'one logical welcome');
 SELECT campaign_test.assert(NOT has_function_privilege('authenticated','public.admit_lifecycle_campaign(uuid,text,text,uuid)','EXECUTE'),'browser cannot admit campaigns');
+-- Footer and popup share consent and a single lifetime welcome entitlement.
+BEGIN;
+DO $$ DECLARE sid uuid; generation_before bigint; offer_before uuid; expiry_before timestamptz; tokens_before bigint;
+BEGIN
+ PERFORM public.request_marketing_subscription('footer-popup@example.invalid','email_preferences','2026-11-13-lifecycle-v1',rpad('footer525',43,'0'),repeat('5',64),true,campaign_test.contract());
+ PERFORM campaign_test.assert(public.confirm_marketing_subscription_scoped(rpad('footer525',43,'0'),rpad('footerpref525',43,'0'),'lifecycle')->>'status'='confirmed','footer requires explicit scoped confirmation');
+ SELECT id,generation INTO sid,generation_before FROM private.marketing_subscribers WHERE normalized_email='footer-popup@example.invalid';
+ offer_before:=public.grant_lifecycle_offer('welcome','footer-popup@example.invalid','welcome:'||sid,'coupon_welcome');
+ SELECT expires_at INTO expiry_before FROM private.lifecycle_offers WHERE id=offer_before;
+ PERFORM campaign_test.assert(public.admit_lifecycle_campaign(sid,'welcome','welcome:'||sid,offer_before),'footer welcome admitted');
+ SELECT count(*) INTO tokens_before FROM private.marketing_confirmation_tokens WHERE subscriber_id=sid;
+ UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds' WHERE id=sid;
+ PERFORM public.request_marketing_subscription('footer-popup@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',rpad('popup525',43,'0'),repeat('5',64),true,campaign_test.contract());
+ PERFORM campaign_test.assert((SELECT id=sid AND generation=generation_before AND status='confirmed' FROM private.marketing_subscribers WHERE normalized_email='footer-popup@example.invalid'),'popup cannot restart confirmed footer generation');
+ PERFORM campaign_test.assert((SELECT count(*)=tokens_before FROM private.marketing_confirmation_tokens WHERE subscriber_id=sid),'repeat popup creates no confirmation');
+ PERFORM public.withdraw_marketing_subscription(rpad('footerpref525',43,'0'),'global');
+ PERFORM campaign_test.assert((SELECT status='withdrawn' FROM private.marketing_subscribers WHERE id=sid) AND private.lifecycle_source(sid,'welcome') IS NULL,'withdrawal removes campaign eligibility');
+ UPDATE private.marketing_subscribers SET last_requested_at=clock_timestamp()-interval '61 seconds' WHERE id=sid;
+ PERFORM public.request_marketing_subscription('footer-popup@example.invalid','welcome_popup','2026-11-13-lifecycle-v1',rpad('popupfresh525',43,'0'),repeat('5',64),true,campaign_test.contract());
+ PERFORM campaign_test.assert((SELECT status='pending' AND generation>generation_before FROM private.marketing_subscribers WHERE id=sid) AND private.lifecycle_source(sid,'welcome') IS NULL,'fresh signup stays pending before confirmation');
+ PERFORM campaign_test.assert(public.confirm_marketing_subscription_scoped(rpad('popupfresh525',43,'0'),rpad('popuppref525',43,'0'),'lifecycle')->>'status'='confirmed','fresh popup needs fresh confirmation');
+ PERFORM campaign_test.assert(public.grant_lifecycle_offer('welcome','footer-popup@example.invalid','different-popup-source','coupon_welcome')=offer_before,'source cannot create another welcome grant');
+ PERFORM campaign_test.assert((SELECT expires_at=expiry_before FROM private.lifecycle_offers WHERE id=offer_before),'reconfirmation cannot renew welcome expiry');
+ PERFORM campaign_test.assert(NOT public.admit_lifecycle_campaign(sid,'welcome','welcome:'||sid,offer_before),'reconfirmation cannot restart welcome intent');
+ PERFORM campaign_test.assert((SELECT count(*)=1 FROM private.lifecycle_offers WHERE email='footer-popup@example.invalid') AND (SELECT count(*)=1 FROM private.email_intents WHERE recipient='footer-popup@example.invalid' AND purpose='lifecycle_welcome'),'one welcome grant and intent across forms and reconfirmation');
+END $$;
+ROLLBACK;
 -- Final handoff shares the existing provider observation and durable cap ledger.
 CREATE FUNCTION campaign_test.observe(email text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN
  UPDATE private.marketing_provider_sync m SET state='synced',contact_id='campaign_contact',topic_id='topic_synthetic',
