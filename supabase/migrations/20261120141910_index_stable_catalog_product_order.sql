@@ -8,7 +8,7 @@ begin
       and p.prosecdef and p.prolang = (select oid from pg_catalog.pg_language where lanname = 'plpgsql')
       and p.proconfig = array['search_path=pg_catalog, pg_temp','lock_timeout=3s','default_tablespace=']
       and pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') =
-        'ceda02a7e8606d134ee7c4142378ee1dfb4d0019fcffef0cc06c322f6543e3eb'
+        '2b0e63cf029c438b3522d4cd9bb299b857f4a791873f6a69d6070ace267db11c'
       and p.proowner <> session_user::pg_catalog.regrole
       and exists (select from pg_catalog.aclexplode(p.proacl) a
         where a.grantee = session_user::pg_catalog.regrole and a.grantor = p.proowner and a.privilege_type = 'EXECUTE')

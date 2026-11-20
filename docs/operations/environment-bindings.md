@@ -4,12 +4,16 @@ Ticket #560 implements the source boundary for Spec #558. Installing this source
 
 | Lane | Supabase target | Site and Search | Credentials |
 | --- | --- | --- | --- |
-| Local development, Vercel Preview, pull-request browser verification | Persistent child `zyfkunnpnlmgvrojmrbg` | `helixskin.vercel.app`, `helix_products_dev`. Local Auth uses its reviewed loopback origins. | Child public credential. Only approved child server workloads receive its role-bearing credential. |
+| Local development, isolated Vercel Preview, pull-request browser verification | Persistent child `zyfkunnpnlmgvrojmrbg` | Protected Preview URL and `helix_products_dev`. Local Auth uses its reviewed loopback origins. | Child public credential. Only approved child server workloads receive its role-bearing credential. |
 | Production | Retained parent `erasogmsqpgiirovubjh` | `www.helixskin.us`, `helix_products` | Parent public credential and authorized server credentials in Production scope. |
 | Scheduled bounded Product Media verification | Each target independently | The target branch supplies the matching reader. Each exact Customer URL receives its existing credential-free range check. | Only the matching public credential. |
 | Historical evidence and original callbacks | Recorded issuing project, sender/account and generation | Existing records preserve their original identity. Sandbox Checkout keeps its Stripe test-account and live-mode guards. | Dedicated continuity authority only. |
 
 ## Build and runtime
+
+During the Spec #558 transition, `helixskin.vercel.app` still serves the earlier deployment. Existing unsubscribe links, support replies and scheduled jobs use that address and need the original database. The temporary Vercel Ignored Build Step skips Git builds of exactly `dev`. For development acceptance, use a separate protected Preview branch at the exact merged commit, verify the build's Git SHA and check its shop, media and Search against the child. Record its immutable URL for testers.
+
+Once the original callback owners and previously issued links have passed their continuity tests, qualify the child-backed deployment on the intended hostname. Restore normal Git builds of `dev` during the authorized switch and verify that the permanent preview address serves the tested commit. The customer domains have their own production promotion procedure. [Vercel branch domain assignment](https://vercel.com/docs/domains/working-with-domains/assign-domain-to-a-git-branch)
 
 The Vercel build selects a target from the verified Helix project, environment and Git branch. The production lane requires `main`. Routine tools and PR CI select development. The scheduled production media job reads the parent anonymously. Next inlines a nonsecret lane marker for browser media and public clients. Hosted server clients verify the platform context independently. Configuration must use the exact project URL without credentials, custom paths or query strings.
 
