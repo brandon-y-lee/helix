@@ -91,6 +91,7 @@ DECLARE
   r record;
   n bigint;
   h text;
+  expected_access_sha text;
   jobs_exist boolean;
 BEGIN
   IF (SELECT schema_sha256 FROM pg_temp.helix_prefix_signature) <> '3afddf0c38a76c021179870453b0001e575dcd99abd4e084bd82643500231686'
@@ -169,6 +170,57 @@ BEGIN
                '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945') THEN
     RAISE EXCEPTION 'Unexpected default ACL';
   END IF;
+  -- Project-wide defaults do not describe grants on existing objects or columns.
+  -- Include grantors, grant options, implicit PUBLIC privileges, the database
+  -- owner, and both directions of the membership graph for all affected roles.
+  -- Match the same reviewed native or plain PostgreSQL profile as its defaults.
+  expected_access_sha := CASE h
+    WHEN 'bc35ed0d48277c9b202f5da325b574a4eb1f68a8b10116079a95d629bd35f27d'
+      THEN '36c6654c78bb3e33968ab48b9da31a6490a4f159bf0cddf107d2ec32e36f66fc'
+    ELSE '0ef43de07350631256d8eb82d99d93d3c827ffdee8473bc44bee98099c2240f5'
+  END;
+  WITH RECURSIVE objects(kind, identity, acl) AS (
+    SELECT 'schema', nspname::text, coalesce(nspacl, acldefault('n',nspowner))
+      FROM pg_namespace WHERE nspname='public'
+    UNION ALL SELECT 'table', c.relname::text, coalesce(c.relacl, acldefault('r',c.relowner))
+      FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'
+    UNION ALL SELECT 'column', format('%I.%I',c.relname,a.attname), a.attacl
+      FROM pg_class c JOIN pg_attribute a ON a.attrelid=c.oid
+      WHERE c.relnamespace='public'::regnamespace AND c.relkind='r' AND a.attnum>0 AND NOT a.attisdropped
+    UNION ALL SELECT 'routine', p.oid::regprocedure::text, coalesce(p.proacl, acldefault('f',p.proowner))
+      FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND NOT EXISTS
+        (SELECT FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid AND d.deptype='e')
+    UNION ALL SELECT 'enum', t.typname::text, coalesce(t.typacl, acldefault('T',t.typowner))
+      FROM pg_type t WHERE t.typnamespace='public'::regnamespace AND t.typtype='e'
+  ), access AS (
+    SELECT o.kind,o.identity,g.* FROM objects o CROSS JOIN LATERAL aclexplode(o.acl) g
+  ), roots AS (
+    SELECT grantee AS oid FROM access WHERE grantee<>0
+    UNION SELECT oid FROM pg_roles WHERE rolsuper OR rolname IN
+      ('anon','authenticated','service_role','pg_database_owner','pg_read_all_data','pg_write_all_data')
+    UNION SELECT datdba FROM pg_database WHERE datname=current_database()
+  ), connected(oid) AS (
+    SELECT oid FROM roots
+    UNION SELECT CASE WHEN m.member=reachable.oid THEN m.roleid ELSE m.member END
+      FROM connected reachable JOIN pg_auth_members m ON m.member=reachable.oid OR m.roleid=reachable.oid
+  ), entries(value) AS (
+    SELECT jsonb_build_array('grant',kind,identity,pg_get_userbyid(grantor),
+      CASE grantee WHEN 0 THEN 'PUBLIC' ELSE pg_get_userbyid(grantee) END,privilege_type,is_grantable)
+      FROM access
+    UNION ALL SELECT jsonb_build_array('role',role.rolname,role.rolsuper,role.rolinherit,role.rolcreaterole,
+      role.rolcreatedb,role.rolcanlogin,role.rolreplication,role.rolbypassrls)
+      FROM pg_roles role JOIN connected c USING (oid)
+    UNION ALL SELECT jsonb_build_array('membership',pg_get_userbyid(m.member),pg_get_userbyid(m.roleid),
+      pg_get_userbyid(m.grantor),m.admin_option,m.inherit_option,m.set_option)
+      FROM pg_auth_members m JOIN connected c ON m.member=c.oid
+    UNION ALL SELECT jsonb_build_array('database owner',pg_get_userbyid(datdba))
+      FROM pg_database WHERE datname=current_database()
+  )
+  SELECT encode(sha256(convert_to(jsonb_agg(value ORDER BY value::text COLLATE "C")::text,'UTF8')),'hex')
+    INTO h FROM entries;
+  IF h IS DISTINCT FROM expected_access_sha THEN
+    RAISE EXCEPTION 'Unexpected prefix access profile';
+  END IF;
   IF EXISTS (SELECT FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'
       AND c.relowner<>'postgres'::regrole)
      OR EXISTS (SELECT FROM pg_type t WHERE t.typnamespace='public'::regnamespace AND t.typtype='e'
@@ -213,6 +265,69 @@ LANGUAGE sql STABLE SET search_path=pg_catalog AS $body$
 $body$;
 CREATE TEMP TABLE helix_prefix_original_structure ON COMMIT DROP AS
   SELECT pg_temp.helix_prefix_structure() AS fingerprint;
+
+-- Run inside the locked prefix transaction, before any object is renamed or moved.
+DO $consumers$
+BEGIN
+  -- The pinned managed Auth schema has exactly two enabled noninternal triggers.
+  -- The preceding prefix signature verifies both handler definitions and names.
+  IF EXISTS (
+    SELECT FROM pg_trigger tr JOIN pg_class c ON c.oid=tr.tgrelid
+    WHERE c.relnamespace='auth'::regnamespace AND NOT tr.tgisinternal AND tr.tgenabled<>'D'
+      AND NOT EXISTS (
+        SELECT FROM pg_temp.helix_prefix_hooks h
+        WHERE h.oid=tr.oid AND h.tgfoid=tr.tgfoid AND h.tgname=tr.tgname
+          AND tr.tgrelid='auth.users'::regclass AND tr.tgenabled='O' AND tr.tgtype=5
+          AND tr.tgconstraint=0 AND tr.tgconstrrelid=0 AND tr.tgparentid=0
+          AND NOT tr.tgdeferrable AND NOT tr.tginitdeferred
+          AND tr.tgqual IS NULL AND tr.tgnargs=0 AND octet_length(tr.tgargs)=0
+          AND tr.tgattr=''::int2vector AND tr.tgoldtable IS NULL AND tr.tgnewtable IS NULL
+      )
+  ) THEN
+    RAISE EXCEPTION 'Unexpected prefix consumer';
+  END IF;
+
+  -- Check incoming references by object identity, including column dependencies.
+  -- PostgreSQL records SQL-standard routine bodies here. String-body SQL,
+  -- PL/pgSQL and dynamic SQL can resolve names at runtime without a catalog edge;
+  -- this check cannot establish the absence of callers in such external code.
+  IF EXISTS (
+    WITH heaps(oid) AS (
+      SELECT relid FROM pg_temp.helix_prefix_tables
+      UNION ALL
+      SELECT c.reltoastrelid FROM pg_class c JOIN pg_temp.helix_prefix_tables t ON t.relid=c.oid
+      WHERE c.reltoastrelid<>0
+    ), relations(oid) AS (
+      SELECT oid FROM heaps
+      UNION ALL SELECT i.indexrelid FROM pg_index i JOIN heaps h ON h.oid=i.indrelid
+    ), types AS (
+      SELECT t.oid,t.typarray FROM pg_type t
+      WHERE (t.typnamespace='public'::regnamespace AND t.typtype='e')
+        OR t.typrelid IN (SELECT oid FROM relations)
+    ), owned_constraints(oid) AS (
+      SELECT c.oid FROM pg_constraint c JOIN pg_temp.helix_prefix_tables t ON t.relid=c.conrelid
+    ), archive(classid,objid) AS (
+      SELECT 'pg_class'::regclass,oid FROM relations
+      UNION ALL SELECT 'pg_type'::regclass,oid FROM types
+      UNION ALL SELECT 'pg_type'::regclass,typarray FROM types WHERE typarray<>0
+      UNION ALL SELECT 'pg_proc'::regclass,oid FROM pg_temp.helix_prefix_functions
+      UNION ALL SELECT 'pg_constraint'::regclass,oid FROM owned_constraints
+      UNION ALL SELECT 'pg_attrdef'::regclass,a.oid
+        FROM pg_attrdef a JOIN pg_temp.helix_prefix_tables t ON t.relid=a.adrelid
+      UNION ALL SELECT 'pg_policy'::regclass,p.oid
+        FROM pg_policy p JOIN pg_temp.helix_prefix_tables t ON t.relid=p.polrelid
+      UNION ALL SELECT 'pg_trigger'::regclass,tr.oid FROM pg_trigger tr
+        WHERE tr.tgrelid IN (SELECT relid FROM pg_temp.helix_prefix_tables)
+          -- Includes PostgreSQL's internal Auth-side triggers for outgoing prefix FKs.
+          OR (tr.tgisinternal AND tr.tgconstraint IN (SELECT oid FROM owned_constraints))
+    )
+    SELECT FROM pg_depend d JOIN archive a ON a.classid=d.refclassid AND a.objid=d.refobjid
+    WHERE NOT EXISTS (SELECT FROM archive consumer WHERE consumer.classid=d.classid AND consumer.objid=d.objid)
+  ) THEN
+    RAISE EXCEPTION 'Unexpected prefix consumer';
+  END IF;
+END
+$consumers$;
 
 CREATE SCHEMA helix_development_prefix;
 REVOKE ALL ON SCHEMA helix_development_prefix FROM PUBLIC, anon, authenticated, service_role;

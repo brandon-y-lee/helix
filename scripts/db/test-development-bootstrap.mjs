@@ -227,6 +227,24 @@ try {
     );
     assert.deepEqual(snapshot(target), before, "The historical replay trial changed the prefix");
     const parts = stages(true);
+    // This grant already exists when the cutover starts. Refusal must preserve the caller's
+    // effective access as well as the source objects and their data.
+    scalar(target, role + "GRANT SELECT ON public.products TO authenticated;");
+    const granted = snapshot(target);
+    const grantTrial = stack.sql(target, parts.join("\n") + "\nCOMMIT;", true);
+    assert.ok(
+      grantTrial.status && grantTrial.stderr.toString().includes("Unexpected prefix access profile"),
+    );
+    assert.deepEqual(snapshot(target), granted, "Preflight changed a pre-existing consumer grant");
+    assert.equal(
+      scalar(
+        target,
+        "SELECT has_table_privilege('authenticated','public.products','SELECT') AND to_regnamespace('helix_development_prefix') IS NULL;",
+      ),
+      "t",
+    );
+    scalar(target, role + "REVOKE SELECT ON public.products FROM authenticated;");
+
     for (const [mutation, refusal] of [
       [
         "UPDATE public.products SET name='Unreviewed fixture change' WHERE slug='northpoint-renewal-serum';",
@@ -237,16 +255,52 @@ try {
         "Unexpected default ACL",
       ],
       [
+        "GRANT SELECT (name) ON public.products TO authenticated WITH GRANT OPTION;",
+        "Unexpected prefix access profile",
+      ],
+      [
+        "GRANT EXECUTE ON FUNCTION public.ensure_loyalty_account(uuid) TO authenticated;",
+        "Unexpected prefix access profile",
+      ],
+      [
+        "GRANT USAGE ON TYPE public.cart_status TO authenticated WITH GRANT OPTION;",
+        "Unexpected prefix access profile",
+      ],
+      [
+        "CREATE ROLE helix_unexpected_reader; GRANT SELECT ON public.products TO helix_unexpected_reader;",
+        "Unexpected prefix access profile",
+      ],
+      [
+        "CREATE ROLE helix_unexpected_member; GRANT authenticated TO helix_unexpected_member;",
+        "Unexpected prefix access profile",
+      ],
+      [
+        "CREATE SCHEMA helix_consumer; CREATE TABLE helix_consumer.settings (status public.cart_status);",
+        "Unexpected prefix consumer",
+      ],
+      [
+        "CREATE SCHEMA helix_consumer; CREATE FUNCTION helix_consumer.account(uuid) RETURNS void LANGUAGE SQL RETURN public.ensure_loyalty_account($1);",
+        "Unexpected prefix consumer",
+      ],
+      [
+        "CREATE TRIGGER unexpected_auth_consumer AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_profile();",
+        "Unexpected prefix consumer",
+      ],
+      [
         "CREATE PUBLICATION helix_unexpected FOR ALL TABLES;",
         "Unexpected publication or DDL integration",
       ],
     ]) {
       const begin = "BEGIN; SET LOCAL helix.bootstrap_scope='local-prefix-rehearsal';\n";
-      const probe = mutation.startsWith("CREATE PUBLICATION") ? mutation + "\n" + role : role + mutation;
+      const requiresManagedOwner =
+        mutation.startsWith("CREATE PUBLICATION") || mutation.startsWith("CREATE TRIGGER");
+      const probe = requiresManagedOwner ? mutation + "\n" + role : role + mutation;
       const result = stack.sql(target, begin + probe + "\n" + bootstrap("preserve-prefix"), true);
       assert.ok(
         result.status && result.stderr.toString().includes(refusal),
-        "Unexpected drift probe outcome: " +
+        "Unexpected drift probe outcome for " +
+          mutation.split(" ").slice(0, 5).join(" ") +
+          ": " +
           result.stderr
             .toString()
             .split("\n")
@@ -283,6 +337,25 @@ try {
     }
     report.originalIdLookup = { before: oldVisibility, after: newVisibility };
     checkCatalog(target);
+    // A hook writing to an unrelated archived table must be detected even when
+    // it also creates the intended profile, rewards account, and referral code.
+    const extraWrite = stack.sql(
+      target,
+      "BEGIN; CREATE FUNCTION pg_temp.unexpected_auth_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN " +
+        "DELETE FROM helix_development_prefix.product_variants; RETURN NEW; END $$; " +
+        "CREATE TRIGGER zz_unexpected_auth_write AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION pg_temp.unexpected_auth_write();\n" +
+        role +
+        test("auth-hook-effects") +
+        "\nROLLBACK;",
+      true,
+    );
+    assert.ok(
+      extraWrite.status &&
+        extraWrite.stderr
+          .toString()
+          .includes("Auth insert changed additional application or archive rows"),
+      "Whole-archive Auth regression was not detected",
+    );
     assert.equal(
       scalar(target, "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;"),
       ledger,
@@ -311,7 +384,8 @@ try {
       "two interrupted installations",
       "logical pre-upgrade recovery",
       "existing caller after commit",
-      "current Auth triggers",
+      "direct SQL triggering current Auth hooks; four intended rows and complete archive checksum",
+      "rejected unreviewed grantees and dependency or Auth hook consumers",
       "anonymous catalog",
       "idempotent seed",
       "rejected repeated cutover",
