@@ -287,6 +287,10 @@ try {
         "Unexpected prefix consumer",
       ],
       [
+        "CREATE TRIGGER disabled_auth_consumer AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_profile(); ALTER TABLE auth.users DISABLE TRIGGER disabled_auth_consumer;",
+        "Unexpected prefix consumer",
+      ],
+      [
         "CREATE PUBLICATION helix_unexpected FOR ALL TABLES;",
         "Unexpected publication or DDL integration",
       ],

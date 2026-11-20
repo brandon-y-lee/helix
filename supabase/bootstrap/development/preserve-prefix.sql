@@ -269,11 +269,12 @@ CREATE TEMP TABLE helix_prefix_original_structure ON COMMIT DROP AS
 -- Run inside the locked prefix transaction, before any object is renamed or moved.
 DO $consumers$
 BEGIN
-  -- The pinned managed Auth schema has exactly two enabled noninternal triggers.
+  -- The pinned managed Auth schema has exactly two noninternal triggers.
+  -- An additional disabled hook can be re-enabled later; it is still a consumer.
   -- The preceding prefix signature verifies both handler definitions and names.
   IF EXISTS (
     SELECT FROM pg_trigger tr JOIN pg_class c ON c.oid=tr.tgrelid
-    WHERE c.relnamespace='auth'::regnamespace AND NOT tr.tgisinternal AND tr.tgenabled<>'D'
+    WHERE c.relnamespace='auth'::regnamespace AND NOT tr.tgisinternal
       AND NOT EXISTS (
         SELECT FROM pg_temp.helix_prefix_hooks h
         WHERE h.oid=tr.oid AND h.tgfoid=tr.tgfoid AND h.tgname=tr.tgname
