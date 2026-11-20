@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { developmentCatalogSeed } from "./bootstrap/catalog-media.mjs";
 import { verifySchema } from "./bootstrap/verify-schema.mjs";
 import { verifyLocalCatalogApi } from "./bootstrap/catalog-api.mjs";
+import { verifyCleanForwardRelease } from "./bootstrap/verify-clean-release.mjs";
 import { localStack } from "./bootstrap/local-stack.mjs";
 
 const root = new URL("../../", import.meta.url);
@@ -424,6 +425,12 @@ try {
       "idempotent seed",
       "rejected repeated cutover",
     ];
+    report.cleanForwardRelease = await verifyCleanForwardRelease({
+      stack,
+      cleanDatabase: dbName("fresh_b"),
+      recoveredDatabase: target,
+      snapshotSql: test("snapshot"),
+    });
     delete report.fresh_b;
   } finally {
     stack.cleanup();

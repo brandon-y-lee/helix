@@ -4,16 +4,24 @@ Ticket #559 establishes a reproducible application schema for the persistent dev
 
 ## Rehearse a clean install and partial-child recovery
 
-Use Node 24, a running local Docker daemon on a Unix socket, and Supabase CLI 3.1.0. The CLI starts a disposable local managed stack with PostgreSQL 17.12, Auth, Storage and PostgREST. The command accepts an optional absolute path to the installed CLI through `SUPABASE_CLI`. The first run can require the CLI's local service images.
+Use Node 24 and a running local Docker daemon on a Unix socket. Supabase CLI 3.1.0 starts the disposable PostgreSQL 17.12, Auth, Storage and PostgREST stack. The forward release uses pinned CLI 2.117.0 to apply the same Catalog migrations as CI. Set the two executable paths independently. The first run can require the CLI's local service images.
 
 ```sh
 node --test scripts/db/bootstrap/catalog-media.test.mjs
-node scripts/db/test-development-bootstrap.mjs
+SUPABASE_CLI=/path/to/supabase-3.1.0 HELIX_SUPABASE_CLI=/path/to/supabase-2.117.0 node scripts/db/test-development-bootstrap.mjs
 ```
 
 The rehearsal creates a private CLI work directory and fresh databases. It writes a JSON receipt to stdout, tears down its own stack and requires no hosted credentials. It installs the clean schema twice, checks its parent-compatible structure and development privilege profile, inserts a synthetic row directly into the local managed Auth table to exercise its database triggers, and reads the seeded Catalog through anonymous PostgREST. The source for the six-product historical fixture is the original first twelve repository migrations. The real Supabase migration command records those versions. The next migration fails because the original catalog lacks six canonical active products required by its cleanup guard.
 
 The recovery trial operates on a restored copy of that partial fixture. The backup contains a native PostgreSQL archive and its matching privilege manifest. In this pinned managed image, a standard archive omits the initial schema grants on `graphql` and `graphql_public`. Restore verifies the native archive and reapplies those exact source grants before accepting the copy. An independent read checks effective managed namespace privileges and callable APIs against the native source after each restore. The rehearsal also compares schema, rows and sequence state. Injected failures after the archive move and immediately before commit must leave the pre-upgrade state intact. The genuine twelve ledger entries, identities of archived tables and Auth hooks, foreign keys and original rows are checked before accepting a successful local cutover. The preflight checks current table, column, routine and enum grants, their grantors and grant options, role memberships, incoming dependencies, externally callable invoker and security-definer routines and the complete managed Auth trigger inventory before moving any object. Trial grants to an extra consumer and trial dependencies must fail while its original tables remain in place. After the cutover, another rolled-back Auth insert must add exactly one Auth user, profile, rewards account and referral code. Every archived row and other application row must match its pre-insert fingerprint. A prior database session tests the old cached lookup and writer after the transaction commits.
+
+## Enroll the first clean development release
+
+The clean managed stack starts without a migration-history schema. The pinned CLI creates its table when it has a migration to apply. A restricted writer needs its table grants in advance. [Supabase CLI 2.117.0 migration application](https://github.com/supabase/cli/blob/v2.117.0/apps/cli/src/command-internal/legacy-migration-apply.ts#L803-L820)
+
+After qualifying the application schema, independently verify the development project and its environment marker. On a clean child with no `supabase_migrations` namespace, the authenticated original owner runs the history initializer with psql variables `expected_environment=development` and `expected_project_ref` set to that child. It prepares the empty native history table before the owner enrolls the media and ordering capabilities for the restricted release login. An existing history namespace or a retained development recovery archive requires an inventory of the genuine records and grants before enrollment. [Development history initializer](../../supabase/operations/release-bootstrap/initialize_clean_development_history.sql) · [Environment enrollment](environment-bindings.md)
+
+Record the independently checked count and digest in the protected migration target. A clean development enrollment uses the zero-count digest defined in the release guide. The first release records both reviewed Catalog migrations through the pinned CLI. A retry verifies their installed contracts and reports zero pending migrations. [Forward database releases](../../supabase/releases/README.md)
 
 ## Schema sources and intentional differences
 

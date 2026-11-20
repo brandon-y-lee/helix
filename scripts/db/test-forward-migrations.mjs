@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import pg from 'pg';
-import { historyQuery, runForward } from './forward-migrations.mjs';
+import { historyQuery, qualifiedMigrationConnection, runForward } from './forward-migrations.mjs';
 
 // The only accepted argument is the pinned CLI executable. The database, role,
 // password, marker and port are created here; never load real operator settings.
@@ -221,6 +221,12 @@ try {
 
   await assert.rejects(apply([first], { target: { ...target, projectRef: 'bbbbbbbbbbbbbbbbbbbb' } }));
   await assert.rejects(apply([first], { target: { ...target, legacyDigest: '0'.repeat(64) } }));
+  // A valid empty development declaration still has to match the real ledger.
+  const empty = { ...target, host: 'db.' + projectRef + '.supabase.co', cutoverQualified: true,
+    legacyCount: 0, legacyDigest: createHash('sha256').update('[]').digest('hex') };
+  qualifiedMigrationConnection(empty, 'development');
+  await assert.rejects(apply([first], { target: empty }), /Unexpected historical migration ledger/);
+  assert.deepEqual((await control.query(historyQuery)).rows[0], state);
   // A protected secret could still identify an overprivileged login. Refuse the
   // entire release before its DDL when either historic data or runtime-role
   // impersonation is available through an unintended grant.
