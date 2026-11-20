@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { createHmac,randomUUID } from "node:crypto";
 import { afterEach,expect,it,vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { receiveProductionMarketingEvent } from "../../lib/production-marketing/events";
 import { createProductionMarketingEventStorage } from "../../lib/production-marketing/event-storage";
 import { handleProductionMarketingStatus } from "../../lib/production-marketing/operator-status";
@@ -11,9 +14,8 @@ if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWit
 const sql=(input:string)=>docker(["exec","-i",container,"psql","-X","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-Atq"],input).trim();
 const literal=(v:unknown)=>v===null?"NULL":`'${String(v).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-events-pg-signature-only").toString("base64");
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"d",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"d",
- HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-event-db-only",
+const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
+ HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-event-db-only",
  HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co"};
 const storage=createProductionMarketingEventStorage(env);let privateCalls=0;
 const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit)=>{

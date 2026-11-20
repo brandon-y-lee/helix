@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { getCurrentUser } from "@/lib/auth/session";
 import { readProductionMarketingConfiguration } from "./config";
 import { productionMarketingUuid } from "./delivery-config";
@@ -14,6 +15,7 @@ export async function handleProductionMarketingStatus(request:Request,deps:{env:
     if(url.origin!==config.siteOrigin)return failure(403);
     if(url.search)return failure(400);
     // Project binding above precedes cookie/JWT verification. Never consume user_metadata roles.
+    if (!await productionDeploymentAuthorized(deps.env)) return failure(503);
     const user=await (deps.getUser??getCurrentUser)();
     if(!user||user.id.length!==36||!productionMarketingUuid.test(user.id))return failure(401);
     const status=parseProductionMarketingStatus(await deps.read(user.id));

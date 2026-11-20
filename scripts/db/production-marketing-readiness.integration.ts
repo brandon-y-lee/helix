@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { createHmac,randomUUID } from "node:crypto";
 import { expect,it,vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { withProductionMarketingBrowser } from "../../tests/helpers/production-marketing-browser";
 import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
 import { productionMarketingEnrollmentEnabled } from "../../lib/production-marketing/config";
@@ -22,9 +25,8 @@ const literal=(v:unknown)=>v===null?"NULL":typeof v==="boolean"?String(v):`'${(t
 const canonical="https://www.helixskin.us",topic="11111111-1111-4111-8111-111111111111",admin="22222222-2222-4222-8222-222222222222";
 const signing=Buffer.from("synthetic-readiness-signing-secret").toString("base64");
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:topic,postalAddress:"Synthetic test address only",templateHash:productionMarketingTemplateHash};
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic",VERCEL_DEPLOYMENT_ID:"synthetic",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:canonical,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"synthetic",
- HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
+const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
+ HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:canonical,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
  HELIX_PRODUCTION_MARKETING_ENABLED:"false",HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"false",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",
  HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"a".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",
  HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send-only",HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-read-only",
@@ -69,7 +71,7 @@ it("proves the complete no-send browser/consent/worker/signed-event/withdrawal j
     const local=`http://${incoming.headers.host}`,url=new URL(incoming.url??"/",local);if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(local))throw new Error();
     const path=url.pathname,method=incoming.method??"GET",view=path==="/marketing/production"?"enrollment":path==="/marketing/production/confirm"?"confirm":path==="/marketing/production/preferences"?"preferences":null;
     let result:Response;
-    if(view&&(method==="GET"||method==="HEAD"))result=productionMarketingLanding(view,productionMarketingEnrollmentEnabled(env),method);
+    if(view&&(method==="GET"||method==="HEAD"))result=productionMarketingLanding(view,await productionMarketingEnrollmentEnabled(env),method);
     else {
      let body="";for await(const chunk of incoming){body+=chunk;if(Buffer.byteLength(body)>8192)throw new Error();}
      const headers=new Headers();for(const key of ["origin","content-type"]){const value=incoming.headers[key];if(typeof value==="string")headers.set(key,key==="origin"&&value===local?canonical:value);}

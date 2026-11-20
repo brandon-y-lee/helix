@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { productionMarketingWorkerAuthorized, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
 import { openProductionMarketingCapabilities } from "./open-capabilities";
@@ -16,6 +17,7 @@ export async function dispatchProductionMarketing(request:Request,deps:Productio
   try {
     const config=readProductionMarketingDeliveryConfiguration(deps.env);
     if(new URL(request.url).origin!==config.siteOrigin)return result(403,"unavailable");
+    if (!await productionDeploymentAuthorized(deps.env)) return result(503,"unavailable");
     await deps.storage.cleanup();
     const lease=randomUUID(),intent=await deps.storage.claim(lease);
     if(!intent)return result(200,"idle");

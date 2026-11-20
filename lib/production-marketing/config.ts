@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { readProductionMarketingCapabilityKey } from "./capabilities";
 import type { ProductionMarketingEnvironment } from "./contract";
 
@@ -11,7 +12,7 @@ export function readProductionMarketingConfiguration(env: ProductionMarketingEnv
   if (origin.origin !== SITE_ORIGIN || origin.origin !== env.HELIX_PRODUCTION_MARKETING_SITE_ORIGIN || origin.protocol !== "https:"
     || origin.username || origin.password || env.VERCEL !== "1" || env.VERCEL_ENV !== "production"
     || !env.VERCEL_PROJECT_ID || env.VERCEL_PROJECT_ID !== env.HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID
-    || !env.VERCEL_DEPLOYMENT_ID || env.VERCEL_DEPLOYMENT_ID !== env.HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID
+    || !env.VERCEL_DEPLOYMENT_ID
     // Vercel reports the shortest attached production domain, which may be apex.
     // This hosting alias assertion is separate from the exact canonical request origin.
     || (env.VERCEL_PROJECT_PRODUCTION_URL !== "helixskin.us" && env.VERCEL_PROJECT_PRODUCTION_URL !== "www.helixskin.us")
@@ -19,12 +20,12 @@ export function readProductionMarketingConfiguration(env: ProductionMarketingEnv
     || serviceKey === env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Production marketing is unavailable.");
   return { siteOrigin: origin.origin, supabaseUrl: PROJECT_URL, serviceKey };
 }
-export function productionMarketingEnrollmentEnabled(env: ProductionMarketingEnvironment): boolean {
+export async function productionMarketingEnrollmentEnabled(env: ProductionMarketingEnvironment): Promise<boolean> {
   if (env.HELIX_PRODUCTION_MARKETING_ENABLED !== "true") return false;
   try {
     readProductionMarketingConfiguration(env);
     readProductionMarketingCapabilityKey(env);
     if (!env.HELIX_PRODUCTION_MARKETING_ABUSE_KEY || env.HELIX_PRODUCTION_MARKETING_ABUSE_KEY.length < 32) return false;
-    return true;
+    return await productionDeploymentAuthorized(env);
   } catch { return false; }
 }
