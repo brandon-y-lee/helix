@@ -1,0 +1,452 @@
+{
+  "sourceCommit": "b799225553da6396a21d95cec8e5c8e3eb45f7dc",
+  "sourceProvenance": {
+    "referenceCommit": "4011b8e420937f0226849def0e8ea23a8f334e9f",
+    "sourceBuiltSchemaSha256": "837d93352f5629eb7b6493b3f1fda8cb12ab23e86cad70ad9994c38a55bfa4be",
+    "description": "The compact application template contains final-state DDL built from tracked migrations and the Catalog and Checkout checkpoints. Its 233 referenced routine bodies resolve by byte range and SHA-256 against 35 tracked SQL source files. Six routines composed by historical renames or SQL transforms use their final source-reconstructed bodies directly. The renderer requires only the checkout. All 239 normalized deployed routine definitions and owners matched the parent catalog on 2026-11-20.",
+    "scope": "Only public/private application, the empty maintenance metadata table, two application-owned storage policies, and two Auth hooks are part of this baseline. The unchanged parent project and legacy migration ledger are never bootstrap targets. Managed DDL, production account and product row data, credentials, Vault, scheduled jobs, email dispatch and HTTP hook destinations are excluded."
+  },
+  "runtimeRoleBoundaries": {
+    "anon": {
+      "canLogin": false,
+      "bypassRls": false,
+      "superuser": false,
+      "createRole": false,
+      "replication": false,
+      "createDatabase": false
+    },
+    "service_role": {
+      "canLogin": false,
+      "bypassRls": true,
+      "superuser": false,
+      "createRole": false,
+      "replication": false,
+      "createDatabase": false
+    },
+    "authenticated": {
+      "canLogin": false,
+      "bypassRls": false,
+      "superuser": false,
+      "createRole": false,
+      "replication": false,
+      "createDatabase": false
+    }
+  },
+  "delegablePrivilegeCount": 0,
+  "parentEvidence": {
+    "project": "erasogmsqpgiirovubjh",
+    "date": "2026-11-20",
+    "method": "Read-only PostgreSQL catalog query with search_path=pg_catalog. Fingerprints return no definitions, trigger arguments, job destinations or business rows.",
+    "ledgerEntries": 97,
+    "ordinarySqlFilesInDev": 109
+  },
+  "applicationObjects": {
+    "enum": {
+      "count": 11,
+      "sha256": "61348cc366b94d822a27ccd18cc356580b101217b428b32cbf72a0b39f75a0ca"
+    },
+    "index": {
+      "count": 267,
+      "sha256": "6f0beab9c61a7060a4ebfe4467d7b6870cc69c47acfcb7eaf8d4f7c2a192973a"
+    },
+    "column": {
+      "count": 816,
+      "sha256": "9f909b6e0e7d3d5662bf408ae75b32058acd4fd79d1cfbe1a92385739812d3ff"
+    },
+    "policy": {
+      "count": 28,
+      "sha256": "e76a281cc94c48eca701f7eafabaccc2db58f1b2e554dd8b5a19361e4f824713"
+    },
+    "routine": {
+      "count": 239,
+      "sha256": "70c9aad04e34159107db6e9f483885a91f1eafb06d85060aa5ac5a735690f5da"
+    },
+    "trigger": {
+      "count": 73,
+      "sha256": "43a1b986bc5af68d24691429f73459af560d86373a929184bbe5c47ccf7c81ac"
+    },
+    "relation": {
+      "count": 96,
+      "sha256": "e9daafab24b9232b503fd2c63a71745053839680a72ab8cf4f4d5ee00f9bfa33"
+    },
+    "sequence": {
+      "count": 4,
+      "sha256": "f1a05ac8cdfd8eee7dbde805f739b785bd363082cb5d7d21b901112a32cee373"
+    },
+    "constraint": {
+      "count": 541,
+      "sha256": "3c7d03ebf9697468c30bd0283300ecadad7992b70ec3a60962176e50d024b933"
+    }
+  },
+  "afterDevelopmentChanges": {
+    "enum": {
+      "count": 11,
+      "sha256": "61348cc366b94d822a27ccd18cc356580b101217b428b32cbf72a0b39f75a0ca"
+    },
+    "index": {
+      "count": 313,
+      "sha256": "ef13ab318b0a9b8ab069801398ac06f74fc0a8ec3244eed4cf731b5fbb6d0525"
+    },
+    "column": {
+      "count": 963,
+      "sha256": "46ad45b49c8e8783cb161bdce11d37d9167d5926602a9281ce1f8cd836346ac9"
+    },
+    "policy": {
+      "count": 28,
+      "sha256": "e76a281cc94c48eca701f7eafabaccc2db58f1b2e554dd8b5a19361e4f824713"
+    },
+    "routine": {
+      "count": 305,
+      "sha256": "2f30f1d6cc8adf2e0b78aad354db671a461bc0da9d87bc2ebb8da4bb0c214190"
+    },
+    "trigger": {
+      "count": 81,
+      "sha256": "aad9acf1747dd8358766a3b48692c4bcc329bbac150e1bc4c7b77249ee7fcd9a"
+    },
+    "relation": {
+      "count": 121,
+      "sha256": "90ddb8ce5ebc63e9ad82887f7c3ad467807260124a909e7b85629c8e26dd412b"
+    },
+    "sequence": {
+      "count": 6,
+      "sha256": "2e6541af33197db3da0f01f826324e3f30af431e72b8939f11757284ca46b50c"
+    },
+    "constraint": {
+      "count": 654,
+      "sha256": "b4e2db6f5e034c5afbd75353e6fd63702aa9edad531e59ed9a63736adadf8642"
+    }
+  },
+  "effectivePrivileges": {
+    "parent": {
+      "table": {
+        "sha256": "dc06b8c76042794bd6ec4aebf1f6ea85580f88851ee32da32818dc03a437f743",
+        "allowed": 437
+      },
+      "schema": {
+        "sha256": "f5df1c95ebae0f18e69b38a26e9775dfc97ee2222cba5f9fdc2ce4d0d0fe60f1",
+        "allowed": 5
+      },
+      "routine": {
+        "sha256": "a754b8ffa74c8b2c177523e777bf985f9e11676a45e55d2b7c555b115e2886fd",
+        "allowed": 196
+      },
+      "sequence": {
+        "sha256": "ccab6334586b37e81fec17c3d11d10ea7972d57e58ddf02f2ead8b97de2616ab",
+        "allowed": 1
+      }
+    },
+    "base": {
+      "table": {
+        "sha256": "38fa7194d7fc2f6be122d8cf5bbe87413c65175af5f4807fe3500d009c7959ed",
+        "allowed": 252
+      },
+      "schema": {
+        "sha256": "f5df1c95ebae0f18e69b38a26e9775dfc97ee2222cba5f9fdc2ce4d0d0fe60f1",
+        "allowed": 5
+      },
+      "routine": {
+        "sha256": "df3d0dfa76ad835a54c42d5ccae23743f8d817b7bd9869ac889d3162cd1882ec",
+        "allowed": 189
+      },
+      "sequence": {
+        "sha256": "ccab6334586b37e81fec17c3d11d10ea7972d57e58ddf02f2ead8b97de2616ab",
+        "allowed": 1
+      }
+    },
+    "dev": {
+      "table": {
+        "sha256": "412b266a5958ccf34bd3ea1d8d3367492d5de625aa6055594f6adea08cf43afc",
+        "allowed": 277
+      },
+      "schema": {
+        "sha256": "f5df1c95ebae0f18e69b38a26e9775dfc97ee2222cba5f9fdc2ce4d0d0fe60f1",
+        "allowed": 5
+      },
+      "routine": {
+        "sha256": "ee30cc9ca12b7ce7bbf80cc8479f6edc1e0637d84fc5c3c5bded28d248e0ab03",
+        "allowed": 249
+      },
+      "sequence": {
+        "sha256": "b96b70329278e5a6059a7199db820f1d95debace17c273fe878cad517f2bc4d5",
+        "allowed": 2
+      }
+    }
+  },
+  "parentRuntimeMaintenancePrivileges": {
+    "anon": {
+      "TRIGGER": 9,
+      "MAINTAIN": 9,
+      "TRUNCATE": 0,
+      "REFERENCES": 9
+    },
+    "service_role": {
+      "TRIGGER": 15,
+      "MAINTAIN": 15,
+      "TRUNCATE": 15,
+      "REFERENCES": 15
+    },
+    "authenticated": {
+      "TRIGGER": 9,
+      "MAINTAIN": 9,
+      "TRUNCATE": 0,
+      "REFERENCES": 9
+    }
+  },
+  "publicDefaultPrivileges": {
+    "parent": [
+      {
+        "kind": "f",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "kind": "f",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "kind": "f",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "EXECUTE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "DELETE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "INSERT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "DELETE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "INSERT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "DELETE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "INSERT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "MAINTAIN"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "REFERENCES"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "TRIGGER"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "TRUNCATE"
+      },
+      {
+        "kind": "r",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "anon",
+        "nspname": "public",
+        "privilege_type": "USAGE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "authenticated",
+        "nspname": "public",
+        "privilege_type": "USAGE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "SELECT"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "UPDATE"
+      },
+      {
+        "kind": "S",
+        "owner": "postgres",
+        "grantee": "service_role",
+        "nspname": "public",
+        "privilege_type": "USAGE"
+      }
+    ],
+    "development": []
+  },
+  "managed": {
+    "parentRealtimePublication": true,
+    "parentRealtimeMembers": [],
+    "parentStorageTriggers": 11,
+    "parentCatalogNotifications": 6
+  },
+  "acceptedDifferences": {
+    "columnOrdinals": "The parent has dropped-column slots. Compare active column identities, types, defaults, collations, storage, nullability, generation metadata, and column ACLs. Physical attribute numbers are not portable.",
+    "mediaOrigin": "Three named routines and one product_media constraint use the exact persistent development media project. Check all six occurrences before accepting the target-specific comparison.",
+    "access": "Use individually granted application access. Nine parent public tables give client roles REFERENCES, TRIGGER and MAINTAIN. Fifteen give the service role those privileges and TRUNCATE. Development needs none. Schema and sequence effective privilege digests match the parent at base. Development also removes seven direct EXECUTE grants on three trigger-only functions. Explicit grants are required on new app objects.",
+    "preservedAuthHook": "The prefix database retains the original loyalty trigger OID, name, and handler OID. Its renamed handler must have the canonical rewards body and receive exactly one enabled AFTER INSERT FOR EACH ROW invocation. Verify prior OIDs separately before accepting this normalized identity.",
+    "providerIntegration": "The parent has six catalog notification hooks. Development enables none while Search and webhook isolation remain unqualified. Supabase supplies Storage service triggers and Realtime. Their inventory is checked independently from the application schema; the observed parent publication has no table members.",
+    "scope": "Includes only pinned development SQL additions. Separately installed production support, marketing delivery and marketing events packages remain outside this Catalog release."
+  }
+}
