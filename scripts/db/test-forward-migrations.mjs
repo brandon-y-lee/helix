@@ -227,6 +227,11 @@ try {
   await control.query('GRANT UPDATE (name) ON supabase_migrations.schema_migrations TO ' + writerRole);
   await assert.rejects(apply([first]), /privilege profile/);
   await control.query('REVOKE UPDATE (name) ON supabase_migrations.schema_migrations FROM ' + writerRole);
+  await control.query(`CREATE ROLE historical_editor NOLOGIN;
+    GRANT UPDATE (name) ON supabase_migrations.schema_migrations TO historical_editor;
+    GRANT historical_editor TO ${writerRole} WITH INHERIT FALSE`);
+  await assert.rejects(apply([first]), /privilege profile/);
+  await control.query('REVOKE historical_editor FROM ' + writerRole);
   await control.query('GRANT ' + writerRole + ' TO authenticated');
   await assert.rejects(apply([first]), /privilege profile/);
   await control.query('REVOKE ' + writerRole + ' FROM authenticated');
