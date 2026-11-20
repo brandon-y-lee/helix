@@ -10,8 +10,18 @@ begin
 end;
 $$;
 
+-- Keep the owner's introspection bound to native catalogs regardless of the
+-- calling session's relation search order. The temporary fixture holds no data.
+do $$ begin
+  if (select proconfig from pg_catalog.pg_proc
+      where oid = 'private.read_helix_release_observations()'::regprocedure)
+      is distinct from array['search_path=pg_catalog, pg_temp'] then
+    raise exception 'The release observer must use its reviewed catalog search order';
+  end if;
+end $$;
 set local role service_role;
-select pg_temp.expect_capability('catalogSchema',true,'authentic reviewed Catalog contract');
+create temporary table pg_constraint (fixture boolean);
+select pg_temp.expect_capability('catalogSchema',true,'authentic reviewed Catalog contract with session-local relation');
 select pg_temp.expect_capability('waitlist',false,'missing Product notification RPC');
 do $$ begin
   if public.read_helix_release_observations()->'support' is distinct from 'null'::jsonb then

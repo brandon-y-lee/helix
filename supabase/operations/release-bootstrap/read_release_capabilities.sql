@@ -16,7 +16,7 @@ begin
 end;
 $owner$;
 create function private.read_helix_release_observations()
-returns jsonb language plpgsql stable security definer set search_path = '' as $function$
+returns jsonb language plpgsql stable security definer set search_path = pg_catalog, pg_temp as $function$
 declare
   target record;
   support_flags jsonb := 'null';
