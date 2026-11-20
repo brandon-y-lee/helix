@@ -239,6 +239,34 @@ try {
   docker(psql, `GRANT SELECT (environment) ON private.helix_environment TO ${writerRole};`);
   assertEnrollmentRefusal(enroll, "existing privileged access");
   docker(psql, `REVOKE SELECT (environment) ON private.helix_environment FROM ${writerRole};`);
+  // Granting schema USAGE would make a pre-existing routine EXECUTE usable.
+  // Use a harmless constant function to test the grant boundary itself.
+  docker(psql, `CREATE FUNCTION private.unrelated_enrollment_fixture()
+    RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path = '' AS 'SELECT 1';`);
+  const fixture = "private.unrelated_enrollment_fixture()";
+  const writerAclState = `SELECT jsonb_build_object(
+    'schema', (SELECT jsonb_object_agg(nspname,nspacl) FROM pg_namespace
+      WHERE nspname IN ('public','private','supabase_migrations')),
+    'ledger', (SELECT relacl FROM pg_class WHERE oid='supabase_migrations.schema_migrations'::regclass),
+    'functions', (SELECT jsonb_object_agg(oid::regprocedure::text,proacl) FROM pg_proc WHERE oid IN
+      ('public.read_helix_environment()'::regprocedure,'private.read_helix_environment()'::regprocedure,'${fixture}'::regprocedure)),
+    'capability', to_regprocedure('private.apply_helix_catalog_media_binding()')
+  );`;
+  function assertDefinerRefusal(grantSource) {
+    const routineGrant = docker(psql, `SELECT has_function_privilege('${writerRole}','${fixture}','EXECUTE')
+      AND NOT has_schema_privilege('${writerRole}', 'private', 'USAGE')
+      AND EXISTS (SELECT FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f',p.proowner))) acl
+        WHERE p.oid='${fixture}'::regprocedure AND acl.privilege_type='EXECUTE' AND acl.grantee=${grantSource});`);
+    if (routineGrant.trim() !== "t") throw new Error("Expected latent private routine execution privilege.");
+    const before = docker(psql, writerAclState);
+    assertEnrollmentRefusal(enroll, "existing privileged access");
+    if (docker(psql, writerAclState) !== before) throw new Error("Refused enrollment changed existing privileges.");
+  }
+  assertDefinerRefusal("0"); // PostgreSQL's default PUBLIC EXECUTE.
+  docker(psql, `REVOKE ALL ON FUNCTION ${fixture} FROM PUBLIC;
+    GRANT EXECUTE ON FUNCTION ${fixture} TO ${writerRole};`);
+  assertDefinerRefusal(`'${writerRole}'::regrole`);
+  docker(psql, `DROP FUNCTION ${fixture};`);
   docker(enroll, read(enrollmentFile));
   // Exercise the forward DDL on nonempty old-app state before the full suite.
   // The pre-existing document, media rows, and immutable revisions

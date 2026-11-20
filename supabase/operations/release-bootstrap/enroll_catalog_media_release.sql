@@ -51,6 +51,19 @@ begin
     -- Granting schema USAGE must never expose pre-existing private-table grants.
     or exists (select from pg_class c where relnamespace = 'private'::regnamespace
       and relkind in ('r','p','v','m','f') and has_any_column_privilege(writer,c.oid,'SELECT'))
+    -- USAGE also enables routines whose EXECUTE was already granted directly
+    -- or through PUBLIC (including PostgreSQL's default function ACL). Check
+    -- existing private/history schemas even when USAGE predates enrollment.
+    -- In public, preserve the API access already available to every login.
+    or exists (
+      select from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname in ('private','supabase_migrations','public') and p.prosecdef
+        and p.oid not in ('private.read_helix_environment()'::regprocedure, 'public.read_helix_environment()'::regprocedure)
+        and has_function_privilege(writer,p.oid,'EXECUTE')
+        and (n.nspname <> 'public' or not has_schema_privilege(writer,n.oid,'USAGE')
+          or not exists (select from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+            where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
+    )
     or has_table_privilege(writer,'supabase_migrations.schema_migrations','UPDATE,DELETE,TRUNCATE,TRIGGER')
     or has_any_column_privilege(writer,'supabase_migrations.schema_migrations','UPDATE') then
     raise exception 'Refusing a release writer with existing privileged access';
