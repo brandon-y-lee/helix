@@ -197,9 +197,16 @@ try {
       ledger.split("\n"),
       prefix.map((f) => f.split("_")[0]),
     );
+    const nativeAccess = scalar("postgres", test("managed-api-access"));
+    assert.match(nativeAccess, /^[0-9a-f]{64}$/);
     const original = stack.backup("postgres");
     const target = dbName("prefix");
     stack.restore(original, target);
+    assert.equal(
+      scalar(target, test("managed-api-access")),
+      nativeAccess,
+      "The restored child prefix lost a managed namespace grant or callable API",
+    );
     const previous = schemaCheck(target);
     const originalIds = JSON.parse(
       scalar(
@@ -214,6 +221,11 @@ try {
     const backup = stack.backup(target);
     const restore = dbName("restore");
     stack.restore(backup, restore);
+    assert.equal(
+      scalar(restore, test("managed-api-access")),
+      nativeAccess,
+      "The recovery backup lost a managed namespace grant or callable API",
+    );
     assert.deepEqual(snapshot(restore), before, "Restored prefix differs from the pre-upgrade backup");
     assert.equal(
       scalar(restore, "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;"),
@@ -390,7 +402,13 @@ try {
     );
     assert.deepEqual(schemaCheck(target), after);
     report.sourcePrefixCount = prefix.length;
-    report.backup = { bytes: backup.length, sha256: digest(backup), logical: before };
+    report.managedApiAccessSha256 = nativeAccess;
+    report.backup = {
+      bytes: backup.archive.length,
+      sha256: digest(backup.archive),
+      manifestSha256: digest(JSON.stringify(backup.manifest)),
+      logical: before,
+    };
     report.historicalClientVisibility =
       "The six historical IDs are preserved in the private archive and absent from the new current catalog.";
     report.checked = [
