@@ -20,13 +20,27 @@ export async function withReleaseWriter(env, run) {
     if (rows.length !== 1 || rows[0].role !== role || rows[0].environment !== "production" || rows[0].project_ref !== projectRef) {
       throw new Error("Release controller target mismatch.");
     }
-    return await run(async (action, release) => {
+    async function change(action, release, failedRequestAt) {
+      const pair = [HELIX_VERCEL_PROJECT_ID, release.previousId, release.previousSha, release.candidateId, release.candidateSha];
+      const retry = action === "retry_rollback";
+      if (retry && !Number.isSafeInteger(failedRequestAt)) throw new Error("Invalid provider request identity.");
       const { rows: result } = await client.query(
-        "select helix_release_control.transition_helix_release_authorization($1,$2,$3,$4,$5,$6) as accepted",
-        [action, HELIX_VERCEL_PROJECT_ID, release.previousId, release.previousSha, release.candidateId, release.candidateSha],
+        retry ? "select helix_release_control.reserve_rollback_retry($1,$2,$3,$4,$5,$6) as accepted" :
+          "select helix_release_control.transition_helix_release_authorization($1,$2,$3,$4,$5,$6) as accepted",
+        retry ? [...pair, failedRequestAt] : [action, ...pair],
       );
       return result.length === 1 && result[0].accepted === true;
-    });
+    }
+    async function recorded({ id, sha }) {
+      const { rows } = await client.query(
+        "select previous_id, previous_sha, candidate_id, candidate_sha from helix_release_control.read_release_pair($1,$2)",
+        [id ?? null, sha ?? null],
+      );
+      if (rows.length !== 1) throw new Error("No current release record matches the selected build.");
+      return { previousId: rows[0].previous_id, previousSha: rows[0].previous_sha,
+        candidateId: rows[0].candidate_id, candidateSha: rows[0].candidate_sha };
+    }
+    return await run({ change, recorded });
   } finally {
     await client.end();
   }

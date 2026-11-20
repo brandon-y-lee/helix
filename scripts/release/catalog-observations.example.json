@@ -53,5 +53,8 @@
   },
   "canonicalCheckoutGet": 405,
   "stagedCheckoutGet": 403,
-  "previousProductionModules": "absent"
+  "searchCredentials": {
+    "writeKeySha256": "0eb7c38d15a4e14d2178961238cb08e1b68527605676063f0e2d8997cfbcc027",
+    "webhookSecretSha256": "2f8a5798c596a03dd59af9426bb5918756f3d44066f928de9d8b0ee0d3d4ce0f"
+  }
 }

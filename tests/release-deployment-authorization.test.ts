@@ -6,14 +6,14 @@ import { productionDeploymentAuthorized } from "@/lib/release/deployment-authori
 import { POST as receive } from "@/app/api/webhooks/resend-production/route";
 import { POST as enroll } from "@/app/api/marketing/production/subscription/route";
 
-const key = "sb_secret_syntheticKeyForLocalTests";
+const key = "sb_publishable_syntheticKeyForLocalTests";
 const env = {
   VERCEL: "1", VERCEL_ENV: "production", VERCEL_TARGET_ENV: "production",
   VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID, VERCEL_GIT_COMMIT_REF: "main",
   VERCEL_GIT_COMMIT_SHA: "b".repeat(40), VERCEL_DEPLOYMENT_ID: "dpl_SyntheticCandidate",
   NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production"),
-  HELIX_RELEASE_AUTHORIZATION_READ_KEY: key,
-  HELIX_RELEASE_AUTHORIZATION_READ_KEY_SHA256: createHash("sha256").update(key).digest("hex"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: key,
+  HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(key).digest("hex"),
 };
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -25,6 +25,7 @@ it("queries the parent registry with the actual deployment tuple on every author
   expect(await productionDeploymentAuthorized(env)).toBe(false);
   expect(fetch).toHaveBeenCalledWith(env.NEXT_PUBLIC_SUPABASE_URL + "/rest/v1/rpc/read_helix_release_authorization", expect.objectContaining({
     method: "POST", redirect: "error", cache: "no-store",
+    headers: { apikey: key, "Content-Type": "application/json" },
     body: JSON.stringify({p_project_id: env.VERCEL_PROJECT_ID, p_deployment_id: env.VERCEL_DEPLOYMENT_ID, p_git_sha: env.VERCEL_GIT_COMMIT_SHA}),
   }));
 });
@@ -34,7 +35,8 @@ it("rejects mismatched targets or credentials before network access and fails cl
   for (const change of [
     { VERCEL_GIT_COMMIT_REF: "dev" }, { VERCEL_PROJECT_ID: "prj_Other" }, { VERCEL_ENV: "preview" },
     { VERCEL_GIT_COMMIT_SHA: "" }, { VERCEL_DEPLOYMENT_ID: "" }, { NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("development") },
-    { HELIX_RELEASE_AUTHORIZATION_READ_KEY_SHA256: "" },
+    { HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: "" },
+    { NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_secret_synthetic", HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_secret_synthetic").digest("hex") },
   ]) expect(await productionDeploymentAuthorized({ ...env, ...change })).toBe(false);
   expect(fetch).not.toHaveBeenCalled();
   for (const invalid of [Response.json("true"), Response.json([true]), new Response(null, {status: 403})]) {

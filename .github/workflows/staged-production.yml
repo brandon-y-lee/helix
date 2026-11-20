@@ -8,23 +8,8 @@ on:
         required: true
         type: choice
         options: [verify, promote, rollback, cancel]
-      release_pr:
-        description: Merged dev-to-main PR number
-        required: true
-      candidate_sha:
-        description: Exact merged main SHA
-        required: true
-      candidate_id:
-        description: Existing staged Production deployment ID
-        required: true
-      previous_sha:
-        description: Previously serving main SHA
-        required: true
-      previous_id:
-        description: Previously serving Production deployment ID
-        required: true
-      expectations_sha256:
-        description: SHA-256 of the approved capability and Catalog expectation packet
+      selector:
+        description: Reviewed release PR number or immutable Vercel deployment ID
         required: true
 
 permissions: {}
@@ -33,13 +18,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  RELEASE_PR: ${{ inputs.release_pr }}
-  RELEASE_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-  RELEASE_CANDIDATE_ID: ${{ inputs.candidate_id }}
-  RELEASE_PREVIOUS_SHA: ${{ inputs.previous_sha }}
-  RELEASE_PREVIOUS_ID: ${{ inputs.previous_id }}
+  RELEASE_SELECTOR: ${{ inputs.selector }}
   RELEASE_OPERATION: ${{ inputs.operation }}
-  RELEASE_EXPECTATIONS_SHA256: ${{ inputs.expectations_sha256 }}
 
 jobs:
   admission:
@@ -57,7 +37,6 @@ jobs:
           set -euo pipefail
           [[ "$GITHUB_REPOSITORY" == 'brandon-y-lee/helix' && "$GITHUB_REF" == refs/heads/main && "$GITHUB_REF_PROTECTED" == true && "$ENABLED" == true ]]
           [[ "$OPERATOR_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_ACTOR_ID" == "$OPERATOR_ID" && "$GITHUB_TRIGGERING_ACTOR" == "$GITHUB_ACTOR" ]]
-          [[ "$RELEASE_OPERATION" == rollback || "$RELEASE_OPERATION" == cancel || "$GITHUB_SHA" == "$RELEASE_CANDIDATE_SHA" ]]
           # Environment-level credentials are installed independently. Refuse an
           # accidentally created unrestricted environment before using any secret.
           for environment in helix-release-inspect helix-release-control; do
@@ -66,8 +45,10 @@ jobs:
             gh api "$url/deployment-branch-policies?per_page=100" | jq -e '.total_count == 1 and .branch_policies[0].name == "main" and .branch_policies[0].type == "branch"' >/dev/null
           done
 
-  stage:
-    if: inputs.operation == 'verify' || inputs.operation == 'promote'
+  resolve:
+    outputs:
+      context: ${{ steps.freeze.outputs.context }}
+      context_sha256: ${{ steps.freeze.outputs.context_sha256 }}
     needs: admission
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -82,16 +63,19 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
       - uses: ./.github/actions/release-node
-      - name: Verify the existing Git build, alias ownership and old application
+      - name: Resolve the chosen release and freeze its independently qualified profile
+        id: freeze
         env:
           GH_TOKEN: ${{ github.token }}
           HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets.HELIX_RELEASE_VERCEL_READ_TOKEN }}
-          HELIX_RELEASE_EXPECTATIONS: ${{ vars.HELIX_RELEASE_EXPECTATIONS }}
+          HELIX_RELEASE_PROFILE: ${{ vars.HELIX_RELEASE_PROFILE }}
+          HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
           HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
-        run: node scripts/release/command.mjs preflight
+        run: node scripts/release/command.mjs resolve
 
   migrate:
-    needs: stage
+    needs: resolve
+    if: inputs.operation == 'verify' || inputs.operation == 'promote'
     permissions:
       actions: read
       contents: read
@@ -100,11 +84,11 @@ jobs:
       expected_main_sha: ${{ github.sha }}
 
   release:
-    needs: [admission, stage, migrate]
+    needs: [admission, resolve, migrate]
     if: >-
-      always() && !cancelled() && needs.admission.result == 'success' &&
-      (((inputs.operation == 'rollback' || inputs.operation == 'cancel') && needs.stage.result == 'skipped' && needs.migrate.result == 'skipped') ||
-      ((inputs.operation == 'verify' || inputs.operation == 'promote') && needs.stage.result == 'success' && needs.migrate.result == 'success' &&
+      always() && !cancelled() && needs.admission.result == 'success' && needs.resolve.result == 'success' &&
+      (((inputs.operation == 'rollback' || inputs.operation == 'cancel') && needs.migrate.result == 'skipped') ||
+      ((inputs.operation == 'verify' || inputs.operation == 'promote') && needs.migrate.result == 'success' &&
       needs.migrate.outputs.applied_sha == github.sha))
     environment: helix-release-control
     runs-on: ubuntu-24.04
@@ -124,13 +108,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_APPLIED_SHA: ${{ needs.migrate.outputs.applied_sha }}
           HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets[(inputs.operation == 'verify' || inputs.operation == 'cancel') && 'HELIX_RELEASE_VERCEL_READ_TOKEN' || 'HELIX_RELEASE_VERCEL_CONTROL_TOKEN'] }}
-          HELIX_RELEASE_EXPECTATIONS: ${{ vars.HELIX_RELEASE_EXPECTATIONS }}
+          RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
+          RELEASE_CONTEXT_SHA256: ${{ needs.resolve.outputs.context_sha256 }}
           HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
           HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
           HELIX_RELEASE_DB_HOST: ${{ vars.HELIX_RELEASE_DB_HOST }}
           HELIX_RELEASE_DB_CA: ${{ secrets.HELIX_RELEASE_DB_CA }}
           HELIX_RELEASE_DB_PASSWORD: ${{ secrets.HELIX_RELEASE_DB_PASSWORD }}
-        run: node scripts/release/command.mjs "$RELEASE_OPERATION"
+        run: node scripts/release/command.mjs execute
 
   result:
     if: always() && !cancelled()

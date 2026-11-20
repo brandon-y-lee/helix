@@ -3,6 +3,7 @@
 // modules. Supabase remains the source of truth; on any change we rebuild the
 // affected product's record from Supabase and upsert it (or delete it).
 
+import { catalogWebhookSecret } from "@/lib/algolia/credentials";
 import { runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { timingSafeEqual } from "node:crypto";
 import {
@@ -80,9 +81,7 @@ export class CatalogWebhookValidationError extends Error {
  * differ, so callers can return 401 uniformly.
  */
 export function verifyWebhookSecret(provided: string | null | undefined): boolean {
-  const expected = runtimeSupabaseTarget() === "production"
-    ? process.env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET
-    : process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET;
+  const expected = catalogWebhookSecret(process.env, runtimeSupabaseTarget());
   if (!expected || !provided) return false;
 
   const a = Buffer.from(provided);

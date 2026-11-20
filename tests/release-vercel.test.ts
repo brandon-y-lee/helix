@@ -40,7 +40,14 @@ type Fault =
   | "lost-response"
   | "timeout"
   | "racing-alias";
-function fixture(fault?: Fault) {
+type Discovery = {
+  pages?: string[][];
+  repeatCursor?: boolean;
+  source?: string;
+  candidateAliasError?: boolean;
+  previousAliasError?: boolean;
+};
+function fixture(fault?: Fault, discovery: Discovery = {}) {
   let wwwId = previous,
     apexId = previous;
   let job: Job | null = null;
@@ -58,6 +65,31 @@ function fixture(fault?: Fault) {
       expect(url.searchParams.get("teamId")).toBe(team);
       expect(new Headers(options?.headers).get("authorization")).toBe("Bearer fixture");
       expect(options?.redirect).toBe("error");
+      if (path === "/v7/deployments") {
+        expect(options?.method).toBe("GET");
+        expect(url.searchParams.get("projectId")).toBe(project);
+        expect(url.searchParams.get("target")).toBe("production");
+        expect(url.searchParams.get("branch")).toBe("main");
+        expect(url.searchParams.get("sha")).toBe(release.candidateSha);
+        expect(url.searchParams.has("state")).toBe(false);
+        const pages = discovery.pages ?? [[candidate]];
+        const until = url.searchParams.get("until");
+        const page = until === null ? 0 : 1001 - Number(until);
+        const deployments = (pages[page] ?? []).map((uid) => ({
+          uid,
+          projectId: project,
+          target: "production",
+          readyState: uid === "dpl_Redeploy" ? "ERROR" : "READY",
+          source: uid === "dpl_Redeploy" ? "redeploy" : "git",
+        }));
+        return Response.json({
+          deployments,
+          pagination: {
+            count: deployments.length,
+            next: discovery.repeatCursor ? 1000 : page + 1 < pages.length ? 1000 - page : null,
+          },
+        });
+      }
       if (options?.method === "POST") {
         const type = path.includes("/rollback/") ? "rollback" : "promote";
         const target = type === "rollback" ? previous : candidate;
@@ -135,7 +167,10 @@ function fixture(fault?: Fault) {
           ownerId: team,
           projectId: project,
           readyState: "READY",
-          source: "git",
+          source: discovery.source ?? "git",
+          aliasError: (id === candidate ? discovery.candidateAliasError : discovery.previousAliasError)
+            ? { message: "failed" }
+            : undefined,
           target: fault === "preview" ? "preview" : "production",
           gitSource:
             fault === "provenance"
@@ -155,12 +190,107 @@ function fixture(fault?: Fault) {
   return {
     client,
     writes,
+    setAliases: (wwwOwner: string, apexOwner: string) => {
+      wwwId = wwwOwner;
+      apexId = apexOwner;
+    },
     setJob: (value: Job) => {
       job = value;
     },
   };
 }
 describe("exact Vercel release", () => {
+  const selected = { id: candidate, sha: release.candidateSha, url: "https://helix-new.vercel.app" };
+  const prior = { id: previous, sha: release.previousSha, url: "https://helix-old.vercel.app" };
+  const promoteJob = {
+    type: "promote",
+    requestedAt: 100,
+    fromDeploymentId: previous,
+    toDeploymentId: candidate,
+    jobStatus: "succeeded",
+  };
+  const rollbackJob = {
+    type: "rollback",
+    requestedAt: 200,
+    fromDeploymentId: candidate,
+    toDeploymentId: previous,
+    jobStatus: "failed",
+  };
+  it("resolves SHA or ID to the unique original Git build across complete provider pages", async () => {
+    const f = fixture(undefined, { pages: [[], [candidate]] });
+    expect(await f.client.candidateForSha(release.candidateSha)).toEqual(selected);
+    expect(await f.client.candidateById(candidate)).toEqual(selected);
+    expect(await f.client.discoverPrevious(selected)).toEqual(prior);
+    expect(f.writes).toEqual([]);
+  });
+  it("rejects missing, ambiguous, non-Git, unverified, and incompletely paginated selections", async () => {
+    for (const f of [
+      fixture(undefined, { pages: [[]] }),
+      fixture(undefined, { pages: [[candidate], ["dpl_Redeploy"]] }),
+      fixture(undefined, { pages: [[candidate]], repeatCursor: true }),
+      fixture(undefined, { source: "redeploy" }),
+      fixture("provenance"),
+      fixture("preview"),
+      fixture("hold"),
+    ]) {
+      await expect(f.client.candidateForSha(release.candidateSha)).rejects.toThrow();
+      await expect(f.client.candidateById(candidate)).rejects.toThrow();
+      expect(f.writes).toEqual([]);
+    }
+    await expect(fixture("sha").client.candidateForSha(release.candidateSha)).rejects.toThrow();
+    await expect(fixture(undefined, { pages: [["dpl_Other"]] }).client.candidateById(candidate)).rejects.toThrow();
+  });
+  it("discovers the original prior after exact completed or partial promotion only with matching provider history", async () => {
+    const f = fixture();
+    for (const apexOwner of [previous, candidate]) {
+      f.setAliases(candidate, apexOwner);
+      f.setJob(promoteJob);
+      expect(await f.client.discoverPrevious(selected)).toEqual(prior);
+      for (const other of [{ toDeploymentId: "dpl_Other" }, { type: "rollback" }, { jobStatus: "pending" }]) {
+        f.setJob({ ...promoteJob, ...other });
+        await expect(f.client.discoverPrevious(selected)).rejects.toThrow();
+      }
+    }
+    f.setAliases("dpl_Third", candidate);
+    f.setJob(promoteJob);
+    await expect(f.client.discoverPrevious(selected)).rejects.toThrow();
+    expect(f.writes).toEqual([]);
+  });
+  it("rearms only the observed terminal rollback of a precise pair, including partial rollback", async () => {
+    for (const jobStatus of ["failed", "skipped"]) {
+      const f = fixture(undefined, { candidateAliasError: true });
+      f.setAliases(candidate, jobStatus === "failed" ? candidate : previous);
+      f.setJob({ ...rollbackJob, jobStatus });
+      const failure = await f.client.terminalFailedRollback(release);
+      expect(failure).toEqual({ requestedAt: 200, candidateId: candidate, previousId: previous });
+      await f.client.inspectRecovery(release);
+      await expect(f.client.inspect(release)).rejects.toThrow();
+      await expect(f.client.rollback(release)).rejects.toThrow();
+      f.setJob({ ...rollbackJob, jobStatus, requestedAt: 201 });
+      await expect(f.client.rollback(release, failure)).rejects.toThrow();
+      expect(f.writes).toEqual([]);
+      f.setJob({ ...rollbackJob, jobStatus });
+      expect((await f.client.rollback(release, failure)).serving).toBe("previous");
+      expect(f.writes).toEqual(["rollback"]);
+    }
+  });
+  it("holds recovery for unknown, busy or unrelated operations and an unhealthy rollback target", async () => {
+    const f = fixture();
+    f.setAliases(candidate, candidate);
+    for (const other of [
+      { type: "promote" },
+      { fromDeploymentId: "dpl_Other" },
+      { jobStatus: "pending" },
+      { jobStatus: "succeeded" },
+    ]) {
+      f.setJob({ ...rollbackJob, ...other });
+      expect(await f.client.terminalFailedRollback(release)).toBeNull();
+    }
+    const unhealthy = fixture(undefined, { previousAliasError: true });
+    unhealthy.setAliases(candidate, candidate);
+    await expect(unhealthy.client.rollback(release)).rejects.toThrow();
+    expect(unhealthy.writes).toEqual([]);
+  });
   it("requires the held Git project before merge and moves only the pinned aliases back and forth", async () => {
     const f = fixture();
     await f.client.assertHeldProject();

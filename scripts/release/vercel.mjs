@@ -82,19 +82,21 @@ function aliasTarget(alias, expectedName) {
   return alias.deploymentId;
 }
 
-function verifiedDeployment(value, id, expectedSha, repositoryId) {
+function verifiedDeployment(value, id, expectedSha, { healthy = true, original = false } = {}) {
   const git = value.gitSource;
   requireState(
     value.id === id &&
       value.projectId === projectId &&
       value.ownerId === teamId &&
       value.target === "production" &&
-      value.readyState === "READY" &&
+      (!original || value.source === "git") &&
       git?.type === "github" &&
       git.ref === "main" &&
-      git.sha === expectedSha &&
-      String(git.repoId) === repositoryId &&
-      !value.aliasError &&
+      typeof git.sha === "string" &&
+      sha.test(git.sha) &&
+      (expectedSha === undefined || git.sha === expectedSha) &&
+      String(git.repoId) === helixRepositoryId &&
+      (!healthy || (value.readyState === "READY" && !value.aliasError)) &&
       !value.deletedAt,
     "Deployment identity, Git provenance, production target or readiness mismatch.",
   );
@@ -106,7 +108,7 @@ function verifiedDeployment(value, id, expectedSha, repositoryId) {
       value.url !== development,
     "Unexpected immutable deployment hostname.",
   );
-  return { id, sha: expectedSha, url: `https://${value.url}` };
+  return { id, sha: git.sha, url: `https://${value.url}` };
 }
 
 export function createVercelRelease({
@@ -156,7 +158,117 @@ export function createVercelRelease({
     return { project, job };
   }
 
-  async function inspectState(release) {
+  async function assertHeldProject() {
+    const { job } = await scope();
+    requireState(!isBusy(job), "Vercel has an alias operation in progress.");
+  }
+
+  async function deployment(id, expectedSha, options) {
+    requireState(deploymentId.test(id), "Invalid immutable deployment ID.");
+    const value = await request(`/v13/deployments/${id}?withGitRepoInfo=true`);
+    return verifiedDeployment(value, id, expectedSha, options);
+  }
+
+  async function candidateForSha(expectedSha) {
+    requireState(sha.test(expectedSha), "Expected an exact Git commit SHA.");
+    await assertHeldProject();
+    // Count every state and origin, including failed or later redeploys. Choosing
+    // the newest READY result could select a different build for the same commit.
+    const query = new URLSearchParams({
+      projectId,
+      target: "production",
+      branch: "main",
+      sha: expectedSha,
+      limit: "100",
+    });
+    let candidateId;
+    let until;
+    for (let page = 0; page < 50; page++) {
+      if (until !== undefined) query.set("until", String(until));
+      const { deployments, pagination } = await request(`/v7/deployments?${query}`);
+      requireState(
+        Array.isArray(deployments) && pagination?.count === deployments.length,
+        "Vercel returned an incomplete deployment inventory.",
+      );
+      for (const item of deployments) {
+        requireState(
+          deploymentId.test(item.uid) && item.projectId === projectId && item.target === "production",
+          "Vercel deployment selection is inconsistent.",
+        );
+        requireState(
+          !candidateId || candidateId === item.uid,
+          "Multiple production builds exist for the selected SHA.",
+        );
+        candidateId = item.uid;
+      }
+      const next = pagination?.next;
+      if (next === null) {
+        requireState(candidateId, "No production build exists for the selected SHA.");
+        return deployment(candidateId, expectedSha, { original: true });
+      }
+      requireState(
+        Number.isSafeInteger(next) && next > 0 && (until === undefined || next < until),
+        "Invalid Vercel deployment pagination.",
+      );
+      until = next;
+    }
+    throw new Error("Incomplete Vercel deployment inventory. Resolve the selection before release.");
+  }
+
+  async function candidateById(id) {
+    const selected = await deployment(id, undefined, { original: true });
+    const candidate = await candidateForSha(selected.sha);
+    requireState(candidate.id === id, "Supplied deployment is not the unique Git build for its SHA.");
+    return candidate;
+  }
+
+  async function ownership() {
+    const [{ project, job }, aliases] = await Promise.all([
+      scope(),
+      Promise.all(domains.map((name) => request(`/v4/aliases/${name}?projectId=${projectId}`))),
+    ]);
+    const [wwwId, apexId, developmentId] = aliases.map((alias, index) => aliasTarget(alias, domains[index]));
+    const owners = [wwwId, apexId, project.targets?.production?.id];
+    requireState(
+      owners.every((id) => deploymentId.test(id) && id !== developmentId),
+      "Production and development ownership is inconsistent.",
+    );
+    return { job, owners, developmentId };
+  }
+
+  async function discoverPrevious(candidate) {
+    const [{ job, owners, developmentId }, selected] = await Promise.all([
+      ownership(),
+      deployment(candidate.id, candidate.sha, { original: true }),
+    ]);
+    requireState(
+      !isBusy(job) &&
+        developmentId !== selected.id &&
+        selected.sha === candidate.sha &&
+        selected.url === candidate.url,
+      "Candidate selection or Vercel alias state changed.",
+    );
+    let priorId = owners[0];
+    if (priorId === selected.id || !owners.every((id) => id === priorId)) {
+      priorId = job?.fromDeploymentId;
+      const release = { previousId: priorId, candidateId: selected.id };
+      const unanimous = owners.every((id) => id === selected.id);
+      requireState(
+        deploymentId.test(priorId) &&
+          priorId !== selected.id &&
+          priorId !== developmentId &&
+          partialPromotion(job, release) &&
+          (!unanimous || job.jobStatus === "succeeded") &&
+          owners.every((id) => id === selected.id || id === priorId),
+        "Cannot establish the prior deployment. Use controller recovery with its recorded pair.",
+      );
+    }
+    const previous = await deployment(priorId, undefined);
+    requireState(previous.sha !== selected.sha, "Candidate and previous commit SHA must differ.");
+    return previous;
+  }
+
+  async function inspectState(release, recovery = false) {
     const { candidateId, candidateSha, previousId, previousSha } = release;
     requireState(
       deploymentId.test(candidateId) &&
@@ -167,16 +279,11 @@ export function createVercelRelease({
         candidateSha !== previousSha,
       "Expected two distinct immutable release identities.",
     );
-    const [{ project, job }, candidateData, previousData, aliases] = await Promise.all([
-      scope(),
-      request(`/v13/deployments/${candidateId}?withGitRepoInfo=true`),
-      request(`/v13/deployments/${previousId}?withGitRepoInfo=true`),
-      Promise.all(domains.map((name) => request(`/v4/aliases/${name}?projectId=${projectId}`))),
+    const [{ job, owners, developmentId }, candidate, previous] = await Promise.all([
+      ownership(),
+      deployment(candidateId, candidateSha, { original: true, healthy: !recovery }),
+      deployment(previousId, previousSha),
     ]);
-    const candidate = verifiedDeployment(candidateData, candidateId, candidateSha, helixRepositoryId);
-    const previous = verifiedDeployment(previousData, previousId, previousSha, helixRepositoryId);
-    const [wwwId, apexId, developmentId] = aliases.map((alias, index) => aliasTarget(alias, domains[index]));
-    const owners = [wwwId, apexId, project.targets?.production?.id];
     requireState(
       owners.every((id) => id === candidateId || id === previousId) &&
         developmentId !== candidateId &&
@@ -192,10 +299,11 @@ export function createVercelRelease({
   }
 
   async function inspect(release, allowRecovery = false) {
-    const { job, result } = await inspectState(release);
+    const { job, result } = await inspectState(release, allowRecovery);
     requireState(!isBusy(job), "Vercel has an alias operation in progress.");
     requireState(
-      result.serving !== "partial" || (allowRecovery && partialPromotion(job, release)),
+      result.serving !== "partial" ||
+        (allowRecovery && (partialPromotion(job, release) || failedRollback(job, release))),
       "Production alias ownership is partial. Reconcile before another write.",
     );
     return result;
@@ -213,13 +321,36 @@ export function createVercelRelease({
     return promotionForRelease(job, release) && ["failed", "succeeded"].includes(job.jobStatus);
   }
 
-  async function change(release, type) {
-    const { job: before, result, productionTarget } = await inspectState(release);
+  function failedRollback(job, release) {
+    if (
+      job?.type !== "rollback" ||
+      job.fromDeploymentId !== release.candidateId ||
+      job.toDeploymentId !== release.previousId ||
+      !["failed", "skipped"].includes(job.jobStatus)
+    )
+      return null;
+    return { requestedAt: job.requestedAt, candidateId: release.candidateId, previousId: release.previousId };
+  }
+
+  async function change(release, type, retry) {
+    const recovery = type === "rollback";
+    const { job: before, result, productionTarget } = await inspectState(release, recovery);
+    if (retry) {
+      const observed = failedRollback(before, release);
+      requireState(
+        recovery &&
+          observed &&
+          observed.requestedAt === retry.requestedAt &&
+          observed.candidateId === retry.candidateId &&
+          observed.previousId === retry.previousId,
+        "The confirmed terminal rollback changed. Inspect the current provider operation before recovery.",
+      );
+    }
     const destination = type === "promote" ? "candidate" : "previous";
     const target = result[destination].id;
     requireState(
       !isBusy(before) &&
-        (result.serving !== "partial" || (type === "rollback" && partialPromotion(before, release))),
+        (result.serving !== "partial" || (recovery && (partialPromotion(before, release) || retry))),
       "Alias operation pending or partial. Reconcile before another write.",
     );
     if (result.serving === destination) return result;
@@ -228,7 +359,7 @@ export function createVercelRelease({
     const from = productionTarget;
     const matches = (job) => job?.type === type && job.fromDeploymentId === from && job.toDeploymentId === target;
     requireState(
-      !matches(before),
+      !matches(before) || retry,
       "This alias change was already requested. Reconcile its outcome before retrying.",
     );
     const path = `/${type === "rollback" ? "v1" : "v10"}/projects/${projectId}/${type}/${target}`;
@@ -238,12 +369,12 @@ export function createVercelRelease({
       /* A lost response may still have moved the domains. Only read from here. */
     }
     for (let attempt = 0; attempt < pollAttempts; attempt++) {
-      const { job, result: now } = await inspectState(release);
+      const { job, result: now } = await inspectState(release, recovery);
       requireState(
         now.developmentId === result.developmentId,
         "Development alias moved during the release; reconcile the observed state.",
       );
-      if (matches(job)) {
+      if (matches(job) && (!retry || job.requestedAt !== retry.requestedAt)) {
         requireState(
           job.jobStatus !== "failed" && job.jobStatus !== "skipped",
           "Vercel alias operation failed or skipped. Reconcile the public domains.",
@@ -265,21 +396,27 @@ export function createVercelRelease({
   }
 
   return {
-    assertHeldProject: async () => {
-      const { job } = await scope();
-      requireState(!isBusy(job), "Vercel has an alias operation in progress.");
-    },
+    assertHeldProject,
+    candidateForSha,
+    candidateById,
+    discoverPrevious,
     inspect: (release) => inspect(release),
     inspectRecovery: (release) => inspect(release, true),
     confirmedFailedPromotion: async (release) => {
-      const { job, result } = await inspectState(release);
+      const { job, result } = await inspectState(release, true);
       return (
         result.serving === "previous" &&
         promotionForRelease(job, release) &&
         ["failed", "skipped"].includes(job.jobStatus)
       );
     },
+    terminalFailedRollback: async (release) => {
+      const { job, result } = await inspectState(release, true);
+      return result.serving === "previous" ? null : failedRollback(job, release);
+    },
     promote: (release) => change(release, "promote"),
-    rollback: (release) => change(release, "rollback"),
+    /** @param {{candidateId:string, candidateSha:string, previousId:string, previousSha:string}} release
+     * @param {{requestedAt:number, candidateId:string, previousId:string} | null} [failedAttempt] */
+    rollback: (release, failedAttempt) => change(release, "rollback", failedAttempt),
   };
 }

@@ -57,5 +57,21 @@ export function createReleaseSource(token, fetchImpl = fetch) {
       throw new Error("The exact release PR gates did not pass.");
     }
   }
-  return { assertMainHead, verifyPr };
+  async function mergedSha(number) {
+    if (!/^[1-9][0-9]{0,9}$/.test(String(number))) throw new Error("Invalid release PR.");
+    const pr = await read(`pulls/${number}`);
+    if (!pr.merged || !shaPattern.test(pr.merge_commit_sha)) throw new Error("The release PR must already be merged.");
+    return pr.merge_commit_sha;
+  }
+  async function releasePrForCommit(sha, repoId) {
+    if (!shaPattern.test(sha)) throw new Error("Invalid release commit.");
+    const prs = await read(`commits/${sha}/pulls?per_page=100`);
+    if (!Array.isArray(prs) || prs.length >= 100) throw new Error("Incomplete release PR inventory.");
+    const matches = prs.filter(p => p.merged_at && p.merge_commit_sha === sha &&
+      p.base?.ref === "main" && p.head?.ref === "dev" &&
+      [p.base.repo, p.head.repo].every(r => r?.full_name === repo && String(r?.id) === String(repoId)));
+    if (matches.length !== 1 || !Number.isSafeInteger(matches[0].number)) throw new Error("Expected exactly one merged release PR.");
+    return matches[0].number;
+  }
+  return { assertMainHead, verifyPr, mergedSha, releasePrForCommit };
 }

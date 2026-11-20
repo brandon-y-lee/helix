@@ -1,5 +1,7 @@
 import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
+import { catalogWriteApiKey, catalogWebhookSecret } from "@/lib/algolia/credentials";
 import { verifyPublicSearchBinding } from "@/lib/algolia/build-binding";
 import { searchProducts } from "@/lib/algolia/search-client";
 import { getIndexName } from "@/lib/algolia/server";
@@ -21,6 +23,14 @@ function releaseReaderAuthorized(request: Request, env: Environment) {
   return timingSafeEqual(digest(supplied), digest("Bearer " + token));
 }
 
+export function searchCredentialFingerprints(env: Environment) {
+  const fingerprint = (value: string | undefined) => value ? createHash("sha256").update(value, "utf8").digest("hex") : null;
+  return {
+    writeKeySha256: fingerprint(catalogWriteApiKey(env)),
+    webhookSecretSha256: fingerprint(catalogWebhookSecret(env, "production")),
+  };
+}
+
 export async function observeProduction(productSlug: string) {
   const env = process.env;
   if (runtimeSupabaseTarget() !== "production" || !/^dpl_[A-Za-z0-9]+$/.test(env.VERCEL_DEPLOYMENT_ID ?? "") ||
@@ -28,8 +38,10 @@ export async function observeProduction(productSlug: string) {
   verifyHostedSiteOrigins(env, "production");
   readPublicSupabaseConnection();
   verifyPublicSearchBinding(env, "production");
-  const searchWrite = Boolean(env.ALGOLIA_WRITE_API_KEY);
-  if (searchWrite && (getIndexName() !== "helix_products" || !env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET ||
+  if (!await productionDeploymentAuthorized(env)) throw new Error("Unauthorized deployment");
+  const searchCredentials = searchCredentialFingerprints(env);
+  const searchWrite = searchCredentials.writeKeySha256 !== null;
+  if (searchWrite && (getIndexName() !== "helix_products" || !searchCredentials.webhookSecretSha256 ||
       env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET === env.HELIX_DEV_CATALOG_WEBHOOK_SECRET)) {
     throw new Error("Unbound Search writer");
   }
@@ -53,7 +65,7 @@ export async function observeProduction(productSlug: string) {
   }
   const features = Object.fromEntries(Object.entries(flags).map(([name, variable]) => [name, env[variable] === "true"]));
   return {
-    version: 1, productSlug, deploymentId: env.VERCEL_DEPLOYMENT_ID, sha: env.VERCEL_GIT_COMMIT_SHA, database,
+    version: 1, productSlug, deploymentId: env.VERCEL_DEPLOYMENT_ID, sha: env.VERCEL_GIT_COMMIT_SHA, database, searchCredentials,
     features: {
       ...features, sandboxCheckout, sandboxSettlement, searchRead, searchWrite,
       restrictedEmail: env.HELIX_EMAIL_ENVIRONMENT === "sandbox" && env.HELIX_EMAIL_MODE === "restricted",

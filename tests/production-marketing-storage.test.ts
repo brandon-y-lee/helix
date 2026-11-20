@@ -39,8 +39,8 @@ it("composes the public production route with dedicated hashed and encrypted sev
   for (const [key,value] of Object.entries({...env,
     VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID,
     VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_COMMIT_SHA: "a".repeat(40),
-    NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production"), HELIX_RELEASE_AUTHORIZATION_READ_KEY: "sb_secret_synthetic",
-    HELIX_RELEASE_AUTHORIZATION_READ_KEY_SHA256: createHash("sha256").update("sb_secret_synthetic").digest("hex"),
+    NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production"), NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_synthetic",
+    HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_publishable_synthetic").digest("hex"),
     HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"b".repeat(64)})) vi.stubEnv(key,value);
   const network = vi.fn().mockResolvedValueOnce(Response.json(true)).mockResolvedValueOnce(Response.json(true));

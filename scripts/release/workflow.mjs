@@ -5,10 +5,11 @@ export async function executeRelease(action, {
   controller, release, appliedSha, currentHead, transition, check,
 }) {
   if (!["verify", "promote", "rollback", "cancel"].includes(action)) throw new Error("Invalid release action.");
-  const snapshot = action === "rollback" ? await controller.inspectRecovery(release) : await controller.inspect(release);
+  const recovery = action === "rollback" || action === "cancel";
+  const snapshot = recovery ? await controller.inspectRecovery(release) : await controller.inspect(release);
   const { candidate, previous, serving } = snapshot;
-  const mustTransition = async state => {
-    if (await transition(state) !== true) {
+  const mustTransition = async (state, ...evidence) => {
+    if (await transition(state, ...evidence) !== true) {
       throw new Error("Release transition unavailable or previously attempted. Reconcile the exact provider operation.");
     }
   };
@@ -20,10 +21,14 @@ export async function executeRelease(action, {
   if (action === "rollback") {
     if (serving !== "previous") {
       await check("previous", previous.url, previous);
-      await mustTransition("start_rollback");
-      await controller.rollback(release);
+      // A reserved request can only be attempted again after Vercel identifies
+      // that exact rollback as terminally failed. Reserve its timestamp once.
+      const failure = await controller.terminalFailedRollback(release);
+      if (failure) await mustTransition("retry_rollback", failure.requestedAt);
+      else await mustTransition("start_rollback");
+      await controller.rollback(release, failure);
     }
-    const result = await controller.inspect(release);
+    const result = await controller.inspectRecovery(release);
     if (result.serving !== "previous") throw new Error("Rollback has not restored the previous deployment.");
     // Release a failed promotion only with conclusive provider evidence that
     // all domains stayed on the previous build. An unknown request stays held.

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { validateObservations, verifyReleaseObservations } from "../scripts/release/observations.mjs";
-import { serveReleaseStatus } from "@/lib/release-observations/status";
+import { searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
 import example from "../scripts/release/catalog-observations.example.json";
 
 describe("Catalog release observations", () => {
@@ -57,7 +57,7 @@ function fixture(input: RequestInfo | URL, init?: RequestInit): Promise<Response
       case "/api/webhooks/stripe": return json({ok:true,endpoint:"stripe"});
       case "/api/checkout/sessions": return new Response(null,{status: url.origin === canonical ? 405 : 403});
       case "/api/internal/release-status": return json({version:1,productSlug:example.productSlug,deploymentId:candidate.id,
-        sha:candidate.sha,features:example.features,database:example.database});
+        sha:candidate.sha,features:example.features,database:example.database,searchCredentials:example.searchCredentials});
       case "/marketing/production": return html("<fieldset disabled>New email enrollment is paused.</fieldset>");
       case "/api/marketing/readiness": return json({ready:false});
       case "/api/reviews": return json({reviews:[],count:0});
@@ -77,9 +77,7 @@ function fixture(input: RequestInfo | URL, init?: RequestInit): Promise<Response
 
 describe("production release read-only probe", () => {
   it.each(["staged","canonical","previous"])("verifies %s without giving a media server or redirect host application credentials", async phase => {
-    const fetchImpl = vi.fn((input:RequestInfo | URL, init?:RequestInit) =>
-      phase === "previous" && ["/marketing/production","/api/support/production/intake"].includes(new URL(String(input)).pathname)
-        ? Promise.resolve(new Response(null,{status:404})) : fixture(input,init));
+    const fetchImpl = vi.fn(fixture);
     await verifyReleaseObservations({phase,origin:phase === "staged" ? candidate.url : canonical,
       deploymentId:candidate.id,sha:candidate.sha,expectations:example,statusToken,bypassToken,fetchImpl});
     for (const [input,init] of fetchImpl.mock.calls) {
@@ -89,7 +87,18 @@ describe("production release read-only probe", () => {
       expect(headers.get("authorization")).toBe(url.pathname === "/api/internal/release-status" ? "Bearer " + statusToken : null);
       expect(headers.get("x-vercel-protection-bypass")).toBe(url.origin === candidate.url ? bypassToken : null);
     }
-    if (phase === "previous") expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/api/internal/release-status"))).toBe(false);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/api/internal/release-status"))).toBe(true);
+  });
+
+  it("only skips the authoritative reader for the known legacy artifact and checks each absent route", async () => {
+    const fetchImpl = vi.fn((input:RequestInfo | URL, init?:RequestInit) =>
+      ["/marketing/production","/api/support/production/intake"].includes(new URL(String(input)).pathname)
+        ? Promise.resolve(new Response(null,{status:404})) : fixture(input,init));
+    const args = {phase:"previous",origin:canonical, deploymentId:"dpl_91HXTZGJXtUp9P4Us9edBvC73CmC",
+      sha:"4d45e0d3e14271513fb887592faadf6c2c24fede",expectations:example,legacyPrevious:true,statusToken,bypassToken,fetchImpl};
+    await verifyReleaseObservations(args);
+    expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/api/internal/release-status"))).toBe(false);
+    await expect(verifyReleaseObservations({...args,sha:candidate.sha})).rejects.toThrow("legacy observation");
   });
 
   it("rejects a missing planned capability, including when the staged storefront is otherwise available", async () => {
@@ -102,6 +111,20 @@ describe("production release read-only probe", () => {
     });
     await expect(verifyReleaseObservations({phase:"staged",origin:candidate.url,deploymentId:candidate.id,
       sha:candidate.sha,expectations:example,statusToken,bypassToken,fetchImpl})).rejects.toThrow("features differ");
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["ALGOLIA_WRITE_API_KEY", "HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET"])("rejects a nonempty substituted %s even when the qualified public Search is available", async key => {
+    const qualified = { ALGOLIA_WRITE_API_KEY:"synthetic-qualified-write-key", HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET:"synthetic-qualified-production-hook" };
+    expect(searchCredentialFingerprints(qualified)).toEqual(example.searchCredentials);
+    const actual = searchCredentialFingerprints({...qualified, [key]:"synthetic-unqualified-replacement"});
+    const fetchImpl = vi.fn(async (input:RequestInfo | URL, init?:RequestInit) => {
+      const response = await fixture(input,init);
+      if (!String(input).includes("/api/internal/release-status")) return response;
+      return Response.json({...await response.json(), searchCredentials:actual});
+    });
+    await expect(verifyReleaseObservations({phase:"staged",origin:candidate.url,deploymentId:candidate.id,
+      sha:candidate.sha,expectations:example,statusToken,bypassToken,fetchImpl})).rejects.toThrow("credential bindings");
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

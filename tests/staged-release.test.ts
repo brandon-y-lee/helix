@@ -7,7 +7,7 @@ function fixture() {
   let serving = "previous";
   const inspect = vi.fn(async () => ({ previous: old, candidate: next, serving }));
   const controller = {
-    inspect, inspectRecovery: inspect, confirmedFailedPromotion: vi.fn(async () => false), promote: vi.fn(async () => { serving = "candidate"; return inspect(); }),
+    inspect, inspectRecovery: inspect, terminalFailedRollback: vi.fn(async () => null), confirmedFailedPromotion: vi.fn(async () => false), promote: vi.fn(async () => { serving = "candidate"; return inspect(); }),
     rollback: vi.fn(async () => { serving = "previous"; return inspect(); }),
   };
   const check = vi.fn(async (_phase: string, _origin: string) => {});
@@ -56,7 +56,8 @@ describe("protected release operation", () => {
 
 it("can withdraw an unattempted candidate only while both public aliases are back on the old build", async () => {
   const { options, setServing, transition } = fixture();
-  await executeRelease("cancel", options);
+  const controller = { ...options.controller, inspect: vi.fn(async () => { throw new Error("candidate error"); }) };
+  await executeRelease("cancel", { ...options, controller });
   expect(transition.mock.calls).toEqual([["cancel"]]);
   setServing("candidate");
   await expect(executeRelease("cancel", options)).rejects.toThrow();
@@ -69,4 +70,27 @@ it("releases a failed promotion only after an exact terminal provider result wit
   await executeRelease("rollback", options);
   expect(transition.mock.calls).toEqual([["failed_promotion"]]);
   expect(controller.rollback).not.toHaveBeenCalled();
+});
+
+it("uses one independently verified terminal rollback request for a bounded retry", async () => {
+  const { options, controller, transition, setServing } = fixture();
+  const failed = { requestedAt: 1000, candidateId: next.id, previousId: old.id };
+  const retryController = { ...controller, terminalFailedRollback: vi.fn(async () => failed) };
+  setServing("candidate");
+  await executeRelease("rollback", { ...options, controller: retryController });
+  expect(transition.mock.calls[0]).toEqual(["retry_rollback", failed.requestedAt]);
+  expect(controller.rollback).toHaveBeenCalledWith(options.release, failed);
+});
+
+
+it("finishes rollback after a failed outgoing build acquires an alias error", async () => {
+  const { options, controller, transition, setServing } = fixture();
+  setServing("candidate");
+  const recoveryController = {
+    ...controller,
+    inspect: vi.fn(async () => { throw new Error("outgoing alias error"); }),
+  };
+  await executeRelease("rollback", { ...options, controller: recoveryController });
+  expect(recoveryController.inspect).not.toHaveBeenCalled();
+  expect(transition.mock.calls).toEqual([["start_rollback"], ["rolled_back"]]);
 });

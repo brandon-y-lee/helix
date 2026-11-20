@@ -28,8 +28,8 @@ const catalogTrialOff = ["supportAdmission", "supportWorker", "supportMediaQuali
   "manualShipments", "orderSimulation", "bulkSearchReindex"];
 
 export function validateObservations(e) {
-  requireValue(exactKeys(e, ["version","productSlug","mediaUrl","features","database","canonicalCheckoutGet","stagedCheckoutGet","previousProductionModules"]) &&
-    e.version === 1 && ["absent","catalog-gated"].includes(e.previousProductionModules) && typeof e.productSlug === "string" && e.productSlug.length <= 128 &&
+  requireValue(exactKeys(e, ["version","productSlug","mediaUrl","features","database","searchCredentials","canonicalCheckoutGet","stagedCheckoutGet"]) &&
+    e.version === 1 && typeof e.productSlug === "string" && e.productSlug.length <= 128 &&
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(e.productSlug), "invalid Catalog expectations");
   requireValue(typeof e.mediaUrl === "string" && e.mediaUrl.length < 1024 &&
     e.mediaUrl.startsWith(mediaOrigin + mediaPrefix) &&
@@ -38,6 +38,11 @@ export function validateObservations(e) {
   requireValue(exactKeys(e.features, featureNames) && featureNames.every(k => typeof e.features[k] === "boolean") &&
     catalogTrialOff.every(k => e.features[k] === false) &&
     (!e.features.sandboxCheckout || e.features.sandboxSettlement), "invalid or unapproved feature state");
+  const credentials = e.searchCredentials;
+  requireValue(exactKeys(credentials, ["writeKeySha256", "webhookSecretSha256"]) &&
+    Object.values(credentials).every(value => value === null || (typeof value === "string" && /^[a-f0-9]{64}$/.test(value))) &&
+    e.features.searchWrite === (credentials.writeKeySha256 !== null) &&
+    (!e.features.searchWrite || credentials.webhookSecretSha256 !== null), "invalid qualified Search credentials");
   const db = e.database;
   requireValue(exactKeys(db, ["environment","projectRef","catalogSchema","support","marketing","waitlist"]) &&
     db.environment === "production" && db.projectRef === parent && db.catalogSchema === true &&
@@ -78,7 +83,7 @@ export async function verifyCanonicalRedirect({ fetchImpl = fetch } = {}) {
   finally { await resp.body?.cancel(); }
 }
 
-export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, statusToken, bypassToken = "", fetchImpl = fetch }) {
+export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, legacyPrevious = false, statusToken, bypassToken = "", fetchImpl = fetch }) {
   const e = validateObservations(expectations);
   requireValue(["previous", "staged", "canonical"].includes(phase) &&
     (phase === "canonical" ? origin === canonical : phase === "staged" ? immutable.test(origin) : (origin === canonical || immutable.test(origin))) &&
@@ -99,11 +104,13 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
     } finally { if (!resp.bodyUsed) await resp.body?.cancel(); }
   }
 
-  if (phase !== "previous") {
+  requireValue(!legacyPrevious || (phase === "previous" && deploymentId === "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC" &&
+    sha === "4d45e0d3e14271513fb887592faadf6c2c24fede"), "invalid legacy observation exception");
+  if (!legacyPrevious) {
     requireValue(typeof statusToken === "string" && allowedToken.test(statusToken), "missing release status credential");
     const status = await read("/api/internal/release-status?product=" + e.productSlug, 200, "json", { headers: { authorization: "Bearer " + statusToken } });
-    requireValue(isDeepStrictEqual(status, { version: 1, productSlug: e.productSlug, deploymentId, sha, database: e.database, features: e.features }),
-      "effective release identity, database or features differ");
+    requireValue(isDeepStrictEqual(status, { version: 1, productSlug: e.productSlug, deploymentId, sha, database: e.database, features: e.features, searchCredentials: e.searchCredentials }),
+      "effective release identity, database, credential bindings or features differ");
   }
   // No cookies or customer identifiers are sent. These GETs never call the worker or admission POST handlers.
   const collection = await read("/collections/shop", 200, "html");
@@ -149,7 +156,7 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
 
   const lifecycle = await read("/api/marketing/readiness",200,"json");
   requireValue(lifecycle.ready === false,"lifecycle signup enabled");
-  if (phase === "previous" && e.previousProductionModules === "absent") {
+  if (legacyPrevious) {
     await read("/api/support/production/intake",404,"headers");
     await read("/marketing/production",404,"headers");
   } else {
