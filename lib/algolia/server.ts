@@ -3,6 +3,7 @@
 // This module must only be imported from server code (route handlers).
 
 import { algoliasearch, type Algoliasearch } from "algoliasearch";
+import { catalogWriteApiKey } from "@/lib/algolia/credentials";
 import { expectedSearchAppId, productsIndexForTarget } from "@/lib/algolia/index";
 import { runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { INDEX_SETTINGS, type AlgoliaProductRecord } from "@/lib/algolia/record";
@@ -20,7 +21,7 @@ let cached: (WriteConfig & { appId: string; apiKey: string }) | null = null;
 
 function getWriteConfig(): WriteConfig {
   const appId = process.env.ALGOLIA_APP_ID;
-  const apiKey = process.env.ALGOLIA_WRITE_API_KEY;
+  const apiKey = catalogWriteApiKey(process.env);
   const indexName = process.env.ALGOLIA_INDEX_NAME;
 
   const missing: string[] = [];

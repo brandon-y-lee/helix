@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { Resend } from "resend";
 import { HASH, UUID } from "@/lib/support/production/config";
 import { legacyInbound, legacyReceipt, parseLegacySnapshot, type LegacyDelegates } from "./legacy";
@@ -17,7 +18,7 @@ function configuration(env: GatewayEnvironment): string {
   if (env.HELIX_PRODUCTION_EMAIL_GATEWAY_ENABLED !== "true" || env.VERCEL !== "1" || env.VERCEL_ENV !== "production"
     || (env.VERCEL_TARGET_ENV !== undefined && env.VERCEL_TARGET_ENV !== "production")
     || env.HELIX_PRODUCTION_EMAIL_GATEWAY_ORIGIN !== origin || !env.VERCEL_PROJECT_ID || !env.VERCEL_DEPLOYMENT_ID
-    || env.VERCEL_PROJECT_ID !== env.HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID || env.VERCEL_DEPLOYMENT_ID !== env.HELIX_PRODUCTION_EMAIL_GATEWAY_DEPLOYMENT_ID
+    || env.VERCEL_PROJECT_ID !== env.HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID
     || !secret?.startsWith("whsec_") || secret.length > 256 || secret === env.RESEND_WEBHOOK_SECRET) throw new Error();
   const encoded = secret.slice(6), bytes = Buffer.from(encoded, "base64");
   if (bytes.length < 16 || bytes.length > 64 || bytes.toString("base64") !== encoded) throw new Error();
@@ -52,6 +53,7 @@ export async function receiveProductionEmail(request: Request, deps: GatewayDepe
   let raw: string, event: unknown;
   try { raw = await rawBody(request); event = new Resend("re_local_signature_verification_only").webhooks.verify({ payload: raw, webhookSecret: secret, headers: { id, timestamp, signature } }); }
   catch (error) { return response(error instanceof RangeError ? 413 : 400); }
+  if (!await productionDeploymentAuthorized(deps.env)) return response(503);
   if (!object(event) || !safe(event.type, 100) || !validTime(event.created_at) || !object(event.data)) return response(400);
   const data = event.data, tags = data.tags === undefined ? {} : data.tags;
   if (!object(tags) || Object.keys(tags).length > 20 || Object.entries(tags).some(([k, v]) => !/^[A-Za-z0-9_-]{1,64}$/.test(k) || !safe(v, 256))) return response(400);

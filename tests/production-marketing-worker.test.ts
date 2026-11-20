@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { randomUUID } from "node:crypto";
 import { dispatchProductionMarketing, type ProductionMarketingWorkerDependencies } from "@/lib/production-marketing/worker";
 import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
@@ -9,9 +12,8 @@ const origin = "https://www.helixskin.us";
 const contract = () => ({ version: "production_welcome_delivery_v1", from: "news@helixskin.us", replyTo: "support@helixskin.us",
   topicId: "11111111-1111-4111-8111-111111111111", postalAddress: "Synthetic test address, not approved for delivery", templateHash: productionMarketingTemplateHash });
 function fixture() {
-  const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_test", VERCEL_PROJECT_PRODUCTION_URL: "helixskin.us",
-    HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID: "dpl_test",
-    HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-db",
+  const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild", VERCEL_PROJECT_PRODUCTION_URL: "helixskin.us",
+    HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-db",
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "c".repeat(64), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "test-v1",
     HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED: "true", HELIX_PRODUCTION_MARKETING_WORKER_TOKEN: "w".repeat(48),
     HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: "synthetic-production-send", HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY: "synthetic-separate-preference-read",

@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "observations": {
+    "version": 1,
+    "productSlug": "super-serum",
+    "mediaUrl": "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/super-serum/primary/example.webp",
+    "features": {
+      "supportAdmission": false,
+      "supportWorker": false,
+      "supportMediaQualified": false,
+      "supportIsolationQualified": false,
+      "supportOperationsQualified": false,
+      "welcomeEnrollment": false,
+      "welcomeDispatch": false,
+      "welcomeEvents": false,
+      "welcomeStatus": false,
+      "productionEmailGateway": false,
+      "legacySupportAdmission": false,
+      "legacySupportPhotos": false,
+      "legacySupportRetention": false,
+      "legacySupportAi": false,
+      "legacyDispatch": false,
+      "legacySimulators": false,
+      "legacyMarketing": false,
+      "marketingSync": false,
+      "lifecycle": false,
+      "lifecycleCampaigns": false,
+      "lifecycleReviews": false,
+      "offers": false,
+      "publicReviews": false,
+      "guestReviews": false,
+      "manualShipments": false,
+      "orderSimulation": false,
+      "bulkSearchReindex": false,
+      "sandboxCheckout": true,
+      "sandboxSettlement": true,
+      "searchRead": true,
+      "searchWrite": true,
+      "restrictedEmail": false,
+      "legacyResendSigner": false,
+      "supportIngestConfigured": false,
+      "supportSentSigner": false,
+      "ga4": false,
+      "meta": false,
+      "webAnalytics": false,
+      "speedInsights": false
+    },
+    "database": {
+      "environment": "production",
+      "projectRef": "erasogmsqpgiirovubjh",
+      "catalogSchema": true,
+      "support": null,
+      "marketing": null,
+      "waitlist": true
+    },
+    "canonicalCheckoutGet": 405,
+    "stagedCheckoutGet": 403,
+    "searchCredentials": {
+      "writeKeySha256": "0eb7c38d15a4e14d2178961238cb08e1b68527605676063f0e2d8997cfbcc027",
+      "webhookSecretSha256": "2f8a5798c596a03dd59af9426bb5918756f3d44066f928de9d8b0ee0d3d4ce0f"
+    }
+  },
+  "previous": "same",
+  "legacyPrevious": {
+    "deploymentId": "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC",
+    "sha": "4d45e0d3e14271513fb887592faadf6c2c24fede",
+    "observation": {
+      "observedAt": "2026-11-20T01:00:00.000Z",
+      "expiresAt": "2026-11-20T03:00:00.000Z",
+      "sha256": "6e624bcc7d9e1766136e79b19edb3eb14f96e26467d1309890978d52cc1e45f5"
+    },
+    "observations": {
+      "version": 1,
+      "productSlug": "super-serum",
+      "mediaUrl": "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/super-serum/primary/example.webp",
+      "features": {
+        "supportAdmission": false,
+        "supportWorker": false,
+        "supportMediaQualified": false,
+        "supportIsolationQualified": false,
+        "supportOperationsQualified": false,
+        "welcomeEnrollment": false,
+        "welcomeDispatch": false,
+        "welcomeEvents": false,
+        "welcomeStatus": false,
+        "productionEmailGateway": false,
+        "legacySupportAdmission": false,
+        "legacySupportPhotos": false,
+        "legacySupportRetention": false,
+        "legacySupportAi": false,
+        "legacyDispatch": false,
+        "legacySimulators": false,
+        "legacyMarketing": false,
+        "marketingSync": false,
+        "lifecycle": false,
+        "lifecycleCampaigns": false,
+        "lifecycleReviews": false,
+        "offers": false,
+        "publicReviews": false,
+        "guestReviews": false,
+        "manualShipments": false,
+        "orderSimulation": false,
+        "bulkSearchReindex": false,
+        "sandboxCheckout": true,
+        "sandboxSettlement": true,
+        "searchRead": true,
+        "searchWrite": true,
+        "restrictedEmail": false,
+        "legacyResendSigner": false,
+        "supportIngestConfigured": false,
+        "supportSentSigner": false,
+        "ga4": false,
+        "meta": false,
+        "webAnalytics": false,
+        "speedInsights": false
+      },
+      "database": {
+        "environment": "production",
+        "projectRef": "erasogmsqpgiirovubjh",
+        "catalogSchema": true,
+        "support": null,
+        "marketing": null,
+        "waitlist": true
+      },
+      "canonicalCheckoutGet": 405,
+      "stagedCheckoutGet": 403,
+      "searchCredentials": {
+        "writeKeySha256": "0eb7c38d15a4e14d2178961238cb08e1b68527605676063f0e2d8997cfbcc027",
+        "webhookSecretSha256": "2f8a5798c596a03dd59af9426bb5918756f3d44066f928de9d8b0ee0d3d4ce0f"
+      }
+    }
+  },
+  "evidence": {
+    "authRouting": {
+      "observedAt": "2026-11-20T01:00:00.000Z",
+      "expiresAt": "2026-11-20T03:00:00.000Z",
+      "sha256": "a1caf93e4dcee68de277d05bbf47eb07563b78282d1cb8d5260d5b1d4166d1e3"
+    },
+    "searchWriters": {
+      "observedAt": "2026-11-20T01:00:00.000Z",
+      "expiresAt": "2026-11-20T03:00:00.000Z",
+      "sha256": "687accb3c5742c42ce5df065b6560d5dc04c89d74894e51eb096fc84d744ef0e"
+    },
+    "emailCallbacks": {
+      "observedAt": "2026-11-20T01:00:00.000Z",
+      "expiresAt": "2026-11-20T03:00:00.000Z",
+      "sha256": "f1fa5c3b59a466cc768d7877634df665fe5ffc53581ad32151728f878acf8af3"
+    },
+    "checkoutSettlement": {
+      "observedAt": "2026-11-20T01:00:00.000Z",
+      "expiresAt": "2026-11-20T03:00:00.000Z",
+      "sha256": "0685246622446774844e25a9c101eaeab245ffec2f5740c3a8446bb1f0449f76"
+    }
+  }
+}

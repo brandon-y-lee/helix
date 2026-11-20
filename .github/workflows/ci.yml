@@ -151,7 +151,9 @@ jobs:
     if: ${{ always() && github.event_name == 'pull_request' && github.base_ref == 'main' && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
-      - name: Report Main Compatibility Gate
+      # GitHub can remove pull_requests[] from its Actions run after the PR merges.
+      # The completed job then carries the exact PR/head identity for release verification.
+      - name: Report Main Compatibility Gate for Release PR ${{ github.event.pull_request.number }} source ${{ github.event.pull_request.head.sha }}
         env:
           QUALITY_RESULT: ${{ needs.integration-quality.result }}
           VERIFICATION_RESULT: ${{ needs.integration-verification.result }}
