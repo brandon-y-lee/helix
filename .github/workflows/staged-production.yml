@@ -69,6 +69,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets.HELIX_RELEASE_VERCEL_READ_TOKEN }}
           HELIX_RELEASE_PROFILE: ${{ vars.HELIX_RELEASE_PROFILE }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_PRODUCTION_SUPABASE_ANON_KEY }}
+          HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256 }}
           HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
           HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
         run: node scripts/release/command.mjs resolve
@@ -110,6 +112,8 @@ jobs:
           HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets[(inputs.operation == 'verify' || inputs.operation == 'cancel') && 'HELIX_RELEASE_VERCEL_READ_TOKEN' || 'HELIX_RELEASE_VERCEL_CONTROL_TOKEN'] }}
           RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
           RELEASE_CONTEXT_SHA256: ${{ needs.resolve.outputs.context_sha256 }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_PRODUCTION_SUPABASE_ANON_KEY }}
+          HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256 }}
           HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
           HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
           HELIX_RELEASE_DB_HOST: ${{ vars.HELIX_RELEASE_DB_HOST }}

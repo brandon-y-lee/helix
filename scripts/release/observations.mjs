@@ -83,7 +83,52 @@ export async function verifyCanonicalRedirect({ fetchImpl = fetch } = {}) {
   finally { await resp.body?.cancel(); }
 }
 
-export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, legacyPrevious = false, statusToken, bypassToken = "", fetchImpl = fetch }) {
+// Read the same public population independently of the deployed app and its card cache.
+// The first rollback candidate predates the UUID tie-breaker. It must still render
+// each visible card once and in the right merchandising rank.
+export async function verifyStorefrontCardOrder({ html, target, env, productSlug = "", legacyPrevious = false, fetchImpl = fetch }) {
+  requireValue(target === "development" || target === "production", "unknown Catalog target");
+  const { JSDOM } = await import("jsdom");
+  const links = Array.from(JSDOM.fragment(html).querySelectorAll("a.product-card__link"), link => link.getAttribute("href"));
+  requireValue(links.length > 0 && (!productSlug || links.includes("/products/" + productSlug)), "Catalog card missing");
+  const { tsImport } = await import("tsx/esm/api");
+  const { supabaseOriginForTarget } = await tsImport("../../lib/supabase/project-safety.ts", import.meta.url);
+  const { verifySupabaseCredential } = await tsImport("../../lib/supabase/key-binding.ts", import.meta.url);
+  const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  verifySupabaseCredential(key, target, "anon", env);
+  const url = new URL("/rest/v1/products", supabaseOriginForTarget(target));
+  url.search = new URLSearchParams({
+    select: "slug,sort_order,product_family_memberships(is_entry)",
+    catalog_status: "eq.active",
+    order: "sort_order.asc,id.asc",
+  }).toString();
+  const headers = { apikey: key, prefer: "count=exact" };
+  if (!key.startsWith("sb_publishable_")) headers.authorization = "Bearer " + key;
+  const response = await fetchImpl(url, { method: "GET", headers, credentials: "omit",
+    cache: "no-store", redirect: "manual", signal: AbortSignal.timeout(10000) });
+  let rows;
+  try {
+    requireValue(response.ok && response.headers.get("content-type")?.includes("application/json"), "public Catalog read");
+    rows = JSON.parse((await boundedBytes(response, 2 * 1024 * 1024)).toString("utf8"));
+  } finally { if (!response.bodyUsed) await response.body?.cancel(); }
+  requireValue(Array.isArray(rows) && rows.length > 0 &&
+    response.headers.get("content-range") === `0-${rows.length - 1}/${rows.length}`, "incomplete Catalog result");
+  const visible = rows.filter(row => {
+    requireValue(typeof row.slug === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug) &&
+      Number.isSafeInteger(row.sort_order) && Object.hasOwn(row, "product_family_memberships"), "unexpected Catalog row");
+    const relation = row.product_family_memberships;
+    requireValue(!Array.isArray(relation) || relation.length <= 1, "multiple Catalog families");
+    const family = Array.isArray(relation) ? relation[0] : relation;
+    requireValue(family == null || typeof family.is_entry === "boolean", "unexpected Catalog family");
+    return family?.is_entry !== false;
+  });
+  const ranks = new Map(visible.map(row => ["/products/" + row.slug, row.sort_order]));
+  requireValue(links.length === visible.length && ranks.size === visible.length && new Set(links).size === links.length &&
+    links.every((link, i) => legacyPrevious ? ranks.get(link) === visible[i].sort_order : link === "/products/" + visible[i].slug),
+    "Catalog card order or membership differs from the public database");
+}
+
+export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, legacyPrevious = false, statusToken, bypassToken = "", fetchImpl = fetch, env = process.env }) {
   const e = validateObservations(expectations);
   requireValue(["previous", "staged", "canonical"].includes(phase) &&
     (phase === "canonical" ? origin === canonical : phase === "staged" ? immutable.test(origin) : (origin === canonical || immutable.test(origin))) &&
@@ -114,7 +159,7 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
   }
   // No cookies or customer identifiers are sent. These GETs never call the worker or admission POST handlers.
   const collection = await read("/collections/shop", 200, "html");
-  requireValue(collection.includes("/products/" + e.productSlug), "Catalog card missing");
+  await verifyStorefrontCardOrder({ html: collection, target: "production", env, productSlug: e.productSlug, legacyPrevious, fetchImpl });
   const product = await read("/products/" + e.productSlug, 200, "html");
   requireValue(product.includes(e.mediaUrl) || product.includes(encodeURIComponent(e.mediaUrl)), "governed Catalog image missing");
   requireValue(product.includes('rel="canonical" href="' + canonical + "/products/" + e.productSlug + '"'), "PDP canonical identity");

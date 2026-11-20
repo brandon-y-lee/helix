@@ -136,8 +136,43 @@ export async function checkCatalogRelease({
     assert.equal(after.legacy_count, 1);
     assert.deepEqual(after.forward.map((row) => row.version), ["20261120131137"]);
     assert.equal(oldData(), snapshot, "The existing Catalog records must remain identical across the real release");
+
+    const orderFile = "20261120141910_index_stable_catalog_product_order.sql";
+    const orderSql = readFileSync(join(root, "supabase/migrations", orderFile), "utf8");
+    const orderSidecar = JSON.parse(readFileSync(join(root, "supabase/releases", orderFile.replace(/\.sql$/, ".json")), "utf8"));
+    const [orderMigration] = validateReleaseSources([[orderFile, orderSql]], [[orderFile, orderSidecar]]);
+    const orderRelease = { ...common, migrations: [migration, orderMigration], apply: true };
+    const installer = readFileSync(join(root, "supabase/operations/release-bootstrap/enroll_catalog_order_index.sql"), "utf8");
+    const enroll = [...psql, "-v", `writer_role=${writerRole}`, "-v", `expected_environment=${environment}`];
+    const ownerEnroll = (ref) => docker([...enroll, "-v", `expected_project_ref=${ref}`], installer);
+    assert.throws(() => ownerEnroll(oppositeRef), /independently verified environment/);
+    docker(psql, `GRANT UPDATE (sort_order) ON public.products TO ${writerRole}`);
+    assert.throws(() => ownerEnroll(projectRef), /restricted Catalog media migration login/);
+    docker(psql, `REVOKE UPDATE (sort_order) ON public.products FROM ${writerRole}`);
+    ownerEnroll(projectRef);
+    assert.equal(docker(psql, `SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname IN ('anon','authenticated','authenticator','service_role')
+      AND (pg_has_role(oid,'${writerRole}','MEMBER') OR has_function_privilege(oid,'private.apply_helix_catalog_order_index()','EXECUTE')))`).trim(), "t");
+    await deny("CREATE INDEX unauthorized_index ON public.products (id)");
+    await deny("ALTER FUNCTION private.apply_helix_catalog_order_index() RENAME TO unauthorized");
+
+    const predecessor = () => docker(psql, "SELECT 'public.products_catalog_status_sort_idx'::regclass::oid, pg_get_indexdef('public.products_catalog_status_sort_idx'::regclass)").trim();
+    const oldIndex = predecessor();
+    docker(psql, "CREATE INDEX products_catalog_status_sort_id_idx ON public.products (id)");
+    await assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/);
+    assert.deepEqual((await client.query(orderSidecar.verify)).rows, [{ applied: false }]);
+    assert.deepEqual((await client.query(historyQuery)).rows[0], after);
+    docker(psql, "DROP INDEX public.products_catalog_status_sort_id_idx");
+    assert.deepEqual((await runForward(orderRelease)).applied, [orderFile]);
+    assert.deepEqual((await client.query(orderSidecar.verify)).rows, [{ applied: true }]);
+    assert.deepEqual(await runForward(orderRelease), { pending: [], applied: [] });
+    const { rows: [finished] } = await client.query(historyQuery);
+    assert.equal(finished.legacy_digest, before.legacy_digest);
+    assert.deepEqual(finished.forward.slice(0, 1), after.forward);
+    assert.deepEqual(finished.forward.map((row) => row.version), ["20261120131137", "20261120141910"]);
+    assert.equal(predecessor(), oldIndex);
+    assert.equal(oldData(), snapshot);
     return { writerProfile: "dedicated-login", exactManifestVerified: true, failedLedgerRolledBack: true,
-      preservedOldCatalog: true, applied: 1, retryApplied: 0 };
+      preservedOldCatalog: true, conflictingIndexRefused: true, applied: 2, retryApplied: 0 };
   } finally {
     try { await client.end(); }
     finally { docker(["exec", container, "dropdb", "-U", "postgres", releaseDatabase]); }

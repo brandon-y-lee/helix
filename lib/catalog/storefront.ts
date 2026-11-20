@@ -679,7 +679,8 @@ export async function getProductCardContents(): Promise<
     .select(PRODUCT_CARD_SELECT)
     .eq("catalog_status", "active")
     .in("product_media.role", [...CARD_MEDIA_ROLES])
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
   const { data, error } = await withMediaOrdering(query);
 
   if (error) {

@@ -155,6 +155,20 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("storefront catalog projections", () => {
+  it("requests Product cards by merchandising rank then stable Product ID", async () => {
+    const { client, calls } = makeClient({ data: [], error: null });
+    mockedGetClient.mockReturnValue(client);
+
+    await getProductCardContents();
+
+    const ordering = calls.filter(({ method }) => method === "order");
+    expect(ordering.map(({ args }) => args)).toEqual([
+      ["sort_order", { ascending: true }],
+      ["id", { ascending: true }],
+      ["sort_order", { referencedTable: "product_media", ascending: true }],
+    ]);
+  });
+
   it.each([
     ["cards", getProductCardContents],
     ["ingredients", getIngredientIndexProducts],
