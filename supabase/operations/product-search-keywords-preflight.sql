@@ -1,4 +1,5 @@
--- Read-only. Load product-url-preflight.sql in this development session first.
+\set ON_ERROR_STOP on
+-- Read-only psql entry. Load product-url-preflight.sql in this development session first.
 -- A missing or swapped marker stops the inventory before any Catalog read.
 do $$
 begin
@@ -9,9 +10,11 @@ begin
 end;
 $$;
 select jsonb_build_object(
-  'projectRef', (select project_ref from public.read_helix_environment()),
+  'projectRef', e.project_ref,
   'capturedAt', statement_timestamp(),
   'activeProducts', inventory -> 'activeProducts',
   'reservations', inventory -> 'reservations'
 )
-from (select pg_temp.product_url_inventory() as inventory) captured;
+from public.read_helix_environment() e
+cross join lateral (select pg_temp.product_url_inventory(e.environment) as inventory) captured
+where e.environment = 'development' and e.project_ref = 'zyfkunnpnlmgvrojmrbg';

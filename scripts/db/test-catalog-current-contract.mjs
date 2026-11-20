@@ -58,7 +58,9 @@ const paths = {
   restoreTimestamps: "supabase/migrations/20260914121842_catalog_restore_current_timestamps.sql",
   dispatcherHistory: "supabase/migrations/20260801052736_catalog_editor_v3_complete_field_coverage.sql",
   resolverHistory: "supabase/migrations/20260810135417_durable_product_slug_routes.sql",
-  urlPreflight: "supabase/operations/product-url-preflight.sql",
+  environmentMarker: "supabase/operations/release-bootstrap/20261120131122_helix_environment_identity.sql",
+  urlInventory: "supabase/operations/product-url-inventory.sql",
+  urlPreflight: "supabase/operations/product-url-contract-preflight.sql",
   urlContract: "supabase/operations/product-url-contract.sql",
   identityFixtures: "supabase/tests/catalog_identity.fixtures.sql",
   mediaFixtures: "supabase/tests/catalog_media.integration.sql",
@@ -165,6 +167,8 @@ try {
     "Use the documented Supabase image role boundaries");
   execute([read(checkpoints.catalog), historicalContracts, read(paths.identity),
     read(paths.guidance), read(paths.media), ordersPrerequisites, ordersSlice].join("\n"));
+  execute(read(paths.environmentMarker));
+  execute("insert into private.helix_environment(environment,project_ref) values ('production','erasogmsqpgiirovubjh');");
   const restoreBefore = JSON.parse(execute(restoreRoutines).trim());
   execute(read(paths.restoreTimestamps));
   const restoreAfter = JSON.parse(execute(restoreRoutines).trim());
@@ -191,7 +195,10 @@ try {
     verifiedDeploymentSha: "a".repeat(40), deploymentId: "synthetic-only-no-provider-deployment",
     canonicalConsumersVerified: true, searchVerified: true, catalogWritesPaused: true,
     routeDeliveriesDrained: true });
-  execute([identityFixture, mediaFixture, ordersHelpers, read(paths.fixtures), read(paths.urlPreflight), read(paths.urlContract),
+  // This harness streams the combined contracts into stdin; inline the same
+  // reviewed file that psql loads relative to the historical preflight on disk.
+  const urlPreflight = read(paths.urlPreflight).replace("\\ir product-url-inventory.sql", () => read(paths.urlInventory));
+  execute([identityFixture, mediaFixture, ordersHelpers, read(paths.fixtures), urlPreflight, read(paths.urlContract),
     `begin;
     create temp table current_manifest as select pg_temp.seed_media() as manifest;
     select pg_temp.seed_current_contract_order();

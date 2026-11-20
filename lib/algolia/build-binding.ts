@@ -2,9 +2,8 @@ import { createHash } from "node:crypto";
 import type { SupabaseTarget } from "../supabase/project-safety";
 import { expectedSearchAppId, productsIndexForTarget } from "./index";
 
-/** Check public values before Next embeds them in the hosted browser build. */
-export function verifyHostedSearchBinding(env: Record<string, string | undefined>, target: SupabaseTarget): void {
-  if (env.VERCEL !== "1") return;
+/** Validate public Search settings whenever Next builds or starts the application. */
+export function verifyPublicSearchBinding(env: Record<string, string | undefined>, target: SupabaseTarget): void {
   const appId = env.NEXT_PUBLIC_ALGOLIA_APP_ID;
   const key = env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY;
   const index = env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { verifyHostedSearchBinding } from "../lib/algolia/build-binding";
+import { verifyPublicSearchBinding } from "../lib/algolia/build-binding";
 import { FORMER_PRODUCTS_INDEX } from "@/tests/helpers/former-identifiers";
 
 const { searchForHits } = vi.hoisted(() => ({
@@ -31,18 +31,43 @@ afterEach(() => {
 });
 
 describe("public Algolia configuration", () => {
-  it("allows disabled hosted Search and rejects misbound or partial public builds", () => {
-    const base = { VERCEL: "1", HELIX_PRODUCTION_ALGOLIA_APP_ID: "prod-app",
-      HELIX_PRODUCTION_ALGOLIA_SEARCH_KEY_SHA256: createHash("sha256").update("public-search-only").digest("hex") };
-    expect(() => verifyHostedSearchBinding(base, "production")).not.toThrow();
-    expect(() => verifyHostedSearchBinding({ ...base, NEXT_PUBLIC_ALGOLIA_APP_ID: "prod-app" }, "production")).toThrow();
-    const search = { ...base, NEXT_PUBLIC_ALGOLIA_APP_ID: "prod-app", NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "public-search-only", NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products" };
-    expect(() => verifyHostedSearchBinding(search, "production")).not.toThrow();
-    expect(() => verifyHostedSearchBinding({ ...search, HELIX_PRODUCTION_ALGOLIA_SEARCH_KEY_SHA256: undefined }, "production")).toThrow();
-    expect(() => verifyHostedSearchBinding({ ...search, NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "wrong-key" }, "production")).toThrow();
-    expect(() => verifyHostedSearchBinding({ ...search, ALGOLIA_WRITE_API_KEY: "public-search-only" }, "production")).toThrow();
-    expect(() => verifyHostedSearchBinding({ ...search, NEXT_PUBLIC_ALGOLIA_APP_ID: "dev-app" }, "production")).toThrow();
-    expect(() => verifyHostedSearchBinding({ ...search, NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products_dev" }, "production")).toThrow();
+  it.each([
+    { build: "local Next", context: {}, target: "development", app: "dev-app", index: "helix_products_dev" },
+    { build: "pull request", context: { CI: "true", GITHUB_ACTIONS: "true" }, target: "development", app: "dev-app", index: "helix_products_dev" },
+    { build: "Vercel Production", context: { VERCEL: "1" }, target: "production", app: "prod-app", index: "helix_products" },
+  ] as const)("binds public Search settings before a $build artifact or server starts", ({
+    context, target, app, index,
+  }) => {
+    const appBinding = `HELIX_${target.toUpperCase()}_ALGOLIA_APP_ID`;
+    const keyBinding = `HELIX_${target.toUpperCase()}_ALGOLIA_SEARCH_KEY_SHA256`;
+    const pins = {
+      ...context,
+      [appBinding]: app,
+      [keyBinding]: createHash("sha256").update("public-search-only").digest("hex"),
+    };
+    const search = {
+      ...pins,
+      NEXT_PUBLIC_ALGOLIA_APP_ID: app,
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: index,
+      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "public-search-only",
+    };
+    expect(() => verifyPublicSearchBinding(pins, target)).not.toThrow();
+    expect(() => verifyPublicSearchBinding(search, target)).not.toThrow();
+    for (const settings of [
+      { ...pins, NEXT_PUBLIC_ALGOLIA_APP_ID: app },
+      { ...search, [keyBinding]: undefined },
+      { ...search, [appBinding]: undefined },
+      { ...search, NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "unchecked-key" },
+      { ...search, NEXT_PUBLIC_ALGOLIA_APP_ID: target === "production" ? "dev-app" : "prod-app" },
+      { ...search, NEXT_PUBLIC_ALGOLIA_INDEX_NAME: target === "production" ? "helix_products_dev" : "helix_products" },
+      // Even a matching fingerprint cannot make a copied writer or admin key public.
+      { ...search, ALGOLIA_WRITE_API_KEY: search.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY },
+      { ...search, ALGOLIA_ADMIN_API_KEY: search.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY },
+    ]) {
+      expect(() => verifyPublicSearchBinding(settings, target)).toThrowError(
+        "Public Search settings do not match the deployment target.",
+      );
+    }
   });
 
   it("is not configured unless app, search key, and index are all present", async () => {

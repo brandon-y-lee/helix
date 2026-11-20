@@ -119,6 +119,9 @@ const LOCAL_SERVER_APPLICATION_KEYS = new Set([
   "SUPABASE_SERVICE_ROLE_KEY",
 ]);
 const FIXED_BROWSER_TEST_ENVIRONMENT = {
+  HELIX_DEVELOPMENT_ALGOLIA_APP_ID: "testappid",
+  // Pin the known synthetic search-only credential independently of caller input.
+  HELIX_DEVELOPMENT_ALGOLIA_SEARCH_KEY_SHA256: "57239bb3d4766fd19b655f9117243c746b5ef6ae061d03b8a8ea8d090e2d0ce9",
   NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
   NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
   NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products_dev",

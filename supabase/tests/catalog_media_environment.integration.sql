@@ -19,7 +19,7 @@ begin
   perform pg_temp.assert_media(not private.is_current_product_media_url('https://<other-ref>.supabase.co' || suffix, product_id), 'swapped project refuses current media');
   perform pg_temp.assert_media(not has_function_privilege('anon','public.read_helix_environment()', 'EXECUTE')
     and not has_function_privilege('authenticated','public.read_helix_environment()', 'EXECUTE')
-    and has_function_privilege('service_role','public.read_helix_environment()', 'EXECUTE'), 'only service role can read marker through RPC');
+    and has_function_privilege('service_role','public.read_helix_environment()', 'EXECUTE'), 'service-role marker RPC rejects anonymous and authenticated app roles');
   perform pg_temp.assert_media(not has_table_privilege('service_role','private.helix_environment','SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
     and not has_table_privilege('anon','private.helix_environment','SELECT, INSERT, UPDATE, DELETE, TRUNCATE')
     and not has_table_privilege('authenticated','private.helix_environment','SELECT, INSERT, UPDATE, DELETE, TRUNCATE'), 'API roles have no direct marker access');

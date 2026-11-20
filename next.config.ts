@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 import { assertSupabaseTargetUrl, deploymentSupabaseTarget, supabaseOriginForTarget, verifyHostedSiteOrigins } from "./lib/supabase/project-safety";
-import { verifyHostedSearchBinding } from "./lib/algolia/build-binding";
+import { verifyPublicSearchBinding } from "./lib/algolia/build-binding";
 import { verifySupabaseCredential } from "./lib/supabase/key-binding";
 import { CATALOG_MEDIA_BUCKET } from "./lib/catalog/media-storage";
 
@@ -19,7 +19,7 @@ const HOME_VIDEO_PATHS = [
 
 const target = deploymentSupabaseTarget(process.env);
 verifyHostedSiteOrigins(process.env, target);
-verifyHostedSearchBinding(process.env, target);
+verifyPublicSearchBinding(process.env, target);
 const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const publicKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // Reject swapped role-bearing values before Next can inline them in public JS.

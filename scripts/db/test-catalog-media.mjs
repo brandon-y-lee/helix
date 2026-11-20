@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { createCatalogReleaseWriter, checkCatalogRelease } from "./test-catalog-release-writer.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
@@ -11,9 +12,9 @@ if (!container || !/^[a-zA-Z0-9][a-zA-Z0-9_.-]+$/.test(container)) {
   throw new Error("Pass --container=<disposable local PostgreSQL 17 container>.");
 }
 
-function docker(args, input, onDiagnostics) {
+function docker(args, input, onDiagnostics, env = process.env) {
   const result = spawnSync("docker", args, {
-    input,
+    input, env,
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 4 * 1024 * 1024,
@@ -189,6 +190,13 @@ async function concurrencyChecks() {
     staleSnapshotRejected: true, safeupdateActivation: true, safeupdateActivationRetryPreserved: true };
 }
 
+const enrollmentFile = "supabase/operations/release-bootstrap/enroll_catalog_media_release.sql";
+const releaseCli = process.argv.find((arg) => arg.startsWith("--release-cli="))?.slice("--release-cli=".length);
+const runnerFile = process.argv.find((arg) => arg.startsWith("--forward-runner="))?.slice("--forward-runner=".length);
+if (runnerFile && !releaseCli) throw new Error("--forward-runner requires --release-cli");
+const writerRole = "helix_media_writer_" + randomBytes(8).toString("hex");
+const writerPassword = randomBytes(32).toString("hex");
+let writerCreated = false;
 let created = false;
 try {
   docker(["exec", container, "createdb", "-U", "postgres", database]);
@@ -211,12 +219,27 @@ try {
     return sql;
   }
   docker(psql, predecessors.map(predecessorSql).join("\n") + "\n" + read(identityBootstrap));
-  // An uninitialized database cannot install a release or authorize media.
-  const missing = spawnSync("docker", psql, { input: read(bindingMigration), encoding: "utf8" });
-  if (missing.status === 0 || !missing.stderr.includes("environment marker")) {
-    throw new Error("Expected binding installation to refuse missing environment marker.");
+  createCatalogReleaseWriter(docker, psql, writerRole, writerPassword);
+  writerCreated = true;
+  const enroll = [
+    ...psql, "-v", `writer_role=${writerRole}`, "-v", `expected_environment=${environment}`, "-v", `expected_project_ref=${projectRef}`,
+  ];
+  // The owner enrolls a restricted login only for an independently bound target.
+  function assertEnrollmentRefusal(args, reason) {
+    const attempt = spawnSync("docker", args, { input: read(enrollmentFile), encoding: "utf8" });
+    if (attempt.status === 0 || !attempt.stderr?.includes(reason)) {
+      throw new Error("Expected owner enrollment to refuse an unqualified target.");
+    }
   }
+  assertEnrollmentRefusal(enroll, "matching environment marker");
   docker(psql, `insert into private.helix_environment(environment,project_ref) values ('${environment}','${projectRef}');`);
+  const wrongTarget = [...enroll];
+  wrongTarget[wrongTarget.length - 1] = `expected_project_ref=${oppositeRef}`;
+  assertEnrollmentRefusal(wrongTarget, "matching environment marker");
+  docker(psql, `GRANT SELECT (environment) ON private.helix_environment TO ${writerRole};`);
+  assertEnrollmentRefusal(enroll, "existing privileged access");
+  docker(psql, `REVOKE SELECT (environment) ON private.helix_environment FROM ${writerRole};`);
+  docker(enroll, read(enrollmentFile));
   // Exercise the forward DDL on nonempty old-app state before the full suite.
   // The pre-existing document, media rows, and immutable revisions
   // must survive, and the old writer must still accept its own slug URLs.
@@ -231,20 +254,31 @@ try {
     "do $$ begin if (select snapshot from saved_catalog) is distinct from pg_temp.catalog_identity_state() then raise exception 'Binding changed existing Catalog rows'; end if; end $$;",
     "update public.product_media set url = url where archived_at is null;", "rollback;",
   ].join("\n"));
-  const input = [bindingMigration, fixtures, tests, bindingProof].map(read).join("\n");
+  const restrictedRelease = releaseCli ? await checkCatalogRelease({
+    root, docker, container, database, writerRole, writerPassword, environment, projectRef, oppositeRef,
+    migrationPath: bindingMigration, sidecar, cli: releaseCli, runnerFile, fixtures: read(fixtures),
+  }) : undefined;
+  // Authenticate the same restricted role for the compatibility suite too.
+  const writerSql = (input) => docker(
+    ["exec", "-i", "-e", "PGPASSWORD", container, "psql", "-X", "-h", "127.0.0.1", "-U", writerRole, "-d", database,
+      "--quiet", "--no-align", "--tuples-only", "--set=ON_ERROR_STOP=1"],
+    input, undefined, { ...process.env, PGPASSWORD: writerPassword },
+  );
+  writerSql(read(bindingMigration));
+  const input = [fixtures, tests, bindingProof].map(read).join("\n");
   let checks = [];
   docker(psql, input, (diagnostics) => {
     checks = diagnostics.split("\n").filter((line) => line.includes("PASS "))
       .map((line) => line.slice(line.indexOf("PASS ") + 5));
   });
-  if (docker(psql, sidecar.verify).trim() !== "t") throw new Error("Release sidecar postflight rejected target.");
+  if (writerSql(sidecar.verify).trim() !== "t") throw new Error("Release sidecar postflight rejected target.");
   const concurrency = await concurrencyChecks();
   console.log(JSON.stringify({
-    status: "passed", environment,
+    status: "passed", environment, restrictedRelease,
     postgres: version,
     checkpoint: { path: checkpoint, sourceSha256: createHash("sha256").update(read(checkpoint)).digest("hex"),
       sha256: createHash("sha256").update(predecessorSql(checkpoint)).digest("hex") },
-    executed: [...files.slice(1,-2), identityBootstrap, bindingMigration, fixtures, tests, bindingProof].map((path) => ({
+    executed: [...files.slice(1,-2), identityBootstrap, enrollmentFile, bindingMigration, fixtures, tests, bindingProof].map((path) => ({
       path, sourceSha256: createHash("sha256").update(readFileSync(resolve(root, path))).digest("hex"),
       sha256: createHash("sha256").update(predecessors.includes(path) ? predecessorSql(path) : read(path)).digest("hex"),
     })),
@@ -254,4 +288,6 @@ try {
   }, null, 2));
 } finally {
   if (created) docker(["exec", container, "dropdb", "-U", "postgres", database]);
+  // The login is unique to this run. Its object grants vanish with its databases.
+  if (writerCreated) docker(["exec", "-i", container, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"], `drop role ${writerRole};`);
 }
