@@ -45,11 +45,42 @@ export function migrationStatement(sql) {
     (block || simple) &&
       trimmed.endsWith(";") &&
       !/pg-delta/i.test(sql) &&
+      !sql.startsWith("\uFEFF") &&
       !sql.includes("\r") &&
       !sql.includes("\0"),
     "Expected one transaction-compatible CREATE or DO $migration$ statement",
   );
   return trimmed.slice(0, -1);
+}
+
+function activeContracts(migrations) {
+  const active = new Map();
+  for (const migration of migrations) {
+    const supersedes = migration.supersedes;
+    if (supersedes !== undefined) {
+      requireCondition(
+        Array.isArray(supersedes) && supersedes.length > 0,
+        "Invalid superseded contracts",
+      );
+      for (const prior of supersedes) {
+        requireCondition(
+          active.delete(prior),
+          "Superseded contract must be an active predecessor",
+        );
+      }
+    }
+    active.set(migration.file, migration);
+  }
+  return active.values();
+}
+
+// The provider records the staged basename. Bind the reviewed bytes and
+// verifier to that genuine record without ever writing history ourselves.
+function recordedFile({ file, sql, verify, supersedes }) {
+  const digest = hash(JSON.stringify([hash(sql), verify, supersedes ?? []]));
+  const staged = file.slice(0, -4) + "_" + digest + ".sql";
+  requireCondition(staged.length <= 255, "Migration filename is too long");
+  return staged;
 }
 
 export function validateReleaseSources(sources, sidecars) {
@@ -59,7 +90,7 @@ export function validateReleaseSources(sources, sidecars) {
     "Unexpected release sidecars",
   );
   let previous = "";
-  return sources.map(([file, sql]) => {
+  const migrations = sources.map(([file, sql]) => {
     const match = namePattern.exec(file);
     const entry = metadata.get(file);
     requireCondition(
@@ -69,6 +100,9 @@ export function validateReleaseSources(sources, sidecars) {
     previous = match[1];
     requireCondition(
       entry &&
+        Object.keys(entry).every((key) =>
+          ["sourceSha256", "verify", "supersedes"].includes(key),
+        ) &&
         entry.sourceSha256 === hash(sql) &&
         typeof entry.verify === "string" &&
         /^SELECT\s/i.test(entry.verify) &&
@@ -76,8 +110,14 @@ export function validateReleaseSources(sources, sidecars) {
       "Missing or mismatched forward migration manifest",
     );
     migrationStatement(sql);
-    return { file, sql, verify: entry.verify };
+    const migration = { file, sql, verify: entry.verify };
+    if (Object.hasOwn(entry, "supersedes"))
+      migration.supersedes = entry.supersedes;
+    recordedFile(migration);
+    return migration;
   });
+  activeContracts(migrations);
+  return migrations;
 }
 
 export async function loadMigrations(root) {
@@ -96,7 +136,9 @@ export async function loadMigrations(root) {
     else
       sources.push([
         entry.name,
-        new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+        new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+          bytes,
+        ),
       ]);
   }
   requireCondition(
@@ -129,9 +171,13 @@ export function releaseConnection(target) {
   requireCondition(
     /^[a-z]{20}$/.test(projectRef) &&
       /^[a-z][a-z0-9_]{0,48}$/.test(role) &&
-      !["anon", "authenticated", "service_role", "authenticator", "postgres"].includes(
-        role,
-      ) &&
+      ![
+        "anon",
+        "authenticated",
+        "service_role",
+        "authenticator",
+        "postgres",
+      ].includes(role) &&
       !role.startsWith("cli_login_"),
     "Invalid database identity",
   );
@@ -164,7 +210,46 @@ SELECT (count(*) FILTER (WHERE version < '20261120000000'))::int AS legacy_count
        array_agg(version ORDER BY version COLLATE "C") AS versions
 FROM records`;
 
+// Restrict effective authority as well as the configured login name. Some
+// ownership checks require a narrow application-object owner group. Membership
+// in a ledger/marker owner group or a platform administrator is never needed.
+const writerQuery = `
+SELECT current_user = session_user
+  AND has_table_privilege('supabase_migrations.schema_migrations', 'SELECT')
+  AND has_table_privilege('supabase_migrations.schema_migrations', 'INSERT')
+  AND NOT EXISTS (
+    SELECT FROM pg_catalog.pg_roles r
+    WHERE pg_has_role(current_user, r.oid, 'MEMBER')
+      AND (r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls
+        OR has_database_privilege(r.oid, current_database(), 'CREATE')
+        OR has_schema_privilege(r.oid, 'supabase_migrations', 'CREATE')
+        OR has_table_privilege(r.oid, 'supabase_migrations.schema_migrations', 'UPDATE, DELETE, TRUNCATE, TRIGGER')
+        OR has_any_column_privilege(r.oid, 'supabase_migrations.schema_migrations', 'UPDATE')
+        OR has_table_privilege(r.oid, 'private.helix_environment', 'INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER')
+        OR has_any_column_privilege(r.oid, 'private.helix_environment', 'INSERT, UPDATE')
+        OR r.rolname IN ('pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files', 'pg_write_server_files', 'pg_execute_server_program'))
+  )
+  AND NOT EXISTS (
+    SELECT FROM pg_catalog.pg_roles r WHERE r.rolname IN ('anon', 'authenticated', 'authenticator', 'service_role')
+      AND pg_has_role(r.oid, current_user, 'MEMBER')
+  )
+  AND NOT EXISTS (
+    SELECT FROM (
+      SELECT relowner AS owner FROM pg_catalog.pg_class
+        WHERE oid IN ('private.helix_environment'::regclass, 'supabase_migrations.schema_migrations'::regclass)
+      UNION ALL SELECT proowner FROM pg_catalog.pg_proc
+        WHERE oid IN ('public.read_helix_environment()'::regprocedure, 'private.read_helix_environment()'::regprocedure)
+      UNION ALL SELECT nspowner FROM pg_catalog.pg_namespace
+        WHERE nspname IN ('private', 'supabase_migrations', 'public')
+    ) guarded WHERE pg_has_role(current_user, guarded.owner, 'MEMBER')
+  ) AS restricted`;
+
 async function inspectLedger(client, target, migrations) {
+  const profile = await client.query(writerQuery);
+  requireCondition(
+    profile.rows[0]?.restricted === true,
+    "Migration role has an invalid privilege profile",
+  );
   const { rows } = await client.query(
     "select current_user AS role, environment, project_ref from public.read_helix_environment()",
   );
@@ -207,25 +292,18 @@ async function inspectLedger(client, target, migrations) {
     actual.delete(version);
   }
   let applied = 0;
-  for (const { file, sql, verify } of migrations) {
-    const [, version, name] = namePattern.exec(file);
-    requireCondition(
-      !bootstrap.has(version),
-      "Bootstrap and forward versions overlap",
-    );
+  requireCondition(
+    migrations.every(({ file }) => !bootstrap.has(file.split("_")[0])),
+    "Bootstrap and forward versions overlap",
+  );
+  for (const migration of migrations) {
+    const [, version, name] = namePattern.exec(recordedFile(migration));
     const record = actual.get(version);
     if (!record) break;
-    const digest = hash(JSON.stringify([migrationStatement(sql)]));
+    const digest = hash(JSON.stringify([migrationStatement(migration.sql)]));
     requireCondition(
       record.name === name && record.statementsDigest === digest,
       "Applied migration content drift",
-    );
-    const result = await client.query(verify);
-    requireCondition(
-      result.rowCount === 1 &&
-        result.fields.length === 1 &&
-        result.rows[0].applied === true,
-      "Installed migration contract failed",
     );
     actual.delete(version);
     applied++;
@@ -234,6 +312,17 @@ async function inspectLedger(client, target, migrations) {
     actual.size === 0,
     "Unexpected migration or gap in the forward ledger",
   );
+  // Check the contracts for this exact installed prefix. A pending successor
+  // cannot hide drift; after a transition its predecessor may no longer exist.
+  for (const { verify } of activeContracts(migrations.slice(0, applied))) {
+    const result = await client.query(verify);
+    requireCondition(
+      result.rowCount === 1 &&
+        result.fields.length === 1 &&
+        result.rows[0].applied === true,
+      "Installed migration contract failed",
+    );
+  }
   return { applied, versions: state.versions };
 }
 
@@ -241,6 +330,7 @@ async function readState(client, target, migrations) {
   await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   try {
     await client.query("SET LOCAL statement_timeout = '45s'");
+    await client.query("SET LOCAL search_path TO pg_catalog, public");
     return await inspectLedger(client, target, migrations);
   } finally {
     await client.query("ROLLBACK");
@@ -262,6 +352,7 @@ export async function runForward({
   migrations,
   apply,
 }) {
+  activeContracts(migrations);
   const workdir = await mkdtemp(join(tmpdir(), "helix-forward-"));
   const dir = join(workdir, "supabase/migrations");
   const cliEnv = {
@@ -334,7 +425,7 @@ export async function runForward({
         mode: 0o600,
       });
     for (const migration of pending)
-      await writeFile(join(dir, migration.file), migration.sql, {
+      await writeFile(join(dir, recordedFile(migration)), migration.sql, {
         mode: 0o600,
       });
     const dry = await invoke([...args, "--dry-run"]);
@@ -344,17 +435,23 @@ export async function runForward({
       ),
     ].map((match) => match[1]);
     requireCondition(
-      JSON.stringify(selected) === JSON.stringify(files),
+      JSON.stringify(selected) === JSON.stringify(pending.map(recordedFile)),
       "CLI pending migration list differs from reviewed release",
     );
     if (!apply || !files.length) return { pending: files, applied: [] };
     // Advance one version at a time. Check its actual contract before allowing
     // the next dependent version to be considered for application.
-    for (const file of files) await rm(join(dir, file));
-    for (let index = 0; index < pending.length; index++) {
-      const { file, sql } = pending[index];
-      await writeFile(join(dir, file), sql, { mode: 0o600 });
+    for (const migration of pending)
+      await rm(join(dir, recordedFile(migration)));
+    for (const [index, migration] of pending.entries()) {
+      const staged = join(dir, recordedFile(migration));
+      await writeFile(staged, migration.sql, {
+        mode: 0o600,
+      });
       await invoke(args);
+      // Subsequent CLI calls must never replay this version, even if an
+      // independent operator changes its ledger row between releases.
+      await writeFile(staged, refusal);
       const after = await readState(client, target, migrations);
       requireCondition(
         after.applied === before.applied + index + 1,

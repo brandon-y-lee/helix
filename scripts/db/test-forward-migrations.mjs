@@ -28,18 +28,21 @@ assert.ok(endpoint.startsWith('unix://'), 'A local Docker daemon is required');
 const nonce = randomBytes(10).toString('hex');
 const name = 'helix-forward-proof-' + nonce;
 const dir = mkdtempSync(join(tmpdir(), name + '-'));
+const adminPassword = randomBytes(32).toString('hex');
+const writerRole = 'helix_release_writer';
 const password = randomBytes(32).toString('hex');
+const appPassword = randomBytes(32).toString('hex');
 const projectRef = 'aaaaaaaaaaaaaaaaaaaa';
 const clients = [];
 let containerId;
-async function connect(connectionUrl) {
+async function connect(connectionUrl, role = writerRole, credential = password) {
   const url = new URL(connectionUrl);
   const client = new pg.Client({
     host: url.hostname,
     port: Number(url.port),
     database: 'postgres',
-    user: 'postgres',
-    password,
+    user: role,
+    password: credential,
     ssl: false,
     connectionTimeoutMillis: 3_000,
   });
@@ -78,11 +81,11 @@ try {
       'POSTGRES_PASSWORD',
       'postgres:17-alpine',
     ],
-    { ...localEnv, POSTGRES_PASSWORD: password },
+    { ...localEnv, POSTGRES_PASSWORD: adminPassword },
   );
   const address = docker(['port', containerId, '5432/tcp']).match(/^127\.0\.0\.1:(\d+)$/);
   assert.ok(address, 'Expected only one ephemeral loopback port');
-  const connectionUrl = 'postgresql://postgres@127.0.0.1:' + address[1] + '/postgres?sslmode=disable';
+  const connectionUrl = 'postgresql://' + writerRole + '@127.0.0.1:' + address[1] + '/postgres?sslmode=disable';
   await until(() => {
     try {
       docker(['exec', containerId, 'pg_isready', '-h', '127.0.0.1']);
@@ -91,9 +94,32 @@ try {
       return false;
     }
   }, 'Postgres did not start');
-  const control = await connect(connectionUrl);
-  await control.query(`CREATE FUNCTION public.read_helix_environment() RETURNS TABLE(environment text, project_ref text)
-    LANGUAGE sql STABLE AS $$ SELECT 'development'::text, 'aaaaaaaaaaaaaaaaaaaa'::text $$`);
+  const control = await connect(connectionUrl, 'postgres', adminPassword);
+  // Model an already provisioned provider history table and separately owned
+  // runtime marker. These fixture credentials use fresh hex strings locally.
+  await control.query(`CREATE ROLE ${writerRole} LOGIN PASSWORD '${password}';
+    CREATE ROLE authenticated LOGIN PASSWORD '${appPassword}';
+    CREATE ROLE catalog_owner NOLOGIN;
+    GRANT catalog_owner TO ${writerRole};
+    CREATE SCHEMA supabase_migrations;
+    CREATE TABLE supabase_migrations.schema_migrations (version text PRIMARY KEY, statements text[], name text);
+    GRANT USAGE ON SCHEMA supabase_migrations TO ${writerRole};
+    GRANT SELECT, INSERT ON supabase_migrations.schema_migrations TO ${writerRole};
+    GRANT CREATE ON SCHEMA public TO ${writerRole};
+    CREATE SCHEMA private;
+    CREATE TABLE private.helix_environment (singleton boolean PRIMARY KEY CHECK (singleton), environment text NOT NULL, project_ref text NOT NULL);
+    INSERT INTO private.helix_environment VALUES (true, 'development', '${projectRef}');
+    CREATE FUNCTION private.read_helix_environment() RETURNS TABLE(environment text, project_ref text)
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
+        SELECT e.environment, e.project_ref FROM private.helix_environment AS e WHERE e.singleton $$;
+    CREATE FUNCTION public.read_helix_environment() RETURNS TABLE(environment text, project_ref text)
+      LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog AS $$
+        SELECT environment, project_ref FROM private.read_helix_environment() $$;
+    REVOKE ALL ON FUNCTION private.read_helix_environment(), public.read_helix_environment() FROM PUBLIC;
+    GRANT USAGE ON SCHEMA private, public TO ${writerRole};
+    GRANT EXECUTE ON FUNCTION private.read_helix_environment(), public.read_helix_environment() TO ${writerRole};
+    CREATE TABLE public.unrelated_application_table (id integer);
+  `);
 
   // Build a genuine legacy ledger record with the same CLI that writes real migrations.
   mkdirSync(join(dir, 'supabase/migrations'), { recursive: true });
@@ -121,7 +147,7 @@ try {
   const target = {
     environment: 'development',
     projectRef,
-    role: 'postgres',
+    role: writerRole,
     legacyDigest: state.legacy_digest,
     legacyCount: 1,
     bootstrap: [],
@@ -129,14 +155,56 @@ try {
   const common = { target, cli, password, connectionUrl };
   const firstClient = await connect(connectionUrl);
   const secondClient = await connect(connectionUrl);
+  const app = await connect(connectionUrl, 'authenticated', appPassword);
+  const denied = (op) => assert.rejects(op, { code: '42501' });
+  await denied(app.query('SET ROLE ' + writerRole));
+  await denied(app.query('SELECT version FROM supabase_migrations.schema_migrations'));
+  await denied(app.query('SELECT * FROM public.read_helix_environment()'));
+  await denied(
+    firstClient.query(
+      "UPDATE supabase_migrations.schema_migrations SET name='changed' WHERE version='20200101000000'",
+    ),
+  );
+  await denied(
+    firstClient.query("DELETE FROM supabase_migrations.schema_migrations WHERE version='20200101000000'"),
+  );
+  await denied(firstClient.query("UPDATE private.helix_environment SET environment='production'"));
+  await denied(firstClient.query('DROP FUNCTION public.read_helix_environment()'));
+  await denied(firstClient.query('ALTER TABLE public.unrelated_application_table ADD COLUMN leaked text'));
+  await control.query('ALTER TABLE public.original_catalog OWNER TO catalog_owner');
+  assert.deepEqual(
+    (
+      await firstClient.query(
+        `SELECT
+      current_user = session_user AND current_user = $1 AS dedicated_login,
+      NOT (rolsuper OR rolcreaterole OR rolcreatedb OR rolbypassrls OR rolreplication) AS restricted,
+      NOT has_database_privilege(current_user, current_database(), 'CREATE') AS no_database_create,
+      NOT has_schema_privilege(current_user, 'supabase_migrations','CREATE') AS no_history_create,
+      (SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid='public.original_catalog'::regclass) AS catalog_owner,
+      pg_has_role(current_user, 'catalog_owner','USAGE') AS can_migrate_catalog
+    FROM pg_roles WHERE rolname=current_user`,
+        [writerRole],
+      )
+    ).rows,
+    [
+      {
+        dedicated_login: true,
+        restricted: true,
+        no_database_create: true,
+        no_history_create: true,
+        catalog_owner: 'catalog_owner',
+        can_migrate_catalog: true,
+      },
+    ],
+  );
   const secondPid = (await secondClient.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
   const apply = (migrations, overrides = {}) =>
     runForward({ ...common, client: firstClient, migrations, apply: true, ...overrides });
   const first = migration(
     '20300101000000',
     'catalog',
-    'CREATE TABLE public.catalog(id integer)',
-    "to_regclass('public.catalog') IS NOT NULL",
+    'DO $migration$ BEGIN ALTER TABLE public.original_catalog ADD COLUMN enabled boolean; CREATE TABLE public.catalog(id integer); END; $migration$',
+    "to_regclass('public.catalog') IS NOT NULL AND EXISTS (SELECT FROM pg_attribute WHERE attrelid='public.original_catalog'::regclass AND attname='enabled' AND NOT attisdropped)",
   );
   const second = migration(
     '20300101000001',
@@ -153,6 +221,15 @@ try {
 
   await assert.rejects(apply([first], { target: { ...target, projectRef: 'bbbbbbbbbbbbbbbbbbbb' } }));
   await assert.rejects(apply([first], { target: { ...target, legacyDigest: '0'.repeat(64) } }));
+  // A protected secret could still identify an overprivileged login. Refuse the
+  // entire release before its DDL when either historic data or runtime-role
+  // impersonation is available through an unintended grant.
+  await control.query('GRANT UPDATE (name) ON supabase_migrations.schema_migrations TO ' + writerRole);
+  await assert.rejects(apply([first]), /privilege profile/);
+  await control.query('REVOKE UPDATE (name) ON supabase_migrations.schema_migrations FROM ' + writerRole);
+  await control.query('GRANT ' + writerRole + ' TO authenticated');
+  await assert.rejects(apply([first]), /privilege profile/);
+  await control.query('REVOKE ' + writerRole + ' FROM authenticated');
   const plan = await apply([first, second], { apply: false });
   assert.deepEqual(plan.pending, [first.file, second.file]);
   assert.equal(
@@ -180,7 +257,7 @@ try {
   // the index. Two release calls now contend on the target rather than racing
   // by chance. The winner records one index and the follower rechecks history.
   await control.query('BEGIN; LOCK public.catalog IN ACCESS EXCLUSIVE MODE');
-  const observer = await connect(connectionUrl);
+  const observer = await connect(connectionUrl, 'postgres', adminPassword);
   const requests = [apply([first, second, index])];
   requests[0].catch(() => {});
   try {
@@ -280,15 +357,55 @@ $migration$`,
   const recovered = await connect(connectionUrl);
   assert.deepEqual((await apply(release, { client: recovered })).applied, [block.file]);
   assert.deepEqual((await apply(release, { client: recovered })).pending, []);
+  // An applied predecessor must still be healthy before its successor is
+  // installed. Once the column is renamed, the old query is invalid and only
+  // the successor's verifier can describe the installed contract.
+  const rename = {
+    ...migration(
+      '20300101000004',
+      'rename_probe_label',
+      'DO $migration$ BEGIN ALTER TABLE public.interrupt_probe RENAME COLUMN label TO display_label; END; $migration$',
+      "EXISTS (SELECT 1 FROM public.interrupt_probe WHERE display_label='Catalog''s current state')",
+    ),
+    supersedes: [block.file],
+  };
+  const evolvedRelease = [...release, rename];
+  await control.query("UPDATE public.interrupt_probe SET label='drifted'");
+  await assert.rejects(apply(evolvedRelease), 'a pending successor cannot hide predecessor drift');
+  assert.equal(
+    (
+      await control.query(
+        "SELECT count(*)::int AS n FROM supabase_migrations.schema_migrations WHERE version='20300101000004'",
+      )
+    ).rows[0].n,
+    0,
+  );
+  await control.query("UPDATE public.interrupt_probe SET label='Catalog''s current state'");
+  assert.deepEqual((await apply(evolvedRelease)).applied, [rename.file]);
+  assert.deepEqual((await apply(evolvedRelease)).pending, []);
+  const changedPredecessor = (changes) =>
+    evolvedRelease.map((item) => (item.file === block.file ? { ...item, ...changes } : item));
+  await assert.rejects(
+    apply(changedPredecessor({ verify: 'SELECT true AS applied' })),
+    'historical verifier cannot change after supersession',
+  );
+  await assert.rejects(
+    apply(changedPredecessor({ sql: block.sql + '\n' })),
+    'historical source bytes cannot change after supersession',
+  );
+  await control.query("UPDATE public.interrupt_probe SET display_label='drifted'");
+  await assert.rejects(apply(evolvedRelease), 'a successor must enforce its own installed contract');
+  await control.query("UPDATE public.interrupt_probe SET display_label='Catalog''s current state'");
+
   await control.query('DROP INDEX public.catalog_order');
-  await assert.rejects(apply(release), 'an applied migration with a broken schema contract must fail');
+  await assert.rejects(apply(evolvedRelease), 'an applied migration with a broken schema contract must fail');
   await control.query('CREATE INDEX catalog_order ON public.catalog(id)');
   await control.query(
     "UPDATE supabase_migrations.schema_migrations SET statements=ARRAY['different synthetic SQL'] WHERE version='20300101000002'",
   );
-  await assert.rejects(apply(release), 'a version recorded with different SQL must fail');
+  await assert.rejects(apply(evolvedRelease), 'a version recorded with different SQL must fail');
   console.log(
-    'Forward migration PostgreSQL/CLI checks passed (apply, dry run, retry, wrong target, history drift, partial failure, interrupted DDL, DO ledger, concurrency).',
+    'Forward migration PostgreSQL/CLI checks passed (apply, dry run, retry, wrong target, history drift, partial failure, interrupted DDL, DO ledger, concurrency, separated writer/app permissions, successor preflight, source and verifier immutability, replay).',
   );
 } finally {
   await Promise.allSettled(clients.map((client) => client.end()));

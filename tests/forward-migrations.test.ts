@@ -6,6 +6,9 @@ import {
   validateReleaseSources,
 } from "../scripts/db/forward-migrations.mjs";
 import { createHash } from "node:crypto";
+import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const file = "20300101000000_catalog_sort.sql";
 const sql = "CREATE INDEX products_sort ON public.products(sort_order, id);\n";
@@ -43,6 +46,61 @@ describe("reviewed forward migrations", () => {
     ]) {
       expect(() => migrationStatement(bad)).toThrow();
     }
+  });
+  it("checks the bytes read from disk, including a UTF-8 BOM", async () => {
+    const root = await mkdtemp(join(tmpdir(), "helix-release-source-"));
+    try {
+      for (const directory of ["supabase/migrations", "supabase/releases"])
+        await cp(directory, join(root, directory), { recursive: true });
+      await writeFile(join(root, "supabase/migrations", file), "\uFEFF" + sql);
+      const manifest = join(
+        root,
+        "supabase/releases",
+        file.replace(".sql", ".json"),
+      );
+      await writeFile(manifest, JSON.stringify(sidecar));
+      await expect(loadMigrations(root)).rejects.toThrow("mismatched");
+      await writeFile(
+        manifest,
+        JSON.stringify({ ...sidecar, sourceSha256: hash("\uFEFF" + sql) }),
+      );
+      await expect(loadMigrations(root)).rejects.toThrow(
+        "transaction-compatible",
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+  it("only supersedes distinct, earlier and still active contracts", () => {
+    const later = "20300101000001_catalog_change.sql";
+    const last = "20300101000002_catalog_finish.sql";
+    const sources = [
+      [file, sql],
+      [later, sql],
+      [last, sql],
+    ];
+    const validate = (replacements: unknown, next?: string[]) =>
+      validateReleaseSources(sources, [
+        [file, sidecar],
+        [later, { ...sidecar, supersedes: replacements }],
+        [last, next ? { ...sidecar, supersedes: next } : sidecar],
+      ]);
+    expect(
+      validate([file], [later]).map(
+        (migration: { file: string }) => migration.file,
+      ),
+    ).toEqual([file, later, last]);
+    for (const invalid of [
+      [],
+      file,
+      null,
+      [file, file],
+      [last],
+      [later],
+      ["unknown.sql"],
+    ])
+      expect(() => validate(invalid)).toThrow();
+    expect(() => validate([file], [file])).toThrow();
   });
   it("requires an independent target and verifies TLS/tenant before connecting", () => {
     const ref = "abcdefghijklmnopqrst";
