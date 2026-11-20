@@ -10,7 +10,7 @@ import {
   type ProductMediaVerifierRuntime,
 } from "@/scripts/verify-product-media";
 
-const approvedOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
+const approvedOrigin = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const imageUrl = `${approvedOrigin}/storage/v1/object/public/helix-catalog/card.png`;
 const videoUrl = `${approvedOrigin}/storage/v1/object/public/helix-catalog/video.mp4`;
 
@@ -373,7 +373,8 @@ describe("Product Media Verification Command", () => {
 
     expect(workflow).toContain('cron: "0 0 * * *"');
     expect(workflow).toContain("workflow_dispatch:");
-    expect(workflow).toContain("pnpm verify:product-media -- --json");
+    expect(workflow).toContain("pnpm exec tsx scripts/verify-product-media.ts --json");
+    expect(workflow).toContain("HELIX_MEDIA_VERIFICATION_TARGET: ${{ matrix.target }}");
     expect(workflow).toContain("$GITHUB_STEP_SUMMARY");
     expect(workflow).not.toContain("verify:production");
     expect(workflow).not.toContain("playwright");

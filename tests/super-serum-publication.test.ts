@@ -69,7 +69,7 @@ function expectNoWrites() {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://erasogmsqpgiirovubjh.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
   original = structuredClone(catalogDocument);
   original.productId = original.product.id = SUPER_SERUM.productId;
   original.product.slug = SUPER_SERUM.slug;
@@ -82,7 +82,7 @@ beforeEach(() => {
   if (original.productPdpContent) original.productPdpContent.product_id = SUPER_SERUM.productId;
   for (const media of original.media) {
     media.product_id = SUPER_SERUM.productId;
-    media.url = `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/${SUPER_SERUM.productId}/drafts/${media.id}.webp`;
+    media.url = `https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/${SUPER_SERUM.productId}/drafts/${media.id}.webp`;
   }
   if (original.productSource) original.productSource.product_id = SUPER_SERUM.productId;
   changed = structuredClone(original);
@@ -109,6 +109,13 @@ describe("fixed Super Serum publication", () => {
     expect(calls.project).toHaveBeenCalledOnce();
     expect(calls.eq).toHaveBeenCalledWith("user_id", actorId);
     expect(original).toEqual(snapshot);
+    expectNoWrites();
+  });
+
+  it("refuses a development publication referencing production media before opening a draft", async () => {
+    original.media[0]!.url = original.media[0]!.url!.replace("zyfkunnpnlmgvrojmrbg", "erasogmsqpgiirovubjh");
+    wireApply();
+    await expect(runSuperSerumPublication(input)).rejects.toThrow("The product editor document is invalid");
     expectNoWrites();
   });
 

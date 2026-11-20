@@ -1,4 +1,7 @@
 import "server-only";
+import { verifySupabaseCredential } from "@/lib/supabase/key-binding";
+import { supabaseOriginForTarget } from "@/lib/supabase/project-safety";
+import { isLegacySupportProject } from "./legacy-project";
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SupportError, supportStorageError, supportUuid } from "@/lib/support/request";
@@ -11,7 +14,7 @@ export type PhotoUploadStatus = { id: string; uploadId: string; status: "pending
 export type PhotoCleanup = { id: string; rawPath: string | null; cleanPath: string | null; leaseToken: string };
 type Dependencies = { env: Record<string, string | undefined>; fetch: typeof fetch;
   rpc(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>; now(): number };
-const PRIVATE_PROJECT = "https://erasogmsqpgiirovubjh.supabase.co";
+const PRIVATE_PROJECT = supabaseOriginForTarget("production");
 const CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function object(value: unknown): Record<string, unknown> {
@@ -34,7 +37,9 @@ export function createPhotoStorage(dependencies: Dependencies) {
     const bucket = env.HELIX_SUPPORT_PHOTO_BUCKET;
     const key = env.SUPABASE_SERVICE_ROLE_KEY;
     if ((admission && env.HELIX_SUPPORT_PHOTOS_ENABLED !== "true") || env.HELIX_EMAIL_ENVIRONMENT !== "sandbox" || env.HELIX_EMAIL_MODE !== "restricted"
-      || env.NEXT_PUBLIC_SUPABASE_URL !== PRIVATE_PROJECT || !key || !bucket || !/^[a-z0-9][a-z0-9_-]{2,62}$/.test(bucket)) throw new SupportError("support_unavailable");
+      || !isLegacySupportProject(env) || !key || !bucket || !/^[a-z0-9][a-z0-9_-]{2,62}$/.test(bucket)) throw new SupportError("support_unavailable");
+    try { verifySupabaseCredential(key, "production", "service_role", env); }
+    catch { throw new SupportError("support_unavailable"); }
     return { bucket, key, base: `${PRIVATE_PROJECT}/storage/v1` };
   }
   async function call(path: string, signal: AbortSignal, init: RequestInit = {}) {

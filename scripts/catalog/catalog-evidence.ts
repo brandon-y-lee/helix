@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type Row = { [key: string]: Json };
@@ -160,7 +160,7 @@ export function createCatalogEvidence(
   phase: EvidencePhase,
 ): CatalogEvidence {
   validateInput(input);
-  if (provenance.projectRef !== APPROVED_SUPABASE_PROJECT_REF || provenance.endpoint !== `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`) {
+  if (!Object.values(SUPABASE_PROJECT_REFS).some(ref => ref === provenance.projectRef && provenance.endpoint === `https://${ref}.supabase.co`)) {
     fail("the exact approved project endpoint is required.");
   }
   if (!date(provenance.projectVerifiedAt) || !/^[a-f0-9]{40}$/.test(provenance.sourceCommit)

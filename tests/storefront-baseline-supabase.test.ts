@@ -1,7 +1,42 @@
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { createSupabaseStorefrontCatalogAdapter } from "@/test-support/supabase-storefront-catalog";
 
 describe("Supabase Storefront Catalog adapter", () => {
+  it("rejects both swapped job URLs before sending the API key", () => {
+    const fetchImpl = vi.fn();
+    for (const [target, url] of [
+      ["development", "https://erasogmsqpgiirovubjh.supabase.co"],
+      ["production", "https://zyfkunnpnlmgvrojmrbg.supabase.co"],
+    ] as const) {
+      expect(() => createSupabaseStorefrontCatalogAdapter({ target, url, anonKey: syntheticSupabaseKey("development", "anon"), fetchImpl })).toThrow();
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("refuses a parent credential at the child URL without transmitting it", () => {
+    const fetchImpl = vi.fn();
+    expect(() => createSupabaseStorefrontCatalogAdapter({
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
+      anonKey: syntheticSupabaseKey("production", "anon"),
+      fetchImpl,
+    })).toThrow();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("can read the production Catalog with its own public key in the explicit media job", async () => {
+    const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
+    const adapter = createSupabaseStorefrontCatalogAdapter({
+      target: "production",
+      url: "https://erasogmsqpgiirovubjh.supabase.co",
+      anonKey: syntheticSupabaseKey("production", "anon"),
+      fetchImpl,
+    });
+    await expect(adapter.readCatalog()).resolves.toEqual({ products: [], routineComplements: [] });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("reads only public Storefront facts from Products and Routine Complements", async () => {
     const product = {
       id: "product-id",
@@ -26,8 +61,8 @@ describe("Supabase Storefront Catalog adapter", () => {
       );
     });
     const adapter = createSupabaseStorefrontCatalogAdapter({
-      url: "https://erasogmsqpgiirovubjh.supabase.co",
-      anonKey: "public-anon-key",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
+      anonKey: syntheticSupabaseKey("development", "anon"),
       fetchImpl: fetchMock,
     });
 
@@ -49,17 +84,33 @@ describe("Supabase Storefront Catalog adapter", () => {
       expect(init).toMatchObject({
         method: "GET",
         headers: {
-          apikey: "public-anon-key",
-          Authorization: "Bearer public-anon-key",
+          apikey: syntheticSupabaseKey("development", "anon"),
+          Authorization: `Bearer ${syntheticSupabaseKey("development", "anon")}`,
         },
       });
     }
   });
 
+  it("sends a verified publishable key only as apikey and rejects credential-bearing redirects", async () => {
+    const key = "sb_publishable_synthetic";
+    const fetchImpl = vi.fn(async (_url: URL, _init?: RequestInit) => new Response("[]", { status: 200 }));
+    const adapter = createSupabaseStorefrontCatalogAdapter({
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
+      anonKey: key,
+      env: { HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(key).digest("hex") },
+      fetchImpl: fetchImpl as typeof fetch,
+    });
+    await adapter.readCatalog();
+    for (const [, request] of fetchImpl.mock.calls) {
+      expect(request?.headers).toEqual({ apikey: key });
+      expect(request?.redirect).toBe("error");
+    }
+  });
+
   it("reports an HTTP failure without exposing the provider response", async () => {
     const adapter = createSupabaseStorefrontCatalogAdapter({
-      url: "https://erasogmsqpgiirovubjh.supabase.co",
-      anonKey: "public-anon-key",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
+      anonKey: syntheticSupabaseKey("development", "anon"),
       fetchImpl: vi.fn(async () =>
         new Response("private provider payload", { status: 503 }),
       ),

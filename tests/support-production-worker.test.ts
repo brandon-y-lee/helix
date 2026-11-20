@@ -1,12 +1,13 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { dispatchProductionOutbox, type WorkerDependencies } from "@/lib/support/production/worker";
 import { sendFrozenRequest } from "@/lib/support/production/provider";
 import { productionConfig, SUPPORT_FROM, SUPPORT_TO } from "@/lib/support/production/config";
 const id = "00000000-0000-4000-8000-000000000001";
-const config = productionConfig({ VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://abcdefghijklmnopqrst.supabase.co",
+const config = productionConfig({ ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-service-credential-32-characters",
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters", HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED: "true",
   HELIX_PRODUCTION_SUPPORT_ISOLATION_QUALIFIED: "true", HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED: "true",

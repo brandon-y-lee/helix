@@ -19,7 +19,7 @@ import { SYSTEM_STEPS } from "@/lib/catalog/system-steps";
 
 const productId = "33333333-3333-4333-8333-333333333333";
 const canonicalSlug = "biotic-reset";
-const storageOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
+const storageOrigin = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const approvedImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/hero.webp`;
 const approvedEditorialImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/core-routine-editorial.webp`;
 const approvedGalleryImage = `${storageOrigin}/storage/v1/object/public/helix-catalog/products/cleanse/drafts/gallery-02.webp`;

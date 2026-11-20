@@ -1,5 +1,5 @@
 -- Read-only inventory except for this connection-local helper. No persistent DDL.
--- Verify the connection targets erasogmsqpgiirovubjh before use. Trigger arguments
+-- Independently verify the project for the reviewed operation before use. Trigger arguments
 -- may contain credentials: report only the exact definition digest, never the body.
 create or replace function pg_temp.product_url_inventory()
 returns jsonb language sql set search_path='' as $inventory$

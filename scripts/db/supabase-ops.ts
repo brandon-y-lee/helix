@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { config } from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { verifySupabaseCredential } from "../../lib/supabase/key-binding";
 import {
   assertApprovedSupabaseProjectUrl,
   projectRefFromSupabaseUrl,
@@ -31,9 +32,11 @@ export function assertExpectedProjectRef(): void {
 export function createOpsClient(): SupabaseClient {
   assertExpectedProjectRef();
 
+  const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+  verifySupabaseCredential(serviceKey, "development", "service_role", process.env);
   return createClient(
     requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    serviceKey,
     {
       auth: {
         autoRefreshToken: false,

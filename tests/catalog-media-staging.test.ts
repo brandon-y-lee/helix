@@ -18,7 +18,7 @@ const PNG = Buffer.from(
   "base64",
 );
 const HASH = "b00849688e85d6c3481246222778c4f7449cb097ec1d0f88d3c499e025c70f14";
-const ORIGIN = "https://erasogmsqpgiirovubjh.supabase.co";
+const ORIGIN = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 
 function storageBoundary(options: { auditFails?: boolean } = {}) {
   const uploaded = new Map<string, Buffer>();

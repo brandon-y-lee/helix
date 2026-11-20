@@ -37,7 +37,7 @@
     "db:carts:cleanup:apply": "tsx scripts/db/cleanup-expired-carts.ts --apply",
     "db:rewards:verify": "tsx scripts/db/verify-rewards-contract.ts",
     "db:helix-rebrand:verify": "tsx scripts/db/verify-helix-rebrand-audit.ts",
-    "db:types": "pnpm dlx supabase gen types --linked --schema public > lib/database.types.ts",
+    "db:types": "pnpm dlx supabase gen types --project-id zyfkunnpnlmgvrojmrbg --schema public > lib/database.types.ts",
     "db:verify": "tsx scripts/db/verify-supabase-data.ts",
     "search:backfill": "tsx scripts/search-backfill.ts",
     "search:reindex": "pnpm run search:backfill",

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { afterEach, expect, it, vi } from "vitest";
 import { GET as intakeGet, POST as intakePost } from "@/app/api/support/production/intake/route";
 import { POST as worker } from "@/app/api/internal/support-production-dispatch/route";
@@ -6,8 +7,8 @@ import { POST as sent } from "@/app/api/webhooks/support-production-sent/route";
 import { productionConfig } from "@/lib/support/production/config";
 import { productionRpc } from "@/lib/support/production/storage";
 const id = "00000000-0000-4000-8000-000000000001";
-const env = { VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://abcdefghijklmnopqrst.supabase.co",
+const env = { ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-dedicated-service-credential-32-chars",
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters-only",
   HELIX_PRODUCTION_SUPPORT_WORKER_SECRET: "synthetic-worker-secret-32-characters-only",

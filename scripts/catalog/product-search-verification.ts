@@ -101,10 +101,13 @@ export function loadProductSearchVerificationConfig(
   }
   const appId = requiredEnv(env, "ALGOLIA_APP_ID");
   const publicAppId = requiredEnv(env, "NEXT_PUBLIC_ALGOLIA_APP_ID");
-  if (appId !== publicAppId) {
-    throw new Error(
-      "[product-search] Public and server Algolia application IDs must match.",
-    );
+  const expectedAppId = expectedSearchAppId(env, "development");
+  if (appId !== expectedAppId || publicAppId !== expectedAppId) {
+    throw new Error("[product-search] Both Algolia application IDs must match the approved development app.");
+  }
+  if (requiredEnv(env, "ALGOLIA_INDEX_NAME") !== HELIX_DEVELOPMENT_PRODUCTS_INDEX
+    || requiredEnv(env, "NEXT_PUBLIC_ALGOLIA_INDEX_NAME") !== HELIX_DEVELOPMENT_PRODUCTS_INDEX) {
+    throw new Error(`[product-search] Both configured indices must be ${HELIX_DEVELOPMENT_PRODUCTS_INDEX}.`);
   }
   const querySuggestionsRegion = requiredEnv(
     env,
@@ -330,10 +333,23 @@ export function assessProductSearchVerification(
     blockers.push("configured Algolia keys could not be verified");
   }
   if (!inventory.apiKeys.configuredPublicKeyVerified) {
-    blockers.push("configured public Product Search key could not read helix_products");
+    blockers.push("configured public Product Search key could not read helix_products_dev");
   }
   if (inventory.apiKeys.status !== "all-keys-enumerated") {
     blockers.push("all Algolia API keys must be inventoried");
+  }
+  if (inventory.apiKeys.status === "all-keys-enumerated") {
+    for (const role of ["configured-public-search-key", "configured-write-key"]) {
+      const key = inventory.apiKeys.keys?.find(entry => entry.identity === role);
+      if (!key || !key.indexes.length || !key.indexes.includes(HELIX_DEVELOPMENT_PRODUCTS_INDEX)
+        || key.indexes.some(index => index !== HELIX_DEVELOPMENT_PRODUCTS_INDEX && !(role === "configured-write-key"
+          && index.startsWith(`${HELIX_DEVELOPMENT_PRODUCTS_INDEX}_tmp_`)))) {
+        blockers.push(`Algolia ${role} lacks a development-only index restriction`);
+      }
+      if (role === "configured-public-search-key" && key && (key.acl.length !== 1 || key.acl[0] !== "search")) {
+        blockers.push("Configured public Product Search key must have only the search ACL");
+      }
+    }
   }
   for (const index of inventory.indices) {
     if (containsRetiredIdentifier(index.name)) {
@@ -357,7 +373,7 @@ export function assessProductSearchVerification(
       key.indexes.some(
         (restriction) =>
           wildcardMatches(restriction, LEGACY_PRODUCTS_INDEX) &&
-          !wildcardMatches(restriction, HELIX_PRODUCTS_INDEX),
+          !wildcardMatches(restriction, HELIX_DEVELOPMENT_PRODUCTS_INDEX),
       )
     ) {
       blockers.push(
@@ -403,20 +419,21 @@ export function assessProductSearchVerification(
     blockers.push("canonical Product Search records contain retired identities or aliases");
   }
   if (!targetIdentityIsCurrent) {
-    blockers.push("helix_products records contain retired identities or aliases");
+    blockers.push("helix_products_dev records contain retired identities or aliases");
   }
   if (!targetSettingsAreCurrent) {
-    blockers.push("helix_products settings contain retired identities or aliases");
+    blockers.push("helix_products_dev settings contain retired identities or aliases");
   }
   if (!targetRulesAreCurrent) {
-    blockers.push("helix_products rules contain retired identities or aliases");
+    blockers.push("helix_products_dev rules contain retired identities or aliases");
   }
   if (!targetSynonymsAreCurrent) {
-    blockers.push("helix_products synonyms contain retired identities or aliases");
+    blockers.push("helix_products_dev synonyms contain retired identities or aliases");
   }
 
   const targetMatchesCanonical = inventory.target
-    ? canonicalIdentityIsCurrent &&
+    ? inventory.target.name === HELIX_DEVELOPMENT_PRODUCTS_INDEX
+      && canonicalIdentityIsCurrent &&
       targetIdentityIsCurrent &&
       targetSettingsAreCurrent &&
       inventory.target.settingsMatch &&
@@ -427,9 +444,9 @@ export function assessProductSearchVerification(
       inventory.target.entries === inventory.target.records.length &&
       recordsMatch(inventory.target.records, canonicalRecords)
     : false;
-  if (!inventory.target) blockers.push("helix_products index is missing");
+  if (!inventory.target) blockers.push("helix_products_dev index is missing");
   else if (!targetMatchesCanonical) {
-    blockers.push("helix_products does not match canonical Product Search state");
+    blockers.push("helix_products_dev does not match canonical Product Search state");
   }
   const verified = blockers.length === 0;
 
@@ -696,7 +713,7 @@ export class AlgoliaProductSearchControlPlane
           this.publicClient.searchForHits({
             requests: [
               {
-                indexName: HELIX_PRODUCTS_INDEX,
+                indexName: HELIX_DEVELOPMENT_PRODUCTS_INDEX,
                 query: "",
                 hitsPerPage: 1,
               },
@@ -724,7 +741,7 @@ export class AlgoliaProductSearchControlPlane
       (index) => index.name === LEGACY_PRODUCTS_INDEX,
     );
     const targetIndex = indices.find(
-      (index) => index.name === HELIX_PRODUCTS_INDEX,
+      (index) => index.name === HELIX_DEVELOPMENT_PRODUCTS_INDEX,
     );
     const [source, target, querySuggestions, recommend, apiKeys] =
       await Promise.all([
@@ -736,7 +753,7 @@ export class AlgoliaProductSearchControlPlane
           : Promise.resolve(null),
         targetIndex
           ? this.readIndex(
-              HELIX_PRODUCTS_INDEX,
+              HELIX_DEVELOPMENT_PRODUCTS_INDEX,
               targetIndex,
             )
           : Promise.resolve(null),
@@ -757,7 +774,7 @@ export class AlgoliaProductSearchControlPlane
       apiKeys,
       analytics: {
         implication:
-          "Algolia analytics remain attached to the original index name; helix_products starts a separate analytics history and deleting the source does not delete its historical analytics.",
+          "Algolia analytics remain attached to the original index name; helix_products_dev starts a separate analytics history and deleting the source does not delete its historical analytics.",
       },
     };
   }
@@ -773,6 +790,7 @@ import {
 import { liteClient, type LiteClient } from "algoliasearch/lite";
 import { INDEX_SETTINGS } from "../../lib/algolia/record";
 import {
-  HELIX_PRODUCTS_INDEX,
+  expectedSearchAppId,
+  HELIX_DEVELOPMENT_PRODUCTS_INDEX,
   LEGACY_PRODUCTS_INDEX,
 } from "../../lib/algolia/index";

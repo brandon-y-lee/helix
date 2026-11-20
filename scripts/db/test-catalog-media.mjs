@@ -55,6 +55,15 @@ const checkpoint = "supabase/tests/checkpoints/catalog-current-20260909042518.sq
 const identity = "supabase/migrations/20260914051153_catalog_restore_current_identity.sql";
 const migration = "supabase/migrations/20260914062651_catalog_stable_media_boundary.sql";
 const activationMigration = "supabase/migrations/20260915030021_catalog_media_activation_singleton_guard.sql";
+const environment = process.argv.find((arg) => arg.startsWith("--environment="))?.slice("--environment=".length) ?? "production";
+const productionRef = "erasogmsqpgiirovubjh";
+const developmentRef = "zyfkunnpnlmgvrojmrbg";
+if (!["development", "production"].includes(environment)) throw new Error("Unknown synthetic environment");
+const projectRef = environment === "development" ? developmentRef : productionRef;
+const oppositeRef = environment === "development" ? productionRef : developmentRef;
+const identityBootstrap = "supabase/operations/release-bootstrap/20261120131122_helix_environment_identity.sql";
+const bindingMigration = "supabase/migrations/20261120131137_bind_catalog_media_to_environment.sql";
+const bindingProof = "supabase/tests/catalog_media_environment.integration.sql";
 const fixtures = "supabase/tests/catalog_identity.fixtures.sql";
 const tests = "supabase/tests/catalog_media.integration.sql";
 // Optional read-only composition against a sibling's actual migration. This
@@ -67,7 +76,9 @@ if (additionalMigrations.some((path) => !path.endsWith(".sql"))) {
 // Reuse the synthetic identity seed with the production content-addressed filename
 // grammar; the schema-only checkpoint and applied migration are unmodified.
 const read = (path) => {
-  const sql = readFileSync(resolve(root, path), "utf8");
+  let sql = readFileSync(resolve(root, path), "utf8");
+  if (path === tests || path === fixtures) sql = sql.replaceAll(productionRef, projectRef);
+  if (path === bindingProof) sql = sql.replaceAll("<own-ref>", projectRef).replaceAll("<other-ref>", oppositeRef);
   return path === fixtures ? sql.replaceAll("current.webp", `primary/${"a".repeat(64)}.webp`) : sql;
 };
 const files = [checkpoint, identity, ...additionalMigrations, migration, activationMigration, fixtures, tests];
@@ -135,7 +146,7 @@ async function concurrencyChecks() {
   });
   const staleActivationOutcome = staleActivation.then(() => false, (error) => error.message.includes("READ COMMITTED"));
   await hasActivationSnapshot;
-  docker(psql, "insert into public.product_media(id,product_id,media_type,url,alt,width,height,role,sort_order) values('10000000-0000-4000-8000-000000000303','10000000-0000-4000-8000-000000000101','image','https://example.com/late-unreviewed.webp','Independent write after activation snapshot',100,100,'gallery',9);");
+  docker(psql, `insert into public.product_media(id,product_id,media_type,url,alt,width,height,role,sort_order) values('10000000-0000-4000-8000-000000000303','10000000-0000-4000-8000-000000000101','image','https://${projectRef}.supabase.co/storage/v1/object/public/helix-catalog/products/synthetic-serum/late-unreviewed.webp','Independent write after activation snapshot',100,100,'gallery',9);`);
   if (!await staleActivationOutcome) throw new Error("Stale operational snapshot activated over an unseen retired row.");
   if (docker(psql, "select enabled from private.catalog_media_policy;").trim() !== "f") throw new Error("Stale activation changed policy.");
   docker(psql, "delete from public.product_media where id='10000000-0000-4000-8000-000000000303';");
@@ -186,18 +197,57 @@ try {
     "exec", container, "psql", "-U", "postgres", "-d", database, "-Atc", "show server_version;",
   ]).trim();
   if (!version.startsWith("17.")) throw new Error("Catalog checkpoint tests require PostgreSQL 17.");
-  const input = "\\set ON_ERROR_STOP on\n" + files.map(read).join("\n");
+  // The T1 development renderer binds these three historical routines and one
+  // constraint to the child. Model exactly that prerequisite on the synthetic
+  // DB; checkpoint and migrations on disk remain the reviewed historical bytes.
+  const predecessors = files.slice(0, -2);
+  function predecessorSql(path) {
+    const sql = read(path);
+    if (environment !== "development") return sql;
+    if (path === migration) return sql.replaceAll(productionRef, developmentRef);
+    if (path === checkpoint) return sql.split("\n").map((line) =>
+      line.includes('add constraint "product_media_core_routine_editorial_shape_check"')
+        ? line.replaceAll(productionRef, developmentRef) : line).join("\n");
+    return sql;
+  }
+  docker(psql, predecessors.map(predecessorSql).join("\n") + "\n" + read(identityBootstrap));
+  // An uninitialized database cannot install a release or authorize media.
+  const missing = spawnSync("docker", psql, { input: read(bindingMigration), encoding: "utf8" });
+  if (missing.status === 0 || !missing.stderr.includes("environment marker")) {
+    throw new Error("Expected binding installation to refuse missing environment marker.");
+  }
+  docker(psql, `insert into private.helix_environment(environment,project_ref) values ('${environment}','${projectRef}');`);
+  // Exercise the forward DDL on nonempty old-app state before the full suite.
+  // The pre-existing document, media rows, and immutable revisions
+  // must survive, and the old writer must still accept its own slug URLs.
+  const sidecar = JSON.parse(read("supabase/releases/20261120131137_bind_catalog_media_to_environment.json"));
+  if (createHash("sha256").update(read(bindingMigration)).digest("hex") !== sidecar.sourceSha256) {
+    throw new Error("Stale forward migration sidecar.");
+  }
+  docker(psql, [
+    "begin;", read(fixtures), "select pg_temp.seed_catalog_identity('synthetic-serum','Synthetic serum');",
+    "create temp table saved_catalog as select pg_temp.catalog_identity_state() AS snapshot;",
+    read(bindingMigration),
+    "do $$ begin if (select snapshot from saved_catalog) is distinct from pg_temp.catalog_identity_state() then raise exception 'Binding changed existing Catalog rows'; end if; end $$;",
+    "update public.product_media set url = url where archived_at is null;", "rollback;",
+  ].join("\n"));
+  const input = [bindingMigration, fixtures, tests, bindingProof].map(read).join("\n");
   let checks = [];
   docker(psql, input, (diagnostics) => {
     checks = diagnostics.split("\n").filter((line) => line.includes("PASS "))
       .map((line) => line.slice(line.indexOf("PASS ") + 5));
   });
+  if (docker(psql, sidecar.verify).trim() !== "t") throw new Error("Release sidecar postflight rejected target.");
   const concurrency = await concurrencyChecks();
   console.log(JSON.stringify({
-    status: "passed",
+    status: "passed", environment,
     postgres: version,
-    checkpoint: { path: checkpoint, sha256: createHash("sha256").update(read(checkpoint)).digest("hex") },
-    executed: files.slice(1).map((path) => ({ path, sha256: createHash("sha256").update(read(path)).digest("hex") })),
+    checkpoint: { path: checkpoint, sourceSha256: createHash("sha256").update(read(checkpoint)).digest("hex"),
+      sha256: createHash("sha256").update(predecessorSql(checkpoint)).digest("hex") },
+    executed: [...files.slice(1,-2), identityBootstrap, bindingMigration, fixtures, tests, bindingProof].map((path) => ({
+      path, sourceSha256: createHash("sha256").update(readFileSync(resolve(root, path))).digest("hex"),
+      sha256: createHash("sha256").update(predecessors.includes(path) ? predecessorSql(path) : read(path)).digest("hex"),
+    })),
     checks,
     concurrency,
     scope: "isolated synthetic Catalog; no provider data or outbound delivery",

@@ -1,5 +1,6 @@
 // Storefront-safe Algolia record and deterministic canonical mapper.
 
+import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import {
   isProductStatus,
   productOfferPresentation,
@@ -263,7 +264,7 @@ export function buildAlgoliaRecord(
   const imageMedia = media.find(
     (item) =>
       item.media_type === "image" &&
-      Boolean(item.url) &&
+      isCatalogProductMediaUrl(item.url) &&
       INDEXED_IMAGE_ROLES.has(item.role),
   );
   const placeholderMedia = media.find(

@@ -1,3 +1,4 @@
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,7 +59,7 @@ function product(
     product_media: [
       {
         media_type: "video",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/routine.mp4",
+        url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/routine.mp4",
         alt: "Routine video",
         width: null,
         height: null,
@@ -69,7 +70,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/poster.webp",
+        url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/poster.webp",
         alt: "Routine poster",
         width: 1200,
         height: 1600,
@@ -80,7 +81,7 @@ function product(
       },
       {
         media_type: "image",
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/gallery.webp",
+        url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/gallery.webp",
         alt: "Product bottle",
         width: 1200,
         height: 1600,
@@ -103,8 +104,8 @@ function product(
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL =
-    "https://erasogmsqpgiirovubjh.supabase.co";
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "public-anon-key";
+    "https://zyfkunnpnlmgvrojmrbg.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = syntheticSupabaseKey("development", "anon");
   delete process.env[STOREFRONT_SNAPSHOT_ENV];
 });
 
@@ -230,7 +231,7 @@ describe("Playwright global Storefront baseline setup", () => {
       expect(JSON.parse(await readFile(join(outputDirectory, "storefront-cold-canonical.json"), "utf8")))
         .toMatchObject({ buildId: "retained-test-build", path: "/products/family-member" });
       expect(await readFile(artifactPath, "utf8")).not.toContain(
-        "public-anon-key",
+        syntheticSupabaseKey("development", "anon"),
       );
     } finally {
       await rm(outputDirectory, { recursive: true, force: true });

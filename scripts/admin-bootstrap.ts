@@ -5,6 +5,7 @@ import {
   type SupabaseClient,
   type User,
 } from "@supabase/supabase-js";
+import { verifySupabaseCredential } from "../lib/supabase/key-binding";
 import { assertApprovedSupabaseProjectUrl } from "../lib/supabase/project-safety";
 
 const ROLES = new Set(["admin", "catalog_publisher", "catalog_editor"]);
@@ -79,7 +80,9 @@ async function main() {
     );
   }
 
-  const admin = createClient(url, requiredEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+  const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
+  verifySupabaseCredential(serviceKey, "development", "service_role", process.env);
+  const admin = createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const user = await resolveUser(admin);

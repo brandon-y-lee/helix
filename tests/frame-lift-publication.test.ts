@@ -28,7 +28,7 @@ function sourceDocument(step: "FRAME" | "LIFT"): ProductEditorDocumentV4 {
   document.media = document.media.map((item, index) => ({
     ...item,
     product_id: publication.productId,
-    url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/${step.toLowerCase()}/${index}.webp`,
+    url: `https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/${step.toLowerCase()}/${index}.webp`,
   }));
   document.relationships = [
     {
@@ -86,7 +86,7 @@ describe("FRAME and LIFT Catalog publication", () => {
         validateProductEditorDocument(after, {
           ...process.env,
           NEXT_PUBLIC_SUPABASE_URL:
-            "https://erasogmsqpgiirovubjh.supabase.co",
+            "https://zyfkunnpnlmgvrojmrbg.supabase.co",
         }).issues,
       ).toEqual([]);
       expect(isFrameLiftPublicationCurrent(after, step)).toBe(true);

@@ -3,13 +3,16 @@ import { buildAuthEmailTemplates } from "../../lib/email/auth-templates";
 import { assertEmailEnvironment, isEmailAddress, type EmailEnvironment } from "../../lib/email/config";
 import { runAuthEmailCommand } from "../auth-email/operations";
 
-export const TARGET = { project: "erasogmsqpgiirovubjh", team: "team_uriJjJWNwpZnZHnIp5AiXuv0",
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
+import { verifySupabaseCredential } from "../../lib/supabase/key-binding";
+
+export const TARGET = { project: SUPABASE_PROJECT_REFS.development, team: "team_uriJjJWNwpZnZHnIp5AiXuv0",
   vercelProject: "prj_N9nyPL9SixJHOROIovS8PDQ9aKny", origin: "https://helixskin.vercel.app" } as const;
 export const WEBHOOK_EVENTS = ["email.bounced", "email.complained", "email.delivered", "email.delivery_delayed", "email.failed", "email.received", "email.sent", "email.suppressed"];
 export const CONTROL_READS = { confirmation: "read_order_confirmation_email_control", tracking: "read_simulated_tracking_control",
   support: "read_support_intake_control", receiving: "read_support_receiving_control", marketing: "read_marketing_email_control",
   product: "read_product_notification_email_control" } as const;
-export const PROOF_KINDS = ["provider-account-and-credentials", "owner-and-simulator-restriction", "auth-continuity-and-rollback",
+export const PROOF_KINDS = ["provider-account-and-credentials", "development-provider-isolation", "owner-and-simulator-restriction", "auth-continuity-and-rollback",
   "auth-and-capability-tracking-disabled", "receiving-and-provider-retention", "native-campaigns-disabled", "hosting-and-linux-photos"] as const;
 const purposes = ["marketing_confirmation", "welcome_initial", "welcome_education"] as const;
 const sha = /^[a-f0-9]{64}$/;
@@ -46,7 +49,7 @@ export type Manifest = {
 };
 export type SetupReceipt = { manifestSha256: string; codeSha: string; controlsFingerprint: string;
   credentials: Record<string, { version: string; sha256: string }>; evidence: Record<string, string>;
-  environment?: Record<string, { id: string; updatedAt: number }>;
+  environment?: Record<string, { id: string; updatedAt: number; sha256: string }>;
   smtpApplied?: { fingerprint: string; credentialVersion: string }; controlsAppliedFingerprint?: string };
 export type LocalEvidence = { codeSha: string; clean: boolean; migrations: Record<string, string>; evidence: Record<string, string>; setupReceipt?: unknown };
 export function parseManifest(value: unknown): Manifest {
@@ -165,18 +168,27 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
   if ((command === "apply" || command === "disable") && confirmation !== manifestSha256) fail("manifest_confirmation_mismatch");
   assertEmailEnvironment(env);
   if (env.NEXT_PUBLIC_SUPABASE_URL !== `https://${TARGET.project}.supabase.co`) fail("project_mismatch");
+  verifySupabaseCredential(env.SUPABASE_SERVICE_ROLE_KEY ?? "", "development", "service_role", env);
   const receiptValue = local.setupReceipt;
   const receipt = record(receiptValue) && receiptValue.manifestSha256 === manifestSha256 && receiptValue.codeSha === manifest.codeSha
     && record(receiptValue.credentials) && record(receiptValue.evidence) && typeof receiptValue.controlsFingerprint === "string" && sha.test(receiptValue.controlsFingerprint)
     ? receiptValue as SetupReceipt : null;
+  const isolation = manifest.evidence["development-provider-isolation"];
+  const approvedIsolation = isolation.sha256 ?? receipt?.evidence["development-provider-isolation"];
+  if (command !== "disable" && (!approvedIsolation || approvedIsolation !== local.evidence[isolation.file])) {
+    if (command === "apply") fail("activation_preflight_failed");
+    return { command, manifestSha256, codeSha: manifest.codeSha, readyForGuardedApply: false,
+      operationalAcceptanceComplete: false, findings: ["development_provider_isolation_unverified"],
+      requiredEvidence: PROOF_KINDS };
+  }
   const findings: string[] = [];
   const observations: Record<string, unknown> = {};
   const add = (code: string) => { if (!findings.includes(code)) findings.push(code); };
   const required = (key: string) => { const value = env[key]?.trim(); if (!value) fail(`missing_${key.toLowerCase()}`); return value; };
-  async function request(url: string, token: string, method = "GET", body?: unknown, headers: Record<string, string> = {}): Promise<unknown> {
+  async function request(url: string, token: string | null, method = "GET", body?: unknown, headers: Record<string, string> = {}): Promise<unknown> {
     try {
       const response = await fetcher(url, { method, redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15_000),
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), "Content-Type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       if (!response.ok) { await response.body?.cancel(); fail(`provider_http_${response.status}`); }
       if (response.status === 204) return null;
       const reader = response.body?.getReader(); if (!reader) fail("provider_empty_response");
@@ -187,7 +199,10 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     } catch (error) { if (error instanceof OperationsError) throw error; fail("provider_read_or_write_failed"); }
   }
   const supabase = (path: string, method = "GET", body?: unknown) => request(`https://api.supabase.com/v1/projects/${TARGET.project}${path}`, required("SUPABASE_ACCESS_TOKEN"), method, body);
-  const rpc = (name: string) => request(`https://${TARGET.project}.supabase.co/rest/v1/rpc/${name}`, required("SUPABASE_SERVICE_ROLE_KEY"), "POST", {}, { apikey: required("SUPABASE_SERVICE_ROLE_KEY") });
+  const rpc = (name: string) => {
+    const serviceKey = required("SUPABASE_SERVICE_ROLE_KEY");
+    return request(`https://${TARGET.project}.supabase.co/rest/v1/rpc/${name}`, serviceKey.startsWith("sb_secret_") ? null : serviceKey, "POST", {}, { apikey: serviceKey });
+  };
   const resend = (path: string) => request(`https://api.resend.com${path}`, required("RESEND_API_KEY"));
   const vercel = (path: string) => request(`https://api.vercel.com${path}${path.includes("?") ? "&" : "?"}teamId=${TARGET.team}`, required("VERCEL_ACCESS_TOKEN"));
   async function readControls(): Promise<Record<string, unknown>> {
@@ -305,25 +320,26 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     observations.templateBindings = generatedTemplates;
   }
   await inspect("hosted_configuration", async () => {
-    const result = await vercel(`/v9/projects/${TARGET.vercelProject}/env?decrypt=true&gitBranch=dev&limit=100`);
+    const result = await vercel(`/v9/projects/${TARGET.vercelProject}/env?gitBranch=dev&limit=100`);
     if (!record(result) || !Array.isArray(result.envs) || (record(result.pagination) && result.pagination.next != null)) fail("environment_inventory_incomplete");
-    const scoped = result.envs.filter(v => record(v) && Array.isArray(v.target) && v.target.includes("preview") && (v.gitBranch === "dev" || !v.gitBranch));
-    for (const [key, wanted] of Object.entries({ ...expectedEnvironment, ...Object.fromEntries(requiredVersions.map(key => [key, required(key)])) })) {
-      const branch = scoped.filter(v => record(v) && v.key === key && v.gitBranch === "dev");
-      const found = branch.length ? branch : scoped.filter(v => record(v) && v.key === key && !v.gitBranch);
-      if (found.length !== 1 || !record(found[0]) || typeof found[0].updatedAt !== "number" || found[0].updatedAt > deploymentCreatedAt) {
+    const scoped = result.envs.filter(record).filter(variable =>
+      variable.gitBranch === "dev" && Array.isArray(variable.target)
+      && variable.target.length === 1 && variable.target[0] === "preview");
+    const expected = { ...expectedEnvironment, ...Object.fromEntries(requiredVersions.map(key => [key, required(key)])),
+      HELIX_MARKETING_SYNC_ENABLED: "true", HELIX_SUPPORT_RETENTION_ENABLED: "true" };
+    for (const [key, wanted] of Object.entries(expected)) {
+      const matches = scoped.filter(variable => variable.key === key);
+      const variable = matches[0];
+      if (matches.length !== 1 || typeof variable.updatedAt !== "number" || variable.updatedAt > deploymentCreatedAt) {
         add("hosted_environment_mismatch"); continue;
       }
-      const variable = found[0], bound = receipt?.environment?.[key];
-      if (variable.type === "sensitive") {
-        // Sensitive values cannot be recovered. The approved setup receipt binds the applied variable revision; hosted rehearsal proves actual use.
-        if (!bound || variable.id !== bound.id || variable.updatedAt !== bound.updatedAt) add("hosted_sensitive_revision_unbound");
-      } else if (typeof variable.value !== "string"
-        || (key === "HELIX_EMAIL_MARKETING_CONTRACT" ? !same(JSON.parse(variable.value), JSON.parse(wanted)) : variable.value !== wanted)) add("hosted_environment_mismatch");
-    }
-    for (const key of ["HELIX_MARKETING_SYNC_ENABLED", "HELIX_SUPPORT_RETENTION_ENABLED"]) {
-      const found = scoped.filter(v => record(v) && v.key === key && v.gitBranch === "dev");
-      if (found.length !== 1 || !record(found[0]) || found[0].value !== "true") add("repair_workers_disabled");
+      if (variable.type === "sensitive" || variable.type === "encrypted") {
+        const bound = receipt?.environment?.[key];
+        if (!bound || variable.id !== bound.id || variable.updatedAt !== bound.updatedAt
+          || bound.sha256 !== createHash("sha256").update(wanted).digest("hex")) add("hosted_sensitive_revision_unbound");
+      } else if (variable.type !== "plain" || requiredVersions.includes(key) || variable.value !== wanted) {
+        add("hosted_environment_mismatch");
+      }
     }
   });
   async function readAuth() {

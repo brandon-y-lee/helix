@@ -2,10 +2,9 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ProductImage } from "@/components/product/ProductImage";
 import { requiresOriginalCatalogImage } from "@/lib/catalog/media-storage";
-import { APPROVED_SUPABASE_PROJECT_REF } from "@/lib/supabase/project-safety";
 import type { ProductMedia } from "@/lib/products";
 
-const origin = `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`;
+const origin = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const primaryPath =
   "/storage/v1/object/public/helix-catalog/products/example-product/primary";
 const hash = "a".repeat(64);
@@ -74,6 +73,7 @@ describe("Original Product image URL policy", () => {
   it.each([
     ["ordinary image", ordinaryUrl],
     ["external origin", originalUrl.replace(origin, "https://example.com")],
+    ["production project while in development", originalUrl.replace(origin, "https://erasogmsqpgiirovubjh.supabase.co")],
     ["another project", originalUrl.replace(origin, "https://another-project.supabase.co")],
     ["lookalike origin", originalUrl.replace(".supabase.co", ".supabase.co.example.com")],
     ["insecure origin", originalUrl.replace("https:", "http:")],

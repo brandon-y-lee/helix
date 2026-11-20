@@ -64,6 +64,23 @@ const waitlistProduct: AlgoliaProductRecord = {
 };
 
 describe("SearchResultCard", () => {
+  it("keeps a stale search hit usable without loading media from production on dev", () => {
+    const { container } = render(<SearchResultCard hit={{
+      ...comingSoonProduct,
+      imageMedia: {
+        kind: "image",
+        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/lift/primary/stale.webp",
+        alt: "LIFT",
+        width: 800,
+        height: 800,
+        role: "search",
+      },
+    }} />);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/products/lift");
+  });
+
   it("routes coming-soon products to details without promising a waitlist", () => {
     render(<SearchResultCard hit={comingSoonProduct} />);
 

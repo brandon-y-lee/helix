@@ -7,6 +7,8 @@ review and gate. The Spec stays open until the exact integrated `dev` SHA passes
 the separately approved hosted rehearsal below. Preserve unresolved evidence in
 [the Stripe runbook](hosted-sandbox-checkout.md) and #408 separately.
 
+The development procedure targets the persistent child. Recreate the manifest for the child and bind the reviewed `development-provider-isolation` evidence hash to the development Resend account, keys, webhook, testing recipients, and rollback. The tool checks this local evidence before accessing Resend or hosting. The historic parent manifest and its credentials cannot run this procedure. Disabling admission on the child remains available during a provider outage.
+
 ## Freeze the operational change
 
 After all ten Tickets are integrated, the sole Spec Closer incorporates current
@@ -26,7 +28,7 @@ The exact approval packet must bind these facts:
 | Boundary | Required binding |
 | --- | --- |
 | Source and deployment | Integrated SHA, migration filenames/hashes, Vercel deployment ID, Preview / `dev`, alias-to-deployment mapping, Node runtime and function limits |
-| Fixed targets | Supabase `erasogmsqpgiirovubjh`; Vercel project `prj_N9nyPL9SixJHOROIovS8PDQ9aKny`, team `team_uriJjJWNwpZnZHnIp5AiXuv0`; existing Stripe sandbox account and endpoint |
+| Fixed targets | Development Supabase `zyfkunnpnlmgvrojmrbg`; Vercel project `prj_N9nyPL9SixJHOROIovS8PDQ9aKny`, team `team_uriJjJWNwpZnZHnIp5AiXuv0`; existing Stripe sandbox account and endpoint |
 | Resend | Actual account/key provenance and scopes, independent senders, account-assigned receiving mailbox, Reply-To, exact signed callback URL and event set, tracking disabled |
 | Audience | Verified account-owner address and explicit exact simulator policy, canonical Contact namespace, factual postal identity; no arbitrary recipient or historical backfill |
 | Native assets | Exact Topic/template aliases, names and desired payload hashes; existing IDs/version hashes where present; SMTP/template fingerprints and private old/new credential versions |
@@ -61,9 +63,9 @@ to configure `HELIX_EMAIL_MARKETING_CONTRACT` privately.
 write the receipt's `manifestSha256`, `codeSha`, observed `controlsFingerprint`,
 `credentials` map of `{version,sha256}`, and `evidence` map of proof-kind to hash.
 This binds generated values and future proofs without rewriting the approved
-manifest. Missing receipts/resources/proofs remain plan findings. For sensitive
-Vercel values that cannot be retrieved, `environment` records each key's applied
-`{id,updatedAt}` metadata; the local credential hash must still match its approved
+manifest. Missing receipts/resources/proofs remain plan findings. For encrypted and sensitive
+Vercel values, `environment` records each branch-specific Preview variable’s applied
+`{id,updatedAt,sha256}` receipt. The verifier requests metadata without decryption; the local credential hash must still match its approved
 or generated receipt. After successful minimal SMTP postflight, privately record
 `smtpApplied:{fingerprint,credentialVersion}` for retry-baseline verification.
 After successful control postflight, record the returned

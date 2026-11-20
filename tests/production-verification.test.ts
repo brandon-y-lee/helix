@@ -320,14 +320,14 @@ describe("Production Artifact Verification", () => {
 
     expect(environment).toMatchObject({
       NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
-      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products",
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products_dev",
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
       NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",
       NODE_ENV: "production",
       PORT: "4200",
       SHELL_ONLY: "from-shell",
-      SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
+      HELIX_DEV_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
     });
     expect(environment.CI).toBe("");
     expect(environment.HELIX_VERIFICATION_ADAPTER).toBe("");

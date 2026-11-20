@@ -113,9 +113,9 @@ it("requires full inbound ownership proof and a durable queue ID, excluding nati
  expect(fetch).not.toHaveBeenCalled();
 });
 it("runs real support/welcome delegates with unchanged signatures, keeping existing gates and unknown ownership retryable",async()=>{
- const full={...env,HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
+ const full={...env,VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",VERCEL_GIT_COMMIT_REF:"main",HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID:id,HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:"synthetic-only-service-key-32-characters",HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET:"synthetic-only-abuse-secret-32-characters",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"d",
+ HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"d",
  HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-only-welcome-key",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true"};
  let supportResult="matched",welcomeResult="recorded";
  const fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{const url=String(input);expect(url.startsWith("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/")).toBe(true);

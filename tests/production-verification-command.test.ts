@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import globalSetup from "@/e2e/global-setup";
 import { executeProductionVerificationCli } from "@/scripts/production-verification-cli";
 import { runProductionVerificationCiCommand } from "@/scripts/production-verification-ci-command";
@@ -295,7 +296,7 @@ describe("Production Verification Commands", () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://private-value.example.test";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = syntheticSupabaseKey("development", "anon");
 
     try {
       const error = await globalSetup().catch((cause: unknown) => cause);
@@ -321,13 +322,13 @@ describe("Production Verification Commands", () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     process.env.NEXT_PUBLIC_SUPABASE_URL =
-      "https://erasogmsqpgiirovubjh.supabase.co.evil.example";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+      "https://zyfkunnpnlmgvrojmrbg.supabase.co.evil.example";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = syntheticSupabaseKey("development", "anon");
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
     try {
       await expect(globalSetup()).rejects.toThrow(
-        /e2e: refusing unapproved Supabase project.*hostname must exactly match/,
+        /e2e: refusing unapproved Supabase project.*Expected the development project/,
       );
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
@@ -346,8 +347,8 @@ describe("Production Verification Commands", () => {
     const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const originalAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     process.env.NEXT_PUBLIC_SUPABASE_URL =
-      "https://erasogmsqpgiirovubjh.supabase.co";
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
+      "https://zyfkunnpnlmgvrojmrbg.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = syntheticSupabaseKey("development", "anon");
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response("raw-private-provider-payload", { status: 500 }));
