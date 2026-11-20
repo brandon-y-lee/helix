@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 // Use the owned CLI stack's PostgREST build with the bootstrapped clone.
 // The CLI's normal gateway always reads its original 'postgres' database.
-export async function verifyLocalCatalogApi(stack, database) {
+export async function withLocalCatalogApi(stack, database, check) {
   assert.match(stack.nonce, /^[a-f0-9]{12}$/);
   assert.equal(database, "helix_bootstrap_fresh_a_" + stack.nonce);
   assert.match(stack.container, /^[0-9a-f]{64}$/);
@@ -68,24 +68,44 @@ export async function verifyLocalCatalogApi(stack, database) {
         "PGRST_SERVER_PORT=" + port,
         "-e",
         "PGRST_DB_POOL=1",
+        "-e",
+        "PGRST_DB_PLAN_ENABLED=true",
         image,
       ])
       .stdout.toString()
       .trim();
     assert.match(container, /^[a-f0-9]{64}$/);
-    const read = async (slug, select) => {
-      const query = new URLSearchParams({ select, slug: "eq." + slug, catalog_status: "eq.active" });
+    const readProducts = async (query, explain = false) => {
       const url = `http://127.0.0.1:${port}/products?${query}`;
+      const accept = explain ? "application/vnd.pgrst.plan+json" : "application/json";
       for (let attempt = 0; attempt < 24; attempt++) {
-        const response = stack.exec(["/usr/bin/wget", "-qO-", "-T", "2", url], undefined, true);
-        if (response.status === 0) {
-          const rows = JSON.parse(response.stdout);
-          assert.equal(rows.length, 1, "Expected one active anonymous development Product.");
-          return rows[0];
-        }
+        const response = stack.exec(
+          ["/usr/bin/wget", "-qO-", "-T", "2", "--header", "Accept: " + accept, url],
+          undefined,
+          true,
+        );
+        if (response.status === 0) return response.stdout.toString();
         await delay(200);
       }
       throw Error("The owned PostgREST service could not read the seeded Catalog relationship.");
+    };
+    return await check(readProducts);
+  } finally {
+    if (container) {
+      assert.equal(inspect(container, '{{index .Config.Labels "' + label + '"}}'), stack.nonce);
+      stack.docker(["rm", "--force", "--volumes", container]);
+    }
+    if (createdRole) stack.sql(database, "drop role " + role + ";");
+  }
+}
+
+export async function verifyLocalCatalogApi(stack, database) {
+  await withLocalCatalogApi(stack, database, async (readProducts) => {
+    const read = async (slug, select) => {
+      const query = new URLSearchParams({ select, slug: "eq." + slug, catalog_status: "eq.active" });
+      const rows = JSON.parse(await readProducts(query));
+      assert.equal(rows.length, 1, "Expected one active anonymous development Product.");
+      return rows[0];
     };
     const cold = await read(
       "dev-preparation-pads",
@@ -111,11 +131,5 @@ export async function verifyLocalCatalogApi(stack, database) {
         ),
       ),
     );
-  } finally {
-    if (container) {
-      assert.equal(inspect(container, '{{index .Config.Labels "' + label + '"}}'), stack.nonce);
-      stack.docker(["rm", "--force", "--volumes", container]);
-    }
-    if (createdRole) stack.sql(database, "drop role " + role + ";");
-  }
+  });
 }

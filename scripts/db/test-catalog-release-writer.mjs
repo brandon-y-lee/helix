@@ -1,10 +1,39 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
+
+// Stop the other transaction at a known point while its real Product lock
+// is held. Both the gate and the observation are confined to this fixture DB.
+async function checkWhileProductsLocked(client, mode, operation, inspect) {
+  await client.query("SELECT pg_advisory_lock(563, 1)");
+  async function observe() {
+    try {
+      const deadline = Date.now() + 30_000;
+      do {
+        const { rows: [state] } = await client.query(`SELECT EXISTS (
+          SELECT FROM pg_locks gate JOIN pg_locks product USING (pid, database)
+          WHERE gate.locktype = 'advisory' AND NOT gate.granted AND gate.classid = 563
+            AND gate.objid = 1 AND gate.objsubid = 2
+            AND gate.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+            AND product.relation = 'public.products'::regclass AND product.mode = $1 AND product.granted
+        ) AS held`, [mode]);
+        if (state.held) return await inspect();
+        await delay(100);
+      } while (Date.now() < deadline);
+      assert.fail(`Timed out waiting for the other transaction's ${mode} on public.products`);
+    } finally {
+      await client.query("SELECT pg_advisory_unlock(563, 1)");
+    }
+  }
+  const outcomes = await Promise.allSettled([operation(), observe()]);
+  for (const result of outcomes) if (result.status === "rejected") throw result.reason;
+}
 
 // Fixture setup runs only after test-catalog-media has checked its disposable
 // container label and created this run's unique database and login identity.
@@ -136,8 +165,113 @@ export async function checkCatalogRelease({
     assert.equal(after.legacy_count, 1);
     assert.deepEqual(after.forward.map((row) => row.version), ["20261120131137"]);
     assert.equal(oldData(), snapshot, "The existing Catalog records must remain identical across the real release");
+
+    const orderFile = "20261120141910_index_stable_catalog_product_order.sql";
+    const orderSql = readFileSync(join(root, "supabase/migrations", orderFile), "utf8");
+    const orderSidecar = JSON.parse(readFileSync(join(root, "supabase/releases", orderFile.replace(/\.sql$/, ".json")), "utf8"));
+    const [orderMigration] = validateReleaseSources([[orderFile, orderSql]], [[orderFile, orderSidecar]]);
+    const orderRelease = { ...common, migrations: [migration, orderMigration], apply: true };
+    const installer = readFileSync(join(root, "supabase/operations/release-bootstrap/enroll_catalog_order_index.sql"), "utf8");
+    const enroll = [...psql, "-v", `writer_role=${writerRole}`, "-v", `expected_environment=${environment}`];
+    const ownerEnroll = (ref) => docker([...enroll, "-v", `expected_project_ref=${ref}`], installer);
+    assert.throws(() => ownerEnroll(oppositeRef), /independently verified environment/);
+    docker(psql, `GRANT UPDATE (sort_order) ON public.products TO ${writerRole}`);
+    assert.throws(() => ownerEnroll(projectRef), /restricted Catalog media migration login/);
+    docker(psql, `REVOKE UPDATE (sort_order) ON public.products FROM ${writerRole}`);
+    ownerEnroll(projectRef);
+    assert.equal(docker(psql, `SELECT NOT EXISTS (SELECT FROM pg_roles WHERE rolname IN ('anon','authenticated','authenticator','service_role')
+      AND (pg_has_role(oid,'${writerRole}','MEMBER') OR has_function_privilege(oid,'private.apply_helix_catalog_order_index()','EXECUTE')))`).trim(), "t");
+    await deny("CREATE INDEX unauthorized_index ON public.products (id)");
+    await deny("ALTER FUNCTION private.apply_helix_catalog_order_index() RENAME TO unauthorized");
+
+    const predecessor = () => docker(psql, "SELECT 'public.products_catalog_status_sort_idx'::regclass::oid, pg_get_indexdef('public.products_catalog_status_sort_idx'::regclass)").trim();
+    const oldIndex = predecessor();
+    docker(psql, "CREATE INDEX products_catalog_status_sort_id_idx ON public.products (id)");
+    await assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/);
+    assert.deepEqual((await client.query(orderSidecar.verify)).rows, [{ applied: false }]);
+    assert.deepEqual((await client.query(historyQuery)).rows[0], after);
+    docker(psql, "DROP INDEX public.products_catalog_status_sort_id_idx");
+
+    const assertOrderPending = async () => {
+      const { rows } = await client.query("SELECT to_regclass('public.products_catalog_status_sort_id_idx') IS NULL AS absent");
+      assert.deepEqual(rows, [{ absent: true }]);
+      assert.deepEqual((await client.query(historyQuery)).rows[0], after);
+    };
+    for (const keys of [
+      "(catalog_status, sort_order, id)", "(sort_order, catalog_status, id)", "(catalog_status, sort_order, id, slug)",
+      "(catalog_status, sort_order DESC, id DESC) INCLUDE (slug)",
+      "(sort_order, id) WHERE catalog_status = 'active'",
+      "(sort_order, id) WHERE catalog_status IN ('active', 'draft')",
+      "(sort_order, id) WHERE catalog_status IS NOT NULL",
+    ]) {
+      docker(psql, `CREATE INDEX alternate_order ON public.products ${keys}`);
+      const alternate = () => docker(psql, "SELECT 'public.alternate_order'::regclass::oid, pg_get_indexdef('public.alternate_order'::regclass)");
+      const original = alternate();
+      await assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/);
+      await assertOrderPending();
+      assert.equal(alternate(), original);
+      docker(psql, "DROP INDEX public.alternate_order");
+    }
+    // Neither mixed directions nor these NULL-order flags match PostgreSQL's
+    // pathkeys for ORDER BY sort_order, id, including on NOT NULL columns.
+    docker(psql, `CREATE INDEX mixed_order ON public.products (sort_order ASC, id DESC);
+      CREATE INDEX wrong_null_order ON public.products (catalog_status, sort_order ASC NULLS FIRST, id ASC NULLS FIRST)`);
+
+    await checkWhileProductsLocked(client, "RowExclusiveLock", async () => {
+      const { stdout } = await promisify(execFile)("docker", [...psql, "-c", `BEGIN;
+        UPDATE public.products SET sort_order = sort_order + 1 WHERE slug = 'synthetic-serum' RETURNING slug;
+        SELECT pg_advisory_xact_lock(563, 1); ROLLBACK;`], { timeout: 45_000 });
+      assert.match(stdout, /synthetic-serum/);
+    }, async () => {
+      await client.query("BEGIN");
+      try {
+        // A missing NOWAIT would hit this timeout (57014) before the
+        // capability's three-second lock timeout could produce 55P03.
+        await client.query("SET LOCAL statement_timeout = '1s'");
+        await assert.rejects(client.query(orderSql), { code: "55P03" });
+      } finally {
+        await client.query("ROLLBACK");
+      }
+      await assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/);
+      await assertOrderPending();
+    });
+
+    // This genuine CLI insert can reach the gate only after its transaction
+    // has created the index. Fail it after an independent anon read completes.
+    docker(psql, `CREATE FUNCTION private.interrupt_order_history() RETURNS trigger
+      LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+      BEGIN
+        IF NEW.version = '20261120141910' AND to_regclass('public.products_catalog_status_sort_id_idx') IS NOT NULL THEN
+          PERFORM pg_advisory_xact_lock(563, 1);
+          RAISE EXCEPTION 'synthetic index history interruption';
+        END IF;
+        RETURN NEW;
+      END $$;
+      REVOKE ALL ON FUNCTION private.interrupt_order_history() FROM PUBLIC;
+      CREATE TRIGGER interrupt_order_history BEFORE INSERT ON supabase_migrations.schema_migrations
+        FOR EACH ROW EXECUTE FUNCTION private.interrupt_order_history();`);
+    await checkWhileProductsLocked(client, "ShareRowExclusiveLock",
+      () => assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/),
+      () => {
+        const anon = docker([...psql, "--username=supabase_admin"], `SET SESSION AUTHORIZATION anon;
+          SET statement_timeout = '2s';
+          SELECT slug FROM public.products WHERE catalog_status = 'active' ORDER BY sort_order, id LIMIT 1;`);
+        assert.equal(anon.trim(), "synthetic-cleanser");
+      });
+    await assertOrderPending();
+    docker(psql, "DROP TRIGGER interrupt_order_history ON supabase_migrations.schema_migrations");
+    assert.deepEqual((await runForward(orderRelease)).applied, [orderFile]);
+    assert.deepEqual((await client.query(orderSidecar.verify)).rows, [{ applied: true }]);
+    assert.deepEqual(await runForward(orderRelease), { pending: [], applied: [] });
+    const { rows: [finished] } = await client.query(historyQuery);
+    assert.equal(finished.legacy_digest, before.legacy_digest);
+    assert.deepEqual(finished.forward.slice(0, 1), after.forward);
+    assert.deepEqual(finished.forward.map((row) => row.version), ["20261120131137", "20261120141910"]);
+    assert.equal(predecessor(), oldIndex);
+    assert.equal(oldData(), snapshot);
     return { writerProfile: "dedicated-login", exactManifestVerified: true, failedLedgerRolledBack: true,
-      preservedOldCatalog: true, applied: 1, retryApplied: 0 };
+      preservedOldCatalog: true, conflictingIndexRefused: true, alternateIndexRefused: true,
+      activeWriterRefused: true, anonReadDuringIndex: true, indexHistoryRolledBack: true, applied: 2, retryApplied: 0 };
   } finally {
     try { await client.end(); }
     finally { docker(["exec", container, "dropdb", "-U", "postgres", releaseDatabase]); }

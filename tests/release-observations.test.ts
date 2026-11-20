@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { validateObservations, verifyReleaseObservations } from "../scripts/release/observations.mjs";
+import { createHash } from "node:crypto";
+import { validateObservations, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
 import { searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
 import example from "../scripts/release/catalog-observations.example.json";
 
@@ -35,6 +36,18 @@ describe("Catalog release observations", () => {
 const candidate = { url: "https://helix-123abc456-brandons-projects-5060bad5.vercel.app", id: "dpl_candidate", sha: "a".repeat(40) };
 const canonical = "https://www.helixskin.us";
 const statusToken = "s".repeat(48), bypassToken = "p".repeat(40);
+const publicKey = "sb_publishable_syntheticCatalogRelease";
+const catalogEnv: NodeJS.ProcessEnv = {
+  NODE_ENV: "test",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: publicKey,
+  HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(publicKey).digest("hex"),
+};
+const publicRows = [
+  {slug:"peptide-eye-cream",sort_order:2,product_family_memberships:[]},
+  {slug:"super-serum",sort_order:2,product_family_memberships:[{is_entry:true}]},
+  {slug:"other-variant",sort_order:3,product_family_memberships:[{is_entry:false}]},
+];
+const cardLinks = (slugs: string[]) => slugs.map(slug => `<a class="product-card__link" href="/products/${slug}"></a>`).join("");
 
 function fixture(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = new URL(String(input));
@@ -45,7 +58,8 @@ function fixture(input: RequestInfo | URL, init?: RequestInit): Promise<Response
     switch (url.pathname) {
       case "/collections/shop": return url.hostname === "helixskin.us"
         ? new Response(null, { status: 308, headers: { location: canonical + "/collections/shop?release_check=1" } })
-        : html('<a href="/products/super-serum">Super Serum</a>');
+        : html(cardLinks(["peptide-eye-cream","super-serum"]));
+      case "/rest/v1/products": return Response.json(publicRows, {headers:{"content-range":"0-2/3"}});
       case "/products/super-serum": return html('<link rel="canonical" href="https://www.helixskin.us/products/super-serum" /><img src="' + example.mediaUrl + '">');
       case "/auth/confirm": return method === "HEAD" ? new Response(null, { headers: { "cache-control":"private,no-store","referrer-policy":"no-referrer" } }) : html("Invalid email link",400);
       case "/account": case "/admin": return new Response(null,{status:307,headers:{location:"/account/sign-in?next=" + encodeURIComponent(url.pathname)}});
@@ -79,13 +93,14 @@ describe("production release read-only probe", () => {
   it.each(["staged","canonical","previous"])("verifies %s without giving a media server or redirect host application credentials", async phase => {
     const fetchImpl = vi.fn(fixture);
     await verifyReleaseObservations({phase,origin:phase === "staged" ? candidate.url : canonical,
-      deploymentId:candidate.id,sha:candidate.sha,expectations:example,statusToken,bypassToken,fetchImpl});
+      deploymentId:candidate.id,sha:candidate.sha,expectations:example,statusToken,bypassToken,fetchImpl,env:catalogEnv});
     for (const [input,init] of fetchImpl.mock.calls) {
       const url = new URL(String(input)), headers = new Headers(init?.headers);
       expect(["GET","HEAD"]).toContain(init?.method);
       expect(init?.redirect).toBe("manual");
       expect(headers.get("authorization")).toBe(url.pathname === "/api/internal/release-status" ? "Bearer " + statusToken : null);
       expect(headers.get("x-vercel-protection-bypass")).toBe(url.origin === candidate.url ? bypassToken : null);
+      expect(headers.get("apikey")).toBe(url.origin === "https://erasogmsqpgiirovubjh.supabase.co" && url.pathname === "/rest/v1/products" ? publicKey : null);
     }
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/api/internal/release-status"))).toBe(true);
   });
@@ -95,7 +110,7 @@ describe("production release read-only probe", () => {
       ["/marketing/production","/api/support/production/intake"].includes(new URL(String(input)).pathname)
         ? Promise.resolve(new Response(null,{status:404})) : fixture(input,init));
     const args = {phase:"previous",origin:canonical, deploymentId:"dpl_91HXTZGJXtUp9P4Us9edBvC73CmC",
-      sha:"4d45e0d3e14271513fb887592faadf6c2c24fede",expectations:example,legacyPrevious:true,statusToken,bypassToken,fetchImpl};
+      sha:"4d45e0d3e14271513fb887592faadf6c2c24fede",expectations:example,legacyPrevious:true,statusToken,bypassToken,fetchImpl,env:catalogEnv};
     await verifyReleaseObservations(args);
     expect(fetchImpl.mock.calls.some(([url]) => String(url).includes("/api/internal/release-status"))).toBe(false);
     await expect(verifyReleaseObservations({...args,sha:candidate.sha})).rejects.toThrow("legacy observation");
@@ -133,6 +148,20 @@ describe("production release read-only probe", () => {
       ? Promise.resolve(new Response("<html>Temporarily unavailable</html>",{headers:{"content-type":"text/html"}})) : fixture(input,init));
     await expect(verifyReleaseObservations({phase:"staged",origin:candidate.url,deploymentId:candidate.id,sha:candidate.sha,
       expectations:example,statusToken,bypassToken,fetchImpl})).rejects.toThrow("Catalog card missing");
+  });
+
+  it("checks actual card links against all visible anonymous rows, including the UUID tie-breaker", async () => {
+    const fetchImpl = vi.fn(fixture);
+    const args = {target:"production",env:catalogEnv,fetchImpl};
+    const reversed = cardLinks(["super-serum","peptide-eye-cream"]);
+    await expect(verifyStorefrontCardOrder({...args,html:reversed})).rejects.toThrow("Catalog card order");
+    const url = new URL(String(fetchImpl.mock.calls[0][0]));
+    expect(url.searchParams.get("order")).toBe("sort_order.asc,id.asc");
+    expect(url.searchParams.get("catalog_status")).toBe("eq.active");
+    await verifyStorefrontCardOrder({...args,html:reversed,legacyPrevious:true});
+    await expect(verifyStorefrontCardOrder({...args,html:cardLinks(["super-serum","super-serum"]),legacyPrevious:true})).rejects.toThrow("Catalog card order");
+    await expect(verifyStorefrontCardOrder({...args,html:reversed,fetchImpl:async () => Response.json(publicRows,{headers:{"content-range":"0-2/4"}})})).rejects.toThrow("incomplete Catalog");
+    await expect(verifyStorefrontCardOrder({...args,html:reversed,target:"development"})).rejects.toThrow("fingerprint");
   });
 
   it("treats a failed state reader as unavailable instead of reporting off controls", async () => {

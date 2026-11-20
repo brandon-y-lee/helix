@@ -140,7 +140,7 @@ function composeCore(
 
 const readCachedProductCardContents = unstable_cache(
   getProductCardContents,
-  ["catalog-product-cards-v3", CATALOG_MEDIA_CACHE_NAMESPACE],
+  ["catalog-product-cards-v4", CATALOG_MEDIA_CACHE_NAMESPACE],
   {
     revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
     tags: [

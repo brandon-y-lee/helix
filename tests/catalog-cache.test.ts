@@ -154,8 +154,8 @@ describe("catalog cache domains", () => {
     ]);
 
     const mediaCacheNamespace = `catalog-media:${CATALOG_MEDIA_BUCKET}`;
-    expect(registration("catalog-product-cards-v3").keyParts).toEqual([
-      "catalog-product-cards-v3",
+    expect(registration("catalog-product-cards-v4").keyParts).toEqual([
+      "catalog-product-cards-v4",
       mediaCacheNamespace,
     ]);
     expect(registration("catalog-pdp-content-v4").keyParts).toEqual([
@@ -220,7 +220,7 @@ describe("catalog cache domains", () => {
     expect(getProductCardContents).toHaveBeenCalled();
     expect(getDiscoveryProductCardContents).toHaveBeenCalledWith(slug, 3);
     expect(getCoreRoutineContentSummaries).toHaveBeenCalled();
-    expect(registration("catalog-product-cards-v3").options).toEqual({
+    expect(registration("catalog-product-cards-v4").options).toEqual({
       revalidate: PRODUCT_CARD_REVALIDATE_SECONDS,
       tags: expect.arrayContaining([PRODUCT_CARD_COLLECTION_CACHE_TAG]),
     });

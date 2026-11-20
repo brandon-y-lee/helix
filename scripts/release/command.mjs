@@ -63,7 +63,7 @@ export async function run(command, env = process.env) {
   const { verifyReleaseObservations } = await import("./observations.mjs");
   const probe = (phase, origin, deployment, profile, release) => verifyReleaseObservations({
     phase, origin, deploymentId: deployment.id, sha: deployment.sha, ...observationsFor(profile, release, phase),
-    statusToken: env.HELIX_RELEASE_STATUS_TOKEN, bypassToken: env.HELIX_RELEASE_BYPASS_TOKEN,
+    statusToken: env.HELIX_RELEASE_STATUS_TOKEN, bypassToken: env.HELIX_RELEASE_BYPASS_TOKEN, env,
   });
   if (command === "resolve") {
     const rawProfile = env.HELIX_RELEASE_PROFILE;
