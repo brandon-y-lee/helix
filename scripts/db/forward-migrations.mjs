@@ -19,6 +19,7 @@ const cutoff = "20261120000000";
 const historicalFilesHash =
   "c273fc518810cf9b65c2d61b480f9169b9cafd38cec2a956f7ae423ed2730dd9";
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+const emptyHistoryDigest = hash("[]");
 const digestPattern = /^[a-f0-9]{64}$/;
 const namePattern = /^(\d{14})_([a-z][a-z0-9_]*)\.sql$/;
 
@@ -196,6 +197,34 @@ export function releaseConnection(target) {
   );
 }
 
+function validLegacyBaseline(target) {
+  const { legacyCount, legacyDigest } = target;
+  if (legacyCount === 0) {
+    return (
+      target.environment === "development" &&
+      target.cutoverQualified === true &&
+      legacyDigest === emptyHistoryDigest
+    );
+  }
+  return (
+    Number.isSafeInteger(legacyCount) && legacyCount > 0 &&
+    typeof legacyDigest === "string" && digestPattern.test(legacyDigest) &&
+    legacyDigest !== emptyHistoryDigest
+  );
+}
+
+export function qualifiedMigrationConnection(target, environment) {
+  requireCondition(
+    ["development", "production"].includes(environment) &&
+      target?.environment === environment &&
+      target.cutoverQualified === true &&
+      Array.isArray(target.bootstrap) &&
+      validLegacyBaseline(target),
+    "Unqualified migration target",
+  );
+  return releaseConnection(target);
+}
+
 export const historyQuery = `
 WITH records AS (
   SELECT version, name,
@@ -207,7 +236,7 @@ SELECT (count(*) FILTER (WHERE version < '20261120000000'))::int AS legacy_count
          ORDER BY version COLLATE "C") FILTER (WHERE version < '20261120000000'))::text, '[]'), 'UTF8')), 'hex') AS legacy_digest,
        coalesce(jsonb_agg(jsonb_build_object('version',version,'name',name,'statementsDigest',digest)
          ORDER BY version COLLATE "C") FILTER (WHERE version >= '20261120000000'), '[]') AS forward,
-       array_agg(version ORDER BY version COLLATE "C") AS versions
+       coalesce(array_agg(version ORDER BY version COLLATE "C"), '{}'::text[]) AS versions
 FROM records`;
 
 // Restrict effective authority as well as the configured login name. Some
@@ -264,7 +293,8 @@ async function inspectLedger(client, target, migrations) {
     rows: [state],
   } = await client.query(historyQuery);
   requireCondition(
-    state.legacy_digest === target.legacyDigest &&
+    validLegacyBaseline(target) &&
+      state.legacy_digest === target.legacyDigest &&
       state.legacy_count === target.legacyCount,
     "Unexpected historical migration ledger",
   );
@@ -509,21 +539,12 @@ async function main() {
     "Migration worktree differs from reviewed source",
   );
   const target = JSON.parse(env.HELIX_MIGRATION_TARGET);
-  requireCondition(
-    target.environment === environment &&
-      target.cutoverQualified === true &&
-      digestPattern.test(target.legacyDigest) &&
-      Number.isSafeInteger(target.legacyCount) &&
-      target.legacyCount > 0 &&
-      Array.isArray(target.bootstrap),
-    "Unqualified migration target",
-  );
+  const connection = qualifiedMigrationConnection(target, environment);
   requireCondition(
     env.HELIX_MIGRATION_PASSWORD &&
       env.HELIX_MIGRATION_CA?.startsWith("-----BEGIN CERTIFICATE-----"),
     "Missing dedicated writer credential or CA",
   );
-  const connection = releaseConnection(target);
   const migrations = await loadMigrations(process.cwd());
   const client = new pg.Client({
     host: connection.hostname,

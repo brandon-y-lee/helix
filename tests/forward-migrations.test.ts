@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   loadMigrations,
   migrationStatement,
+  qualifiedMigrationConnection,
   releaseConnection,
   validateReleaseSources,
 } from "../scripts/db/forward-migrations.mjs";
@@ -126,5 +127,34 @@ describe("reviewed forward migrations", () => {
       host: "aws-0-us-east-1.pooler.supabase.com",
     });
     expect(pool.username).toBe("release_writer." + ref);
+  });
+  it("admits a qualified empty development history and preserves nonempty enrollments", () => {
+    const development = {
+      environment: "development",
+      projectRef: "abcdefghijklmnopqrst",
+      host: "db.abcdefghijklmnopqrst.supabase.co",
+      role: "release_writer",
+      legacyCount: 0,
+      legacyDigest: hash("[]"),
+      cutoverQualified: true,
+      bootstrap: [],
+    };
+    expect(qualifiedMigrationConnection(development, "development").hostname).toBe(development.host);
+    for (const [environment, count] of [["development", 12], ["production", 97]] as const) {
+      const target = { ...development, environment, legacyCount: count, legacyDigest: hash("observed history") };
+      expect(qualifiedMigrationConnection(target, environment).hostname).toBe(target.host);
+    }
+    const rejected = [
+      { ...development, cutoverQualified: false },
+      { ...development, environment: "production" },
+      { ...development, legacyDigest: hash("observed history") },
+      { ...development, legacyCount: 12 },
+      { ...development, legacyCount: -1 },
+      { ...development, bootstrap: null },
+    ];
+    for (const target of rejected) {
+      expect(() => qualifiedMigrationConnection(target, target.environment)).toThrow("Unqualified migration target");
+    }
+    expect(() => qualifiedMigrationConnection(development, "production")).toThrow("Unqualified migration target");
   });
 });

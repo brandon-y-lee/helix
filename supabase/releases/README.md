@@ -27,6 +27,8 @@ Qualify application-object privileges against the actual SQL on each target. For
 
 The protected `HELIX_MIGRATION_TARGET` JSON has the following shape. Obtain the digest/count from the read-only `historyQuery` exported by `scripts/db/forward-migrations.mjs` during a reviewed cutover inventory. Reconcile the result, grants and schema with the bootstrap report before enrolling it. The program never learns a new baseline from the database during a release. For an installed bootstrap operation above the cutoff, include its genuine `version`, `name`, and `statementsDigest` from that query's `forward` array in `bootstrap`. Only list operations explicitly reviewed and installed on this target outside the forward stream. Never copy the parent's ledger into development.
 
+A verified clean development bootstrap may enroll `legacyCount: 0` with the SHA-256 of the UTF-8 bytes `[]`, `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`. The operator first qualifies the application schema, environment marker, empty ledger and restricted writer, then records `cutoverQualified: true`. A recovered development child and production each retain their independently measured nonempty historical baseline. [Development bootstrap](../../docs/operations/development-database-bootstrap.md)
+
 ```json
 {
   "environment": "development",
