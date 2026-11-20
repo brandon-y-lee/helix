@@ -198,9 +198,11 @@ export async function checkCatalogRelease({
       assert.deepEqual((await client.query(historyQuery)).rows[0], after);
     };
     for (const keys of [
-      "(catalog_status, sort_order, id)", "(catalog_status, sort_order, id, slug)",
+      "(catalog_status, sort_order, id)", "(sort_order, catalog_status, id)", "(catalog_status, sort_order, id, slug)",
       "(catalog_status, sort_order DESC, id DESC) INCLUDE (slug)",
       "(sort_order, id) WHERE catalog_status = 'active'",
+      "(sort_order, id) WHERE catalog_status IN ('active', 'draft')",
+      "(sort_order, id) WHERE catalog_status IS NOT NULL",
     ]) {
       docker(psql, `CREATE INDEX alternate_order ON public.products ${keys}`);
       const alternate = () => docker(psql, "SELECT 'public.alternate_order'::regclass::oid, pg_get_indexdef('public.alternate_order'::regclass)");
@@ -221,7 +223,15 @@ export async function checkCatalogRelease({
         SELECT pg_advisory_xact_lock(563, 1); ROLLBACK;`], { timeout: 45_000 });
       assert.match(stdout, /synthetic-serum/);
     }, async () => {
-      await assert.rejects(client.query(orderSql), { code: "55P03" });
+      await client.query("BEGIN");
+      try {
+        // A missing NOWAIT would hit this timeout (57014) before the
+        // capability's three-second lock timeout could produce 55P03.
+        await client.query("SET LOCAL statement_timeout = '1s'");
+        await assert.rejects(client.query(orderSql), { code: "55P03" });
+      } finally {
+        await client.query("ROLLBACK");
+      }
       await assert.rejects(runForward(orderRelease), /Supabase CLI operation failed/);
       await assertOrderPending();
     });

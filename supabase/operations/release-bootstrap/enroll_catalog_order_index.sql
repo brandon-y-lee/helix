@@ -86,10 +86,10 @@ begin
   -- Take the writer-conflicting lock immediately or leave this migration
   -- pending. Ordinary storefront SELECTs continue during the index build.
   lock table public.products in share row exclusive mode nowait;
-  -- The active-status equality can supply the leading key. An index starting
-  -- with the ordering keys can supply the same order directly. INCLUDE and
-  -- trailing keys do not affect either prefix. Match plain columns and their
-  -- native btree ordering, including collation and a single scan direction.
+  -- The planner can skip the fixed status key before or between the two
+  -- ordering keys. INCLUDE and trailing keys do not affect the ordered prefix.
+  -- Match plain columns, native operator classes and collations, and a
+  -- common btree scan direction.
   with columns as (
     select a.attname, a.attnum, a.attcollation, op.oid as opclass, op.opcmethod
     from pg_attribute a
@@ -104,24 +104,30 @@ begin
   cross join columns status
   cross join columns rank
   cross join columns id
-  cross join lateral (values (case when i.indkey[0] = status.attnum then 1 else 0 end)) as start_at(k)
+  cross join lateral (values (case
+    when i.indkey[0] = status.attnum then 0
+    when i.indkey[1] = status.attnum then 1 end)) as fixed(status_key)
+  cross join lateral (values
+    (case when status_key = 0 then 1 else 0 end,
+     case when status_key is null then 1 else 2 end)) as ordering(rank_key,id_key)
   where i.indrelid = 'public.products'::regclass and idx.relname <> 'products_catalog_status_sort_id_idx'
     and i.indisvalid and i.indisready and i.indislive and idx.relam = status.opcmethod
     and status.attname = 'catalog_status' and rank.attname = 'sort_order' and id.attname = 'id'
-    and (i.indpred is null or pg_get_expr(i.indpred,i.indrelid) in
-      ('(catalog_status = ''active''::text)','(''active''::text = catalog_status)'))
-    and i.indnkeyatts >= k + 2
-    and (k = 0 or (i.indclass[0], i.indcollation[0]) = (status.opclass, status.attcollation))
-    and (i.indkey[k], i.indclass[k], i.indcollation[k]) = (rank.attnum, rank.opclass, rank.attcollation)
-    and (i.indkey[k+1], i.indclass[k+1], i.indcollation[k+1]) = (id.attnum, id.opclass, id.attcollation)
-    and (i.indoption[k] & 1) = (i.indoption[k+1] & 1)
+    -- A partial index with this prefix may serve the active catalog. Require
+    -- inventory review for every such predicate; SQL text cannot prove general
+    -- predicate implication. Partial indexes with unrelated keys are unaffected.
+    and i.indnkeyatts > id_key
+    and (status_key is null or (i.indclass[status_key], i.indcollation[status_key]) = (status.opclass, status.attcollation))
+    and (i.indkey[rank_key], i.indclass[rank_key], i.indcollation[rank_key]) = (rank.attnum, rank.opclass, rank.attcollation)
+    and (i.indkey[id_key], i.indclass[id_key], i.indcollation[id_key]) = (id.attnum, id.opclass, id.attcollation)
+    and (i.indoption[rank_key] & 1) = (i.indoption[id_key] & 1)
     -- PostgreSQL matches NULL ordering in planner pathkeys even on NOT NULL
     -- columns. ASC NULLS LAST and backward DESC NULLS FIRST supply this order.
-    and (i.indoption[k] & 3) in (0,3)
-    and (i.indoption[k+1] & 3) in (0,3)
+    and (i.indoption[rank_key] & 3) in (0,3)
+    and (i.indoption[id_key] & 3) in (0,3)
   order by idx.relname collate "C" limit 1;
   if alternate is not null then
-    raise exception 'Existing index % already supports active Catalog ordering; review before applying', alternate;
+    raise exception 'Existing index % has a compatible Catalog ordering prefix; review its predicate and use before applying', alternate;
   end if;
 
   if to_regclass('public.products_catalog_status_sort_id_idx') is null then
