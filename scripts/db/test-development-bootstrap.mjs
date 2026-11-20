@@ -291,6 +291,18 @@ try {
         "Unexpected prefix consumer",
       ],
       [
+        "CREATE SCHEMA helix_consumer; GRANT USAGE ON SCHEMA helix_consumer TO authenticated; " +
+          "CREATE FUNCTION helix_consumer.health() RETURNS integer LANGUAGE SQL SECURITY DEFINER AS 'SELECT 1'; " +
+          "REVOKE ALL ON FUNCTION helix_consumer.health() FROM PUBLIC; GRANT EXECUTE ON FUNCTION helix_consumer.health() TO authenticated;",
+        "Unexpected external executable inventory",
+      ],
+      [
+        "CREATE SCHEMA helix_reporting; GRANT USAGE ON SCHEMA helix_reporting TO authenticated; " +
+          "CREATE FUNCTION helix_reporting.product_count() RETURNS bigint LANGUAGE SQL SECURITY INVOKER AS 'SELECT count(*) FROM public.products'; " +
+          "REVOKE ALL ON FUNCTION helix_reporting.product_count() FROM PUBLIC; GRANT EXECUTE ON FUNCTION helix_reporting.product_count() TO authenticated;",
+        "Unexpected external executable inventory",
+      ],
+      [
         "CREATE PUBLICATION helix_unexpected FOR ALL TABLES;",
         "Unexpected publication or DDL integration",
       ],

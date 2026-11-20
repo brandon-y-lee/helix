@@ -221,6 +221,39 @@ BEGIN
   IF h IS DISTINCT FROM expected_access_sha THEN
     RAISE EXCEPTION 'Unexpected prefix access profile';
   END IF;
+  -- SQL and PL/pgSQL can resolve public objects by name without a pg_depend
+  -- edge. Pin both invoker and definer bodies, including the roles that can
+  -- call them via SET ROLE. Unqualified routine kinds (including aggregates)
+  -- have no reviewed body fingerprint here and fail closed.
+  WITH callable AS (
+    SELECT login.rolname AS consumer, available.rolname AS acting_role, n.nspname,
+      format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) AS signature,
+      p.prokind, p.prosecdef, pg_get_userbyid(p.proowner) AS owner,
+      CASE WHEN p.prokind IN ('f','p','w')
+        THEN encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex') END AS definition_sha
+    FROM pg_roles login
+    JOIN pg_roles available ON pg_has_role(login.oid,available.oid,'SET')
+    JOIN pg_namespace n ON has_schema_privilege(available.oid,n.oid,'USAGE')
+    JOIN pg_proc p ON p.pronamespace=n.oid AND has_function_privilege(available.oid,p.oid,'EXECUTE')
+    WHERE login.rolname IN ('anon','authenticated','service_role','authenticator')
+      AND n.nspname<>'public'
+      AND n.nspname !~ '^pg_(toast_)?temp_[0-9]+$'
+      AND (n.nspname<>'pg_catalog' OR p.oid>=16384)
+      AND NOT EXISTS (SELECT FROM pg_depend d WHERE d.classid='pg_proc'::regclass AND d.objid=p.oid
+        AND d.objsubid=0 AND d.refclassid='pg_extension'::regclass AND d.deptype='e')
+  ), entries AS (
+    SELECT definition_sha, jsonb_build_array(consumer,acting_role,nspname,signature,prokind,prosecdef,owner,definition_sha) AS value
+      FROM callable
+  )
+  SELECT CASE WHEN count(*) FILTER (WHERE definition_sha IS NULL)=0 THEN
+      encode(sha256(convert_to(coalesce(jsonb_agg(value ORDER BY value::text COLLATE "C")::text,'[]'),'UTF8')),'hex') END
+    INTO h FROM entries;
+  IF h IS DISTINCT FROM (CASE expected_access_sha
+      WHEN '36c6654c78bb3e33968ab48b9da31a6490a4f159bf0cddf107d2ec32e36f66fc'
+        THEN 'eb84dc548048a9c5e157148430ab411d93469e92e5203e655d951d82a15004f0'
+      ELSE '5dce39da5de5c2f595d8c59cf1368cc0fd0b5a8ad85169fecee70b8f62903cbf' END) THEN
+    RAISE EXCEPTION 'Unexpected external executable inventory';
+  END IF;
   IF EXISTS (SELECT FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'
       AND c.relowner<>'postgres'::regrole)
      OR EXISTS (SELECT FROM pg_type t WHERE t.typnamespace='public'::regnamespace AND t.typtype='e'
