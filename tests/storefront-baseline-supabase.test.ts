@@ -97,7 +97,7 @@ describe("Supabase Storefront Catalog adapter", () => {
     const adapter = createSupabaseStorefrontCatalogAdapter({
       url: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
       anonKey: key,
-      env: { HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(key).digest("hex") },
+      env: { NODE_ENV: "test", HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(key).digest("hex") },
       fetchImpl: fetchImpl as typeof fetch,
     });
     await adapter.readCatalog();
