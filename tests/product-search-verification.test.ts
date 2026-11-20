@@ -3,18 +3,46 @@ import { LEGACY_PRODUCTS_INDEX } from "@/lib/algolia/index";
 import {
   assessProductSearchVerification,
   collectPaginatedIndices,
+  loadProductSearchVerificationConfig,
   collectPaginatedSearchConfiguration,
   runProductSearchVerification,
   type ProductSearchControlPlane,
   type ProductSearchInventory,
 } from "@/scripts/catalog/product-search-verification";
 
+describe("development Search verification target", () => {
+  const env: NodeJS.ProcessEnv = {
+    NODE_ENV: "test",
+    SEARCH_BACKFILL_ENVIRONMENT: "development",
+    ALGOLIA_APP_ID: "development-app",
+    NEXT_PUBLIC_ALGOLIA_APP_ID: "development-app",
+    HELIX_DEVELOPMENT_ALGOLIA_APP_ID: "development-app",
+    ALGOLIA_INDEX_NAME: "helix_products_dev",
+    NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products_dev",
+    ALGOLIA_QUERY_SUGGESTIONS_REGION: "us",
+    ALGOLIA_WRITE_API_KEY: "synthetic-write",
+    NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "synthetic-read",
+  };
+
+  it("requires both configured app IDs to match the independent development app", () => {
+    expect(loadProductSearchVerificationConfig(env).appId).toBe("development-app");
+    for (const overrides of [
+      { ALGOLIA_APP_ID: "other-app" },
+      { NEXT_PUBLIC_ALGOLIA_APP_ID: "other-app" },
+      { ALGOLIA_APP_ID: "other-app", NEXT_PUBLIC_ALGOLIA_APP_ID: "other-app" },
+      { HELIX_DEVELOPMENT_ALGOLIA_APP_ID: "" },
+    ]) {
+      expect(() => loadProductSearchVerificationConfig({ ...env, ...overrides })).toThrow();
+    }
+  });
+});
+
 const canonicalRecords = [
   {
     objectID: "product-1",
     slug: "biotic-reset",
     imageMedia: {
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/biotic-reset.webp",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/biotic-reset.webp",
     },
   },
 ];
@@ -23,10 +51,10 @@ function inventory(
   overrides: Partial<ProductSearchInventory> = {},
 ): ProductSearchInventory {
   return {
-    indices: [{ name: "helix_products" }],
+    indices: [{ name: "helix_products_dev" }],
     source: null,
     target: {
-      name: "helix_products",
+      name: "helix_products_dev",
       entries: 1,
       replicas: [],
       primary: null,
@@ -46,6 +74,10 @@ function inventory(
       status: "all-keys-enumerated",
       configuredPublicKeyVerified: true,
       configuredWriteKeyVerified: true,
+      keys: [
+        { identity: "configured-public-search-key", acl: ["search"], indexes: ["helix_products_dev"], description: null },
+        { identity: "configured-write-key", acl: ["addObject"], indexes: ["helix_products_dev"], description: null },
+      ],
     },
     analytics: {
       implication:
@@ -100,7 +132,7 @@ describe("Product Search completion assessment", () => {
 
     expect(report.ok).toBe(false);
     expect(report.blockers).toContain(
-      "helix_products settings contain retired identities or aliases",
+      "helix_products_dev settings contain retired identities or aliases",
     );
   });
 
@@ -149,7 +181,7 @@ describe("Product Search completion assessment", () => {
       displayName: "Super Serum",
       keywords: ["peptide", "PDRN", "cream", "reset", "bounce", "peptide bounce finish"],
       imageMedia: {
-        url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/10000000-0000-4000-8000-000000000101/primary/original/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
+        url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/10000000-0000-4000-8000-000000000101/primary/original/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
       },
     }];
     const report = assessProductSearchVerification(
@@ -260,7 +292,7 @@ describe("Product Search completion assessment", () => {
       "Query Suggestions inventory is unavailable",
       "Recommend inventory is unavailable",
       "configured Algolia keys could not be verified",
-      "configured public Product Search key could not read helix_products",
+      "configured public Product Search key could not read helix_products_dev",
       "all Algolia API keys must be inventoried",
     ]);
   });
@@ -279,6 +311,13 @@ describe("Product Search completion assessment", () => {
 
     expect(report.ok).toBe(false);
     expect(report.blockers).toContain("all Algolia API keys must be inventoried");
+  });
+
+  it("rejects a development writer whose key can also write the production index", () => {
+    const snapshot = inventory();
+    snapshot.apiKeys.keys![1].indexes.push("helix_products");
+    expect(assessProductSearchVerification(snapshot, canonicalRecords).blockers)
+      .toContain("Algolia configured-write-key lacks a development-only index restriction");
   });
 
   it("fails when any inventoried API key is scoped only to the former index", () => {
@@ -345,7 +384,7 @@ describe("Product Search completion assessment", () => {
     const retiredDescription = ["loyal", "ty mobile key"].join("");
     const report = assessProductSearchVerification(
       inventory({
-        indices: [{ name: "helix_products" }, { name: retiredCopy }],
+        indices: [{ name: "helix_products_dev" }, { name: retiredCopy }],
         apiKeys: {
           status: "all-keys-enumerated",
           configuredPublicKeyVerified: true,
@@ -354,7 +393,7 @@ describe("Product Search completion assessment", () => {
             {
               identity: "other-key-1",
               acl: ["search"],
-              indexes: ["helix_products"],
+              indexes: ["helix_products_dev"],
               description: retiredDescription,
             },
           ],

@@ -69,7 +69,7 @@ const searchableProduct = {
     },
     {
       kind: "image",
-      url: "/products/northpoint/card.webp",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/card.webp",
       alt: "Northpoint serum",
       width: 1200,
       height: 1650,
@@ -140,7 +140,7 @@ describe("Storefront search projection", () => {
       },
       imageMedia: {
         kind: "image",
-        url: "/products/northpoint/card.webp",
+        url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/card.webp",
         alt: "Northpoint serum",
         width: 1200,
         height: 1650,

@@ -1,16 +1,17 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { expect, it, vi } from "vitest";
 import { productionConfig } from "@/lib/support/production/config";
 import { createProductionPhotoStorage } from "@/lib/support/production/photo-storage";
 import { handleProductionPhotos } from "@/lib/support/production/photo-request";
 const id = "00000000-0000-4000-8000-000000000001";
 const env = {
-  VERCEL: "1",
+  ...syntheticMainContext, VERCEL: "1",
   VERCEL_ENV: "production",
   HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh",
   HELIX_PRODUCTION_SUPPORT_PROJECT_URL:
-    "https://abcdefghijklmnopqrst.supabase.co",
+    "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id,
   HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:
     "synthetic-service-credential-32-characters",

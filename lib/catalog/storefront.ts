@@ -29,6 +29,7 @@ import {
   type GovernedSystemStep,
   type SystemStepDatabaseRelation,
 } from "@/lib/catalog/system-steps";
+import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type VariantRow = {
@@ -358,7 +359,7 @@ function mapMedia(
   swatch: [string, string],
 ): ProductMedia[] {
   return (rows ?? [])
-    .slice()
+    .filter((row) => row.url === null || isCatalogProductMediaUrl(row.url))
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((row) => ({
       kind:

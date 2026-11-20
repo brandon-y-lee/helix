@@ -6,9 +6,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { isDeepStrictEqual } from "node:util";
 import type { ProductEditorDocumentV4 } from "../../lib/admin/catalog/types";
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 
-const PUBLIC_PREFIX = `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co/storage/v1/object/public/helix-catalog/`;
+function publicPrefix(projectRef: string) {
+  return `https://${projectRef}.supabase.co/storage/v1/object/public/helix-catalog/`;
+}
+const PUBLIC_PREFIX = publicPrefix(SUPABASE_PROJECT_REFS.development);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SUFFIX = /^(?:primary(?:\/original)?|card-hover|core-routine-editorial|core-routine-texture|gallery|ingredients-texture|outcomes|profile|application|routine|drafts)\/([a-f0-9]{64})\.(jpg|png|webp|mp4)$/;
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -37,10 +40,10 @@ export function manifestDigest(manifest: MediaIdentityManifest): string {
   return createHash("sha256").update(JSON.stringify(canonical(manifest))).digest("hex");
 }
 
-function sourceParts(value: string) {
-  if (!value.startsWith(PUBLIC_PREFIX)) fail("Product Media must use the approved public bucket.");
+function sourceParts(value: string, prefix: string = PUBLIC_PREFIX) {
+  if (!value.startsWith(prefix)) fail("Product Media must use the approved public bucket.");
   if (new URL(value).href !== value) fail("Product Media URLs must not require normalization.");
-  const path = value.slice(PUBLIC_PREFIX.length);
+  const path = value.slice(prefix.length);
   const parts = /^products\/([a-z0-9]+(?:-[a-z0-9]+)*)\/(.+)$/.exec(path);
   const suffix = parts && SUFFIX.exec(parts[2]);
   if (!parts || !suffix || (parts[2].startsWith("primary/original/") && suffix[2] !== "webp")) {
@@ -49,8 +52,8 @@ function sourceParts(value: string) {
   return { path, folder: parts[1], suffix: parts[2], hash: suffix[1], mimeType: MIME[suffix[2] as keyof typeof MIME] };
 }
 
-function currentUrl(url: string, productId: string): boolean {
-  try { return sourceParts(url).folder === productId && UUID.test(productId); }
+function currentUrl(url: string, productId: string, prefix: string = PUBLIC_PREFIX): boolean {
+  try { return sourceParts(url, prefix).folder === productId && UUID.test(productId); }
   catch { return false; }
 }
 
@@ -61,11 +64,12 @@ function validNumber(value: unknown): value is number {
 export function assertMediaIdentityManifest(value: unknown): asserts value is MediaIdentityManifest {
   if (!value || typeof value !== "object") fail("Media manifest must be an object.");
   const manifest = value as MediaIdentityManifest;
-  if (manifest.version !== 1 || manifest.projectRef !== APPROVED_SUPABASE_PROJECT_REF
+  if (manifest.version !== 1 || !Object.values(SUPABASE_PROJECT_REFS).some(ref => ref === manifest.projectRef)
     || !UUID.test(manifest.operationId) || !UUID.test(manifest.actorId)
     || !Array.isArray(manifest.products) || manifest.products.length < 1 || manifest.products.length > 100) {
     fail("Media manifest identity or scope is invalid.");
   }
+  const prefix = publicPrefix(manifest.projectRef);
   const products = new Set<string>();
   const associations = new Set<string>();
   const destinations = new Map<string, string>();
@@ -79,11 +83,11 @@ export function assertMediaIdentityManifest(value: unknown): asserts value is Me
       fail("Media manifest has an invalid Product or duplicate Product identity.");
     }
     products.add(product.productId);
-    const expected = product.expectedDocument.media.filter((row) => row.archived_at === null && row.url !== null && !currentUrl(row.url, product.productId));
+    const expected = product.expectedDocument.media.filter((row) => row.archived_at === null && row.url !== null && !currentUrl(row.url, product.productId, prefix));
     if (expected.length !== product.media.length) fail("Media manifest does not cover the complete affected Product Media set.");
     for (const copy of product.media) {
-      const source = sourceParts(copy.sourceUrl);
-      const target = sourceParts(copy.targetUrl);
+      const source = sourceParts(copy.sourceUrl, prefix);
+      const target = sourceParts(copy.targetUrl, prefix);
       const original = expected.find((row) => row.id === copy.mediaId);
       if (!UUID.test(copy.mediaId) || associations.has(copy.mediaId) || !original
         || original.product_id !== product.productId || original.url !== copy.sourceUrl
@@ -125,7 +129,7 @@ function cancelResponseBody(response: Response): void {
 export async function buildMediaIdentityManifest(input: {
   operationId: string; actorId: string; snapshots: MediaIdentitySnapshot[]; http?: typeof fetch;
 }): Promise<MediaIdentityManifest> {
-  const manifest: MediaIdentityManifest = { version: 1, projectRef: APPROVED_SUPABASE_PROJECT_REF,
+  const manifest: MediaIdentityManifest = { version: 1, projectRef: SUPABASE_PROJECT_REFS.development,
     operationId: input.operationId, actorId: input.actorId, products: [] };
   const sourceMetadata = new Map<string, { mimeType: MimeType; byteSize: number }>();
   for (const snapshot of input.snapshots) {
@@ -304,6 +308,9 @@ export async function verifyAndCopyMedia(manifest: MediaIdentityManifest, input:
   fetchImpl?: typeof fetch; inspect?: (bytes: Buffer) => Promise<MediaDimensions>;
 }) {
   assertMediaIdentityManifest(manifest);
+  if (manifest.projectRef !== SUPABASE_PROJECT_REFS.development) {
+    fail("Only development media can be fetched or copied by this operation.");
+  }
   const unique = new Map(manifest.products.flatMap((product) => product.media.map((copy) => [copy.targetUrl, copy] as const)));
   const assets: { sourceUrl: string; targetUrl: string; sourceSha256: string; targetSha256: string; canonicalSha256: string; byteSize: number; width: number; height: number }[] = [];
   let copied = 0;

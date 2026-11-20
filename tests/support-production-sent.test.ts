@@ -1,12 +1,13 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { createHmac } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { handleProductionSent, type SentDependencies } from "@/lib/support/production/sent";
 import { SUPPORT_FROM, SUPPORT_TO } from "@/lib/support/production/config";
 const id = "00000000-0000-4000-8000-000000000001";
 const key = Buffer.from("synthetic-only-sent-webhook-secret").toString("base64");
-const env = { VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://abcdefghijklmnopqrst.supabase.co",
+const env = { ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-service-credential-32-characters",
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters", HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET: `whsec_${key}` };
 const event = { type: "email.sent", created_at: "2026-11-17T12:00:00Z", data: { email_id: id, from: SUPPORT_FROM, to: [SUPPORT_TO],
@@ -46,7 +47,7 @@ it("acknowledges unrelated signed Auth, campaign and manual Inbox sends without 
   for (const data of unrelated) {
     const d = deps();
     // A signed unrelated account-level notification does not need support storage credentials.
-    d.env = { VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: env.HELIX_PRODUCTION_SUPPORT_ORIGIN,
+    d.env = { ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: env.HELIX_PRODUCTION_SUPPORT_ORIGIN,
       HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET: env.HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET };
     const result = await handleProductionSent(signed({ ...event, data }), d);
     expect(result.status).toBe(200); expect(await result.json()).toEqual({ ok: true });

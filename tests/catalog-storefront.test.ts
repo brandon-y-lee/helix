@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { getSupabaseClient } from "@/lib/supabase";
 
 vi.mock("@/lib/supabase", () => ({
@@ -70,7 +70,7 @@ const variant = {
 function media(role: string, sortOrder = 0) {
   return {
     media_type: "image",
-    url: `https://example.supabase.co/${role}-${sortOrder}.webp`,
+    url: `https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/super-serum/primary/${role}-${sortOrder}.webp`,
     alt: `${role} media`,
     width: 1000,
     height: 1200,
@@ -152,6 +152,8 @@ beforeEach(() => {
   mockedGetClient.mockReset();
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("storefront catalog projections", () => {
   it.each([
     ["cards", getProductCardContents],
@@ -170,6 +172,23 @@ describe("storefront catalog projections", () => {
     const { client } = makeClient({ data: null, error: { message: "Catalog unavailable" } });
     mockedGetClient.mockReturnValue(client);
     await expect(read()).rejects.toThrow("Catalog unavailable");
+  });
+
+  it.each([
+    ["development", "zyfkunnpnlmgvrojmrbg", "erasogmsqpgiirovubjh"],
+    ["production", "erasogmsqpgiirovubjh", "zyfkunnpnlmgvrojmrbg"],
+  ])("selects media from the %s project's storage only", async (target, allowedRef, otherRef) => {
+    vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", target);
+    const path = "/storage/v1/object/public/helix-catalog/products/super-serum/primary/hero.webp";
+    const localImage = { ...media("hero"), url: `https://${allowedRef}.supabase.co${path}` };
+    const otherImage = { ...media("card_default"), url: `https://${otherRef}.supabase.co${path}` };
+    const row = productRow({ product_media: [otherImage, localImage] });
+    mockedGetClient.mockReturnValue(makeClient({ data: [row], error: null }).client);
+
+    const [card] = await getProductCardContents();
+
+    expect(card.cardMedia?.url).toBe(localImage.url);
+    expect(card.cartMedia?.url).toBe(localImage.url);
   });
 
   it("returns card-only data and filters embedded media to card roles", async () => {

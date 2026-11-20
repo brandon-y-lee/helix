@@ -1,3 +1,4 @@
+import { runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { fetchAllSearchRecords } from "@/lib/algolia/source";
 import {
   getIndexName,
@@ -45,6 +46,10 @@ function getBackfillEnvironment(): SearchBackfillEnvironment {
       "Production search reindex is disabled. Set " +
         "ALLOW_PRODUCTION_SEARCH_REINDEX=true only for an intentional rebuild.",
     );
+  }
+  const requestedTarget = value === "production" ? "production" : "development";
+  if (requestedTarget !== runtimeSupabaseTarget()) {
+    throw new Error("Search reindex target does not match the running deployment.");
   }
   return value;
 }

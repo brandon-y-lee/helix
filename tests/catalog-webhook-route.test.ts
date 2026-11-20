@@ -5,6 +5,7 @@ import {
   verifyWebhookSecret,
 } from "@/lib/algolia/sync";
 import { POST } from "@/app/api/webhooks/supabase/catalog-search-sync/route";
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { SHOP_COLLECTION_PATHS } from "@/lib/catalog/collection-routes";
 import { getIndexName } from "@/lib/algolia/server";
 
@@ -27,7 +28,7 @@ vi.mock("@/lib/algolia/sync", async (importOriginal) => {
 });
 
 vi.mock("@/lib/algolia/server", () => ({
-  getIndexName: vi.fn(() => "helix_products"),
+  getIndexName: vi.fn(() => "helix_products_dev"),
 }));
 
 const applyMock = vi.mocked(applyCatalogWebhookEvent);
@@ -44,23 +45,27 @@ function request(body: unknown, init: RequestInit = {}) {
     headers: {
       "content-type": "application/json",
       "x-webhook-secret": "valid-secret",
+      "x-helix-source-project": "zyfkunnpnlmgvrojmrbg",
       ...(init.headers ?? {}),
     },
   });
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("development", "anon"));
   applyMock.mockReset();
   verifyMock.mockReset();
   revalidatePathMock.mockReset();
   revalidateTagMock.mockReset();
   getIndexNameMock.mockReset();
-  getIndexNameMock.mockReturnValue("helix_products");
-  process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = "helix_products";
+  getIndexNameMock.mockReturnValue("helix_products_dev");
+  process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME = "helix_products_dev";
   verifyMock.mockImplementation((secret) => secret === "valid-secret");
 });
 
 afterAll(() => {
+  vi.unstubAllEnvs();
   if (originalPublicIndexName === undefined) {
     delete process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME;
   } else {
@@ -78,6 +83,23 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(401);
     expect(applyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a callback from the other backend before writing Search or invalidating cache", async () => {
+    const response = await POST(request({}, { headers: { "x-helix-source-project": "erasogmsqpgiirovubjh" } }));
+    expect(response.status).toBe(401);
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves caches when a correctly addressed event reaches a misbound deployment", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://erasogmsqpgiirovubjh.supabase.co");
+    const response = await POST(request({ schema: "public", type: "DELETE", table: "products", old_record: { id: "product" } }));
+    expect(response.status).toBe(503);
+    expect(applyMock).not.toHaveBeenCalled();
+    expect(revalidateTagMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
   it("rejects unsupported catalog webhook payloads", async () => {
@@ -126,8 +148,8 @@ describe("catalog search sync route", () => {
 
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.indexName).toBe("helix_products");
-    expect(body.publicIndexName).toBe("helix_products");
+    expect(body.indexName).toBe("helix_products_dev");
+    expect(body.publicIndexName).toBe("helix_products_dev");
     expect(applyMock).toHaveBeenCalledOnce();
     expect(revalidateTagMock).toHaveBeenCalledWith("catalog-product-card");
     expect(revalidateTagMock).toHaveBeenCalledWith(

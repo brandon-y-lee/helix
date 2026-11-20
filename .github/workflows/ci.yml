@@ -91,11 +91,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      NEXT_PUBLIC_ALGOLIA_APP_ID: ${{ secrets.NEXT_PUBLIC_ALGOLIA_APP_ID }}
-      NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: ${{ secrets.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY }}
-      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: ${{ secrets.NEXT_PUBLIC_ALGOLIA_INDEX_NAME }}
+      # PR builds read only the persistent development Catalog, including release PRs into main.
+      HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256 }}
+      NEXT_PUBLIC_SUPABASE_URL: https://zyfkunnpnlmgvrojmrbg.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_DEV_SUPABASE_ANON_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

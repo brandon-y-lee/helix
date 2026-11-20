@@ -1,4 +1,5 @@
-import { assertApprovedSupabaseProjectUrl } from "@/lib/supabase/project-safety";
+import { verifySupabaseCredential } from "@/lib/supabase/key-binding";
+import { assertSupabaseTargetUrl, type SupabaseTarget } from "@/lib/supabase/project-safety";
 import {
   StorefrontBaselineError,
   type StorefrontCatalogProduct,
@@ -43,6 +44,8 @@ const ROUTINE_COMPLEMENT_SELECT =
   "product_id,related_product_id,relationship_type,sort_order";
 
 type AdapterOptions = {
+  target?: SupabaseTarget;
+  env?: NodeJS.ProcessEnv;
   url: string;
   anonKey: string;
   signal?: AbortSignal;
@@ -62,8 +65,9 @@ async function readJsonArray<T>(
       method: "GET",
       headers: {
         apikey: anonKey,
-        Authorization: `Bearer ${anonKey}`,
+        ...(anonKey.startsWith("sb_publishable_") ? {} : { Authorization: `Bearer ${anonKey}` }),
       },
+      redirect: "error",
       signal,
     });
   } catch (cause) {
@@ -102,12 +106,15 @@ async function readJsonArray<T>(
 }
 
 export function createSupabaseStorefrontCatalogAdapter({
+  target = "development",
+  env = process.env,
   url,
   anonKey,
   signal,
   fetchImpl = fetch,
 }: AdapterOptions): StorefrontCatalogReadAdapter {
-  assertApprovedSupabaseProjectUrl(url);
+  assertSupabaseTargetUrl(url, target);
+  verifySupabaseCredential(anonKey, target, "anon", env);
   const baseUrl = new URL(url);
 
   return {

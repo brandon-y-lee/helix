@@ -9,9 +9,9 @@ function packet() {
     version: 1, candidateCommit: candidate, observedAt: new Date(now).toISOString(),
     configuration: {
       context: "production", origin: "https://www.helixskin.us",
-      projectRef: "abcdefghijklmnopqrst", projectUrl: "https://abcdefghijklmnopqrst.supabase.co",
+      projectRef: "erasogmsqpgiirovubjh", projectUrl: "https://erasogmsqpgiirovubjh.supabase.co",
       contractId: "00000000-0000-4000-8000-000000000001",
-      storedProjectRef: "abcdefghijklmnopqrst", storedContractId: "00000000-0000-4000-8000-000000000001",
+      storedProjectRef: "erasogmsqpgiirovubjh", storedContractId: "00000000-0000-4000-8000-000000000001",
       photoBucket: "support-production-private", storedPhotoBucket: "support-production-private", photoWorkerLimit: 1,
       acknowledgementPolicy: "none_native_manual",
       credentialsPresent: { database: true, abuse: true, worker: true, sending: true, sentWebhook: true },

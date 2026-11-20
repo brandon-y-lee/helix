@@ -24,7 +24,7 @@ import type {
   OfferAvailability,
   PdpProduct,
 } from "@/lib/catalog/models";
-import { CATALOG_MEDIA_BUCKET } from "@/lib/catalog/media-storage";
+import { catalogMediaOrigin, isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import type {
   PlaceholderPalette,
   ProductMedia,
@@ -175,24 +175,8 @@ function approvedStorageUrl(
   kind: "image" | "video",
   configuredOrigin: string | undefined,
 ) {
-  if (!configuredOrigin) return false;
-  try {
-    const url = new URL(value);
-    const approvedOrigin = new URL(configuredOrigin).origin;
-    if (
-      url.origin !== approvedOrigin ||
-      !url.pathname.startsWith(
-        `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
-      )
-    ) {
-      return false;
-    }
-    return kind === "image"
-      ? IMAGE_EXTENSIONS.test(url.pathname)
-      : VIDEO_EXTENSIONS.test(url.pathname);
-  } catch {
-    return false;
-  }
+  if (configuredOrigin !== catalogMediaOrigin() || !isCatalogProductMediaUrl(value)) return false;
+  return kind === "image" ? IMAGE_EXTENSIONS.test(value) : VIDEO_EXTENSIONS.test(value);
 }
 
 function safeMedia(
@@ -333,10 +317,7 @@ function safeVariants(
     });
 }
 
-function validateDocument(
-  value: unknown,
-  approvedMediaOrigin?: string,
-): ProductEditorDocumentV4 {
+function validateDocument(value: unknown): ProductEditorDocumentV4 {
   if (!isRecord(value)) invalid("The saved draft document is not an object.");
   if (value.schemaVersion !== PRODUCT_EDITOR_SCHEMA_VERSION) {
     throw new CatalogPreviewProjectionError(
@@ -356,11 +337,7 @@ function validateDocument(
     invalid("The saved draft document is incomplete.");
   }
   try {
-    return assertValidProductEditorDocument(value, {
-      ...process.env,
-      NEXT_PUBLIC_SUPABASE_URL:
-        approvedMediaOrigin ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-    });
+    return assertValidProductEditorDocument(value);
   } catch (error) {
     invalid(
       error instanceof Error
@@ -435,10 +412,7 @@ export function projectCatalogDraftPreview(
   base: CatalogPreviewBase,
   options: ProjectionOptions = {},
 ): CatalogPreviewProjection {
-  const document = validateDocument(
-    rawDocument,
-    options.approvedMediaOrigin,
-  );
+  const document = validateDocument(rawDocument);
   if (document.productId !== base.product.id) {
     throw new CatalogPreviewProjectionError(
       "product_unavailable",
@@ -478,7 +452,7 @@ export function projectCatalogDraftPreview(
   const { media, rejected } = safeMedia(
     document.media,
     swatch,
-    options.approvedMediaOrigin ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
+    options.approvedMediaOrigin ?? catalogMediaOrigin(),
   );
   const presentationMedia = resolveProductPresentationMedia(media);
 

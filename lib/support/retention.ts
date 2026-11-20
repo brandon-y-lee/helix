@@ -1,4 +1,5 @@
 import "server-only";
+import { isLegacySupportProject } from "./legacy-project";
 import { timingSafeEqual } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { cleanupSupportPhotos } from "@/lib/support/photo-worker";
@@ -44,7 +45,7 @@ export async function handleSupportRetentionRequest(request: Request, deps = def
   if (supplied.length !== expected.length || !timingSafeEqual(expected, supplied)) return Response.json({ error: "Unauthorized." }, { status: 401, headers });
   if (request.method !== "POST") return Response.json({ error: "Method not allowed." }, { status: 405, headers });
   if (deps.env.HELIX_SUPPORT_RETENTION_ENABLED !== "true" || deps.env.HELIX_EMAIL_ENVIRONMENT !== "sandbox"
-    || deps.env.HELIX_EMAIL_MODE !== "restricted" || deps.env.NEXT_PUBLIC_SUPABASE_URL !== "https://erasogmsqpgiirovubjh.supabase.co") {
+    || deps.env.HELIX_EMAIL_MODE !== "restricted" || !isLegacySupportProject(deps.env)) {
     return Response.json({ error: "Support cleanup is not configured." }, { status: 503, headers });
   }
   try {

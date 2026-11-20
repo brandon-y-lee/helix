@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertProductEditorDocumentStructure } from "../../lib/admin/catalog/validation";
 import type { ProductEditorDocumentV4 } from "../../lib/admin/catalog/types";
 import { CATALOG_MEDIA_BUCKET } from "../../lib/catalog/media-storage";
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 import { createOpsClient } from "../db/supabase-ops";
 import {
   assertCurrentMediaSnapshot,
@@ -19,7 +19,7 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
-const OBJECT_PREFIX = `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`;
+const OBJECT_PREFIX = `https://${SUPABASE_PROJECT_REFS.development}.supabase.co/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`;
 
 type Command = "plan" | "copy" | "cutover" | "activate" | "verify";
 type Snapshot = { document: ProductEditorDocumentV4; revision: number; activeDrafts: number };
@@ -88,9 +88,9 @@ export function parseMediaIdentityArgs(argv: string[]): MediaIdentityCommand {
   const manifestPath = options.get("--manifest") ?? "";
   const expectedOperation = options.get("--expect-operation") ?? "";
   const expectedFileDigest = options.get("--expect-manifest-sha256") ?? "";
-  if (!isAbsolute(manifestPath) || options.get("--expect-project") !== APPROVED_SUPABASE_PROJECT_REF
+  if (!isAbsolute(manifestPath) || options.get("--expect-project") !== SUPABASE_PROJECT_REFS.development
     || !UUID.test(expectedOperation) || !SHA256.test(expectedFileDigest)) {
-    throw new Error("Require --manifest with an absolute path, --expect-project erasogmsqpgiirovubjh, --expect-operation UUID, and --expect-manifest-sha256 SHA256.");
+    throw new Error(`Require --manifest with an absolute path, --expect-project ${SUPABASE_PROJECT_REFS.development}, --expect-operation UUID, and --expect-manifest-sha256 SHA256.`);
   }
   const state = options.get("--state") ?? "before";
   if (state !== "before" && state !== "after") throw new Error("--state must be before or after.");
@@ -249,7 +249,7 @@ export async function runMediaIdentityCommand(
   let manifest: unknown;
   try { manifest = JSON.parse(contents.toString()); } catch { throw new Error("Manifest must contain valid JSON."); }
   assertMediaIdentityManifest(manifest);
-  if (manifest.operationId !== options.expectedOperation || manifest.projectRef !== APPROVED_SUPABASE_PROJECT_REF) {
+  if (manifest.operationId !== options.expectedOperation || manifest.projectRef !== SUPABASE_PROJECT_REFS.development) {
     throw new Error("Manifest operation or project does not match the reviewed confirmation.");
   }
   await gateway.readAdmin(manifest.actorId);

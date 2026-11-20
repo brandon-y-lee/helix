@@ -6,7 +6,8 @@ import type {
 } from "@/lib/admin/catalog/types";
 import {
   CATALOG_MEDIA_BUCKET,
-  CATALOG_MEDIA_ORIGIN,
+  catalogMediaOrigin,
+  isCatalogProductMediaUrl,
 } from "@/lib/catalog/media-storage";
 import { PRODUCT_EDITOR_SCHEMA_VERSION } from "@/lib/admin/catalog/types";
 import { PRODUCT_MEDIA_ROLES } from "@/lib/catalog/media-roles";
@@ -466,35 +467,13 @@ function allowedMediaOrigin(
   value: string,
   env: NodeJS.ProcessEnv,
 ): boolean {
-  if (value.startsWith("/") && !value.startsWith("//")) return true;
+  if (isCatalogProductMediaUrl(value)) return true;
+  // Keep draft hydration of application-owned site assets separate from Storage.
+  if (value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return true;
   try {
+    const site = new URL(env.NEXT_PUBLIC_SITE_URL ?? "");
     const url = new URL(value);
-    const allowed = [env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SITE_URL]
-      .filter((entry): entry is string => Boolean(entry))
-      .map((entry) => new URL(entry).origin);
-    return allowed.includes(url.origin);
-  } catch {
-    return false;
-  }
-}
-
-function approvedCatalogStorageUrl(
-  value: unknown,
-  env: NodeJS.ProcessEnv,
-): boolean {
-  if (typeof value !== "string" || !env.NEXT_PUBLIC_SUPABASE_URL) return false;
-  try {
-    const url = new URL(value);
-    const projectUrl = new URL(env.NEXT_PUBLIC_SUPABASE_URL);
-    const productMediaPrefix =
-      `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/products/`;
-    return (
-      url.origin === projectUrl.origin &&
-      url.pathname.startsWith(productMediaPrefix) &&
-      url.pathname.length > productMediaPrefix.length &&
-      !url.search &&
-      !url.hash
-    );
+    return !site.hostname.endsWith(".supabase.co") && !url.username && !url.password && url.origin === site.origin;
   } catch {
     return false;
   }
@@ -661,7 +640,7 @@ function validateMedia(
         typeof upload.uploadedBy !== "string" ||
         !UUID_PATTERN.test(upload.uploadedBy) ||
         upload.path !== expectedPath ||
-        entry.url !== `${CATALOG_MEDIA_ORIGIN}/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/${expectedPath}`
+        entry.url !== `${catalogMediaOrigin()}/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/${expectedPath}`
       ) {
         issue(
           issues,
@@ -717,7 +696,7 @@ function validateMedia(
           "Core routine editorial media requires positive intrinsic dimensions.",
         );
       }
-      if (!approvedCatalogStorageUrl(entry.url, env)) {
+      if (!isCatalogProductMediaUrl(entry.url)) {
         issue(
           issues,
           `${path}.url`,

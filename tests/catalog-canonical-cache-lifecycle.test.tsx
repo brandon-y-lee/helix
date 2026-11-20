@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The provider and Next cache are external boundaries. This test retains real
 // page readers, cache keys/tags, webhook validation and invalidation decisions.
@@ -58,13 +58,14 @@ vi.mock("@/lib/catalog/product-structured-data", () => ({
   buildProductStructuredData: () => ({}), serializeStructuredData: () => "{}",
 }));
 vi.mock("@/lib/checkout/config", () => ({ stripeMessagingPublishableKey: () => null }));
-vi.mock("@/lib/algolia/server", () => ({ getIndexName: () => "helix_products" }));
+vi.mock("@/lib/algolia/server", () => ({ getIndexName: () => "helix_products_dev" }));
 vi.mock("@/lib/algolia/sync", async (original) => ({
   ...await original<typeof import("@/lib/algolia/sync")>(),
   applyCatalogWebhookEvent: state.sync,
   verifyWebhookSecret: (secret: string | null) => secret === "synthetic-webhook-secret",
 }));
 
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import ProductDetailPage, { generateMetadata } from "@/app/products/[slug]/page";
 import { getCachedPdpProduct } from "@/lib/catalog-cache";
 import { POST } from "@/app/api/webhooks/supabase/catalog-search-sync/route";
@@ -73,7 +74,7 @@ const pageInput = (slug: string) => ({ params: Promise.resolve({ slug }) });
 function webhook(type: "INSERT" | "UPDATE", oldSlug: string | null, slug: string) {
   return new Request("https://helix.test/api/webhooks/supabase/catalog-search-sync", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-webhook-secret": "synthetic-webhook-secret" },
+    headers: { "content-type": "application/json", "x-webhook-secret": "synthetic-webhook-secret", "x-helix-source-project": "zyfkunnpnlmgvrojmrbg" },
     body: JSON.stringify({
       schema: "public", table: "products", type,
       record: { id: "10000000-0000-4000-8000-000000000101", slug, routine_group: "beyond_core" },
@@ -85,11 +86,15 @@ function webhook(type: "INSERT" | "UPDATE", oldSlug: string | null, slug: string
 }
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("development", "anon"));
   state.cache.clear();
   state.publishedSlug = "first-serum";
   state.sync.mockReset();
   state.sync.mockResolvedValue({ action: "upsert", table: "products", slug: "current-serum", oldSlug: "first-serum" });
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("canonical publication across cached reads and the Catalog webhook", () => {
   it.each(["healthy", "unavailable"] as const)(

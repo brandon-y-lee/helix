@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { verifyPublicSearchBinding } from "@/lib/algolia/build-binding";
 import {
   buildReceiptedProductionArtifact,
   prepareProductionVerificationEnvironment,
@@ -302,12 +303,15 @@ describe("Production Artifact Verification", () => {
         NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",
         PORT: "4200",
         SHELL_ONLY: "from-shell",
+        HELIX_DEVELOPMENT_ALGOLIA_APP_ID: "untrusted-app",
+        HELIX_DEVELOPMENT_ALGOLIA_SEARCH_KEY_SHA256: "untrusted-digest",
       },
       local: {
         CI: "1",
         HELIX_VERIFICATION_ADAPTER: "1",
         HELIX_VERIFICATION_BASE_URL: "http://untrusted.example.test",
         NEXT_PUBLIC_ALGOLIA_APP_ID: "local-app-id",
+        NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "unchecked-key",
         NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
         NEXT_PUBLIC_SUPABASE_URL: "https://local.example.test",
         NODE_ENV: "test",
@@ -320,15 +324,17 @@ describe("Production Artifact Verification", () => {
 
     expect(environment).toMatchObject({
       NEXT_PUBLIC_ALGOLIA_APP_ID: "testappid",
-      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products",
+      HELIX_DEVELOPMENT_ALGOLIA_APP_ID: "testappid",
+      NEXT_PUBLIC_ALGOLIA_INDEX_NAME: "helix_products_dev",
       NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY: "test-search-only-key",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "local-anon-key",
       NEXT_PUBLIC_SUPABASE_URL: "https://shell.example.test",
       NODE_ENV: "production",
       PORT: "4200",
       SHELL_ONLY: "from-shell",
-      SUPABASE_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
+      HELIX_DEV_CATALOG_WEBHOOK_SECRET: "e2e-test-secret",
     });
+    expect(() => verifyPublicSearchBinding(environment, "development")).not.toThrow();
     expect(environment.CI).toBe("");
     expect(environment.HELIX_VERIFICATION_ADAPTER).toBe("");
     expect(environment.HELIX_VERIFICATION_BASE_URL).toBe("");

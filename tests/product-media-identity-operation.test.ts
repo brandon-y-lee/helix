@@ -8,7 +8,7 @@ import { catalogDraft } from "./fixtures/catalog-editor";
 const productId = catalogDraft.document.productId;
 const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHfoAAAAASUVORK5CYII=", "base64");
 const hash = createHash("sha256").update(bytes).digest("hex");
-const origin = "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/";
+const origin = "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/";
 const sourceUrl = `${origin}products/old-product/primary/${hash}.png`;
 const targetUrl = `${origin}products/${productId}/primary/${hash}.png`;
 const document = { ...catalogDraft.document, media: [{ ...catalogDraft.document.media[0], url: sourceUrl, width: 1, height: 1 }] };
@@ -69,6 +69,20 @@ async function cutoverFixture() {
 }
 
 describe("reviewed Product Media identity operation", () => {
+  it("retains offline verification of historical manifests while refusing provider access for them", async () => {
+    const historical = JSON.parse(JSON.stringify(await makeManifest()).replaceAll(
+      "zyfkunnpnlmgvrojmrbg", "erasogmsqpgiirovubjh",
+    ));
+    const originalSnapshot = JSON.parse(JSON.stringify(snapshot).replaceAll(
+      "zyfkunnpnlmgvrojmrbg", "erasogmsqpgiirovubjh",
+    ));
+    expect(() => assertCurrentMediaSnapshot(historical, [originalSnapshot], "before")).not.toThrow();
+    const fetchImpl = vi.fn<typeof fetch>();
+    await expect(verifyAndCopyMedia(historical, { mode: "verify", copyObject: vi.fn(), fetchImpl }))
+      .rejects.toThrow(/Only development media/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("plans shared media from GET delivery headers and cancels the unread body", async () => {
     const cancel = vi.fn();
     const http = vi.fn<typeof fetch>(async (_url, init) => {
