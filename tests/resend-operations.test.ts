@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { buildAuthEmailTemplates } from "@/lib/email/auth-templates";
@@ -35,7 +36,7 @@ async function setup(preserveDefaultSmtp = false) {
     HELIX_EMAIL_ORDER_FROM: "Helix <onboarding@resend.dev>", HELIX_EMAIL_SUPPORT_FROM: "Helix <onboarding@resend.dev>",
     HELIX_EMAIL_PRODUCT_FROM: "Helix <onboarding@resend.dev>", HELIX_EMAIL_AUTH_FROM: "onboarding@resend.dev",
     HELIX_EMAIL_REPLY_TO: "support@assigned.resend.app", HELIX_SUPPORT_RECEIVING_ADDRESS: "support@assigned.resend.app", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support",
-    SUPABASE_ACCESS_TOKEN: "private-management-token", SUPABASE_SERVICE_ROLE_KEY: "private-service-role", VERCEL_ACCESS_TOKEN: "private-vercel-token",
+    SUPABASE_ACCESS_TOKEN: "private-management-token", SUPABASE_SERVICE_ROLE_KEY: syntheticSupabaseKey("development", "service_role"), VERCEL_ACCESS_TOKEN: "private-vercel-token",
     ...Object.fromEntries(secrets.map(k => [k, `private-${k.toLowerCase()}`])),
   };
   const runtimeTemplates = Object.fromEntries(purposeNames.map(p => [p, { id: native[p].id, sha256: digest(JSON.stringify({
@@ -68,7 +69,7 @@ async function setup(preserveDefaultSmtp = false) {
     if (url.hostname === "api.supabase.com" && url.pathname.endsWith(`/projects/${TARGET.project}`)) return response({ id: TARGET.project, status: "ACTIVE_HEALTHY" });
     if (url.pathname.includes("/rpc/")) {
       expect((options?.headers as Record<string, string>).apikey).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
-      expect((options?.headers as Record<string, string>).Authorization).toBe(`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
+      expect((options?.headers as Record<string, string>).Authorization).toBe(env.SUPABASE_SERVICE_ROLE_KEY.startsWith("sb_secret_") ? undefined : `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`);
       return response(current.controls[Object.entries(CONTROL_READS).find(([, fn]) => url.pathname.endsWith(fn))![0]]);
     }
     if (url.pathname.endsWith("/config/auth")) {
@@ -79,8 +80,8 @@ async function setup(preserveDefaultSmtp = false) {
       if (url.pathname.includes("/aliases/")) return response({ deployment: { id: "dpl_qualified" } });
       if (url.pathname.includes("/deployments/")) return response({ id: "dpl_qualified", projectId: TARGET.vercelProject, readyState: "READY", target: null,
         createdAt: 1000, meta: { githubCommitRef: "dev", githubCommitSha: current.drift ? "c".repeat(40) : manifest.codeSha } });
-      if (url.pathname.endsWith("/env")) return response({ envs: [...Object.entries(env).filter(([k]) => !["SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY", "VERCEL_ACCESS_TOKEN"].includes(k)),
-        ["HELIX_MARKETING_SYNC_ENABLED", "true"], ["HELIX_SUPPORT_RETENTION_ENABLED", "true"]].map(([key, value]) => ({ key, value: current.envDrift && key === "HELIX_EMAIL_MODE" ? "unrestricted" : value, target: ["preview"], gitBranch: "dev", updatedAt: 500, ...(current.sensitive && secrets.includes(key) ? { type: "sensitive", id: `env_${key}`, value: undefined } : {}) })) });
+      if (url.pathname.endsWith("/env") && !url.searchParams.has("decrypt")) return response({ envs: [...Object.entries(env).filter(([k]) => !["SUPABASE_ACCESS_TOKEN", "SUPABASE_SERVICE_ROLE_KEY", "VERCEL_ACCESS_TOKEN"].includes(k)),
+        ["HELIX_MARKETING_SYNC_ENABLED", "true"], ["HELIX_SUPPORT_RETENTION_ENABLED", "true"]].map(([key, value]) => ({ key, type: "plain", value: current.envDrift && key === "HELIX_EMAIL_MODE" ? "unrestricted" : value, target: ["preview"], gitBranch: "dev", updatedAt: 500, ...(secrets.includes(key) ? { type: current.sensitive ? "sensitive" : "encrypted", id: `env_${key}`, value: undefined } : {}) })) });
     }
     if (url.hostname === "api.resend.com") {
       if (current.missing && url.pathname.startsWith("/templates/")) return new Response("provider-private-content", { status: 404 });
@@ -116,15 +117,40 @@ async function setup(preserveDefaultSmtp = false) {
     }
     throw new Error(`Unexpected fake provider route: ${url.pathname}`);
   });
+  const environmentReceipt = Object.fromEntries(secrets.map(key => [key, { id: `env_${key}`, updatedAt: 500, sha256: digest(env[key]) }]));
   const run = (command: "plan" | "verify" | "apply" | "disable", confirm = true) => {
-    const raw = JSON.stringify(manifest); return runResendOperations(command, raw, env, local, fetcher, confirm ? digest(raw) : "0".repeat(64));
+    const raw = JSON.stringify(manifest);
+    const setupReceipt = local.setupReceipt ?? { manifestSha256: digest(raw), codeSha: manifest.codeSha,
+      controlsFingerprint: fingerprint(snapshot()), credentials: {}, evidence: {}, environment: environmentReceipt };
+    return runResendOperations(command, raw, env, { ...local, setupReceipt }, fetcher, confirm ? digest(raw) : "0".repeat(64));
   };
-  return { manifest, env, local, current, fetcher, run, native, snapshot };
+  return { manifest, env, local, current, fetcher, run, native, snapshot, environmentReceipt };
 }
 const mutations = (fetcher: Awaited<ReturnType<typeof setup>>["fetcher"]) => fetcher.mock.calls.filter(([url, options]) =>
   options?.method === "PATCH" || new URL(String(url)).pathname.endsWith("/database/query"));
 
 describe("restricted Resend operational command", () => {
+  it("uses an independently bound opaque dev service key only with the apikey header", async () => {
+    const f = await setup();
+    f.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_synthetic";
+    f.env.HELIX_DEVELOPMENT_SUPABASE_SERVICE_ROLE_KEY_SHA256 = digest(f.env.SUPABASE_SERVICE_ROLE_KEY);
+    expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true });
+    const reads = f.fetcher.mock.calls.filter(([url]) => String(url).includes("/rest/v1/rpc/"));
+    expect(reads.length).toBeGreaterThan(0);
+    for (const [, request] of reads) expect(request?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("refuses a legacy parent manifest and a parent service credential before contacting any provider", async () => {
+    const f = await setup();
+    f.env.SUPABASE_SERVICE_ROLE_KEY = syntheticSupabaseKey("production", "service_role");
+    await expect(f.run("apply")).rejects.toThrow();
+    expect(f.fetcher).not.toHaveBeenCalled();
+
+    const old = JSON.stringify({ ...f.manifest, project: "erasogmsqpgiirovubjh" });
+    await expect(runResendOperations("verify", old, f.env, f.local, f.fetcher)).rejects.toThrow();
+    expect(f.fetcher).not.toHaveBeenCalled();
+  });
+
   it("plans missing native resources without creating them or hiding read failures", async () => {
     const f = await setup(); f.current.missing = true; delete f.env.VERCEL_ACCESS_TOKEN;
     const result = await f.run("plan");
@@ -251,9 +277,9 @@ describe("restricted Resend operational command", () => {
     for (const evidence of Object.values(f.manifest.evidence)) evidence.sha256 = null;
     f.manifest.expectedControlsFingerprint = null;
     const pending = await f.run("plan");
-    expect(pending).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining(["credential_receipt_missing_or_value_drift", "private_evidence_missing_or_changed"]) });
-    expect(mutations(f.fetcher)).toEqual([]);
-    f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
+    expect(pending).toMatchObject({ readyForGuardedApply: false, findings: ["development_provider_isolation_unverified"] });
+    expect(f.fetcher).not.toHaveBeenCalled();
+    f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha, environment: f.environmentReceipt,
       controlsFingerprint: fingerprint(f.snapshot()), credentials: { RESEND_API_KEY: { version: "new-private-v1", sha256: digest(f.env.RESEND_API_KEY) } },
       evidence: Object.fromEntries(PROOF_KINDS.map(kind => [kind, "2".repeat(64)])) };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
@@ -278,10 +304,12 @@ describe("restricted Resend operational command", () => {
 
   it("checks sensitive deployment values through exact private setup revisions without requiring impossible decryption", async () => {
     const f = await setup(); f.current.sensitive = true;
+    f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
+      controlsFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {} };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: false, findings: expect.arrayContaining(["hosted_sensitive_revision_unbound"]) });
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
       controlsFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {}, environment:
-        Object.fromEntries(Object.keys(f.manifest.credentialVersions).map(k => [k, { id: `env_${k}`, updatedAt: 500 }])) };
+        structuredClone(f.environmentReceipt) };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
     const receipt = f.local.setupReceipt as { environment: Record<string, { updatedAt: number }> };
     receipt.environment.RESEND_API_KEY.updatedAt = 400;
@@ -326,14 +354,14 @@ describe("restricted Resend operational command", () => {
     await expect(f.run("apply")).rejects.toThrow("activation_preflight_failed");
     expect(mutations(f.fetcher)).toEqual([]);
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {} };
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {}, environment: f.environmentReceipt };
     expect(await f.run("apply")).toMatchObject({ applied: true }); expect(mutations(f.fetcher)).toEqual([]);
   });
 
   it("rejects changed control revisions and cutoffs after an intervening disable/re-enable despite matching booleans", async () => {
     const f = await setup(); await f.run("apply");
     f.local.setupReceipt = { manifestSha256: digest(JSON.stringify(f.manifest)), codeSha: f.manifest.codeSha,
-      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {} };
+      controlsFingerprint: f.manifest.expectedControlsFingerprint, controlsAppliedFingerprint: fingerprint(f.snapshot()), credentials: {}, evidence: {}, environment: f.environmentReceipt };
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, findings: [] });
     const changed = (row: Record<string, unknown>) => ({ ...row, enabled: true, updatedAt: "2026-09-29T03:00:00.000Z", acceptedAfter: "2026-09-29T03:00:00.000Z" });
     f.current.controls = Object.fromEntries(Object.entries(f.current.controls).map(([key, value]) => [key,

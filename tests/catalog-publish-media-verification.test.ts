@@ -8,7 +8,7 @@ import type { CatalogPublishTransactionSuccess } from "@/lib/admin/catalog/types
 import type { RealProductMediaVerificationReport } from "@/lib/catalog/real-product-media-verification";
 import { catalogDraft } from "./fixtures/catalog-editor";
 
-const MEDIA_ORIGIN = "https://erasogmsqpgiirovubjh.supabase.co";
+const MEDIA_ORIGIN = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const readyDocument = {
   ...catalogDraft.document,
   media: catalogDraft.document.media.map((media, index) => ({

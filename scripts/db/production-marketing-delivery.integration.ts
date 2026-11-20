@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { dispatchProductionMarketing } from "../../lib/production-marketing/worker";
 import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
@@ -16,9 +19,8 @@ function sql(input:string){try{return docker(["exec","-i",container,"psql","-X",
 const literal=(v:unknown)=>v===null?"NULL":typeof v==="boolean"?String(v):typeof v==="number"?String(v):`'${(typeof v==="string"?v:JSON.stringify(v)).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",topic="11111111-1111-4111-8111-111111111111";
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:topic,postalAddress:"Synthetic test only",templateHash:productionMarketingTemplateHash};
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic-project",VERCEL_DEPLOYMENT_ID:"synthetic-deployment",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
-  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic-project",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"synthetic-deployment",
-  HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
+const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic-project",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
+  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic-project",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
   HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"a".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",
   HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send-only",
   HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-separate-read",HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract)};

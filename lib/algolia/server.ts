@@ -3,7 +3,9 @@
 // This module must only be imported from server code (route handlers).
 
 import { algoliasearch, type Algoliasearch } from "algoliasearch";
-import { HELIX_PRODUCTS_INDEX } from "@/lib/algolia/index";
+import { catalogWriteApiKey } from "@/lib/algolia/credentials";
+import { expectedSearchAppId, productsIndexForTarget } from "@/lib/algolia/index";
+import { runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { INDEX_SETTINGS, type AlgoliaProductRecord } from "@/lib/algolia/record";
 
 class AlgoliaConfigError extends Error {
@@ -15,17 +17,16 @@ class AlgoliaConfigError extends Error {
 
 type WriteConfig = { client: Algoliasearch; indexName: string };
 
-let cached: WriteConfig | null = null;
+let cached: (WriteConfig & { appId: string; apiKey: string }) | null = null;
 
 function getWriteConfig(): WriteConfig {
   const appId = process.env.ALGOLIA_APP_ID;
-  const apiKey =
-    process.env.ALGOLIA_WRITE_API_KEY || process.env.ALGOLIA_ADMIN_API_KEY;
+  const apiKey = catalogWriteApiKey(process.env);
   const indexName = process.env.ALGOLIA_INDEX_NAME;
 
   const missing: string[] = [];
   if (!appId) missing.push("ALGOLIA_APP_ID");
-  if (!apiKey) missing.push("ALGOLIA_WRITE_API_KEY or ALGOLIA_ADMIN_API_KEY");
+  if (!apiKey) missing.push("ALGOLIA_WRITE_API_KEY");
   if (!indexName) missing.push("ALGOLIA_INDEX_NAME");
 
   if (missing.length > 0) {
@@ -36,9 +37,14 @@ function getWriteConfig(): WriteConfig {
     );
   }
 
-  if (indexName !== HELIX_PRODUCTS_INDEX) {
+  const target = runtimeSupabaseTarget();
+  if (appId !== expectedSearchAppId(process.env, target)) {
+    throw new AlgoliaConfigError("Algolia application does not match the approved deployment target.");
+  }
+  const expectedIndex = productsIndexForTarget(target);
+  if (indexName !== expectedIndex) {
     throw new AlgoliaConfigError(
-      `ALGOLIA_INDEX_NAME must be ${HELIX_PRODUCTS_INDEX}.`,
+      `ALGOLIA_INDEX_NAME must be ${expectedIndex}.`,
     );
   }
 
@@ -55,8 +61,8 @@ function getWriteConfig(): WriteConfig {
     );
   }
 
-  if (!cached || cached.indexName !== indexName) {
-    cached = { client: algoliasearch(appId!, apiKey!), indexName: indexName! };
+  if (!cached || cached.indexName !== indexName || cached.appId !== appId || cached.apiKey !== apiKey) {
+    cached = { client: algoliasearch(appId!, apiKey!), indexName, appId: appId!, apiKey: apiKey! };
   }
   return cached;
 }

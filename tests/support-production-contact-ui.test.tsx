@@ -10,7 +10,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { ContactForm } from "@/components/support/ContactForm";
 const binding = {
-  origin: "https://abcdefghijklmnopqrst.supabase.co",
+  origin: "https://erasogmsqpgiirovubjh.supabase.co",
   bucket: "support-production-private",
 };
 const inquiryId = "00000000-0000-4000-8000-000000000001";

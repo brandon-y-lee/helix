@@ -1,5 +1,6 @@
 import "server-only";
-import { compatibleRequestOrigin, isControlledPublicSiteOrigin, resolvePublicSiteOrigin } from "@/lib/site-url";
+import { CANONICAL_PUBLIC_SITE_ORIGIN, compatibleRequestOrigin, isControlledPublicSiteOrigin, resolvePublicSiteOrigin } from "@/lib/site-url";
+import { assertSupabaseTargetUrl, deploymentSupabaseTarget } from "@/lib/supabase/project-safety";
 
 export const accountEmailHeaders = {
   "Cache-Control": "private, no-store",
@@ -16,6 +17,45 @@ export function accountEmailOrigin(requestOrigin?: string | null): string {
     throw new Error("Invalid account email origin.");
   }
   return compatibleRequestOrigin(configured || resolvePublicSiteOrigin(), requestOrigin);
+}
+
+export const accountEmailUnavailable = {
+  signup: "Account creation is temporarily unavailable.",
+  recovery: "Password reset links are temporarily unavailable.",
+};
+
+/** Only new link issuance needs the independently qualified Preview return host. */
+export function accountEmailLinkOrigin(
+  request: Pick<Headers, "get">,
+  purpose: "page" | "action",
+): string | null {
+  const env = process.env;
+  try {
+    const target = deploymentSupabaseTarget(env);
+    if (env.VERCEL_ENV !== "preview") {
+      // Existing callbacks may honor their original cookie host. New Production
+      // links always use the configured destination, independent of a request.
+      return accountEmailOrigin(target === "production" ? null : request.get("origin"));
+    }
+    const origin = CANONICAL_PUBLIC_SITE_ORIGIN;
+    const buildTarget = process.env.NEXT_PUBLIC_HELIX_SUPABASE_TARGET;
+    if (
+      env.VERCEL_GIT_COMMIT_REF !== "dev" ||
+      env.HELIX_DEV_AUTH_RETURN_ORIGIN !== origin ||
+      env.NEXT_PUBLIC_SITE_URL !== origin ||
+      (env.HELIX_EMAIL_SITE_ORIGIN && env.HELIX_EMAIL_SITE_ORIGIN !== origin) ||
+      (buildTarget !== undefined && buildTarget !== target)
+    ) return null;
+    assertSupabaseTargetUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", target);
+
+    // The deployment settings grant the capability. Request headers can only
+    // narrow it to the qualified site's own page and same-origin form submission.
+    if (request.get("host") !== new URL(origin).host) return null;
+    if (purpose === "action" && request.get("origin") !== origin) return null;
+    return origin;
+  } catch {
+    return null;
+  }
 }
 
 export const emailOtpTypes = ["signup", "email", "recovery", "invite", "magiclink", "email_change"] as const;

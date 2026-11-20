@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 import { handleProductionIntake, type IntakeDependencies } from "@/lib/support/production/intake";
@@ -7,9 +8,9 @@ import { deployedIntake } from "@/lib/support/production/runtime";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const env: ProductionEnvironment = {
-  VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://abcdefghijklmnopqrst.supabase.co",
+  ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id,
   HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-dedicated-service-credential-32-chars",
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters-only",
@@ -49,6 +50,7 @@ it("fails missing/disabled/wrong-target/context configuration before database or
     { HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED: undefined }, { VERCEL: undefined }, { VERCEL_ENV: "preview" },
     { HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://helixskin.us" },
     { HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://wrongprojecttargetxx.supabase.co" },
+    { HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "zyfkunnpnlmgvrojmrbg", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://zyfkunnpnlmgvrojmrbg.supabase.co" },
     { HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: "fallback-must-not-work" },
   ]) {
     const deps = dependencies({ env: { ...env, ...change } });

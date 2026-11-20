@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import {
@@ -117,12 +118,12 @@ it("supports five maximum clean files including per-file padding with bounded se
 import { dispatchProductionOutbox } from "@/lib/support/production/worker";
 import { productionConfig } from "@/lib/support/production/config";
 const conf = productionConfig({
-  VERCEL: "1",
+  ...syntheticMainContext, VERCEL: "1",
   VERCEL_ENV: "production",
   HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "abcdefghijklmnopqrst",
+  HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh",
   HELIX_PRODUCTION_SUPPORT_PROJECT_URL:
-    "https://abcdefghijklmnopqrst.supabase.co",
+    "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: uuid(6),
   HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:
     "synthetic-service-credential-32-characters",

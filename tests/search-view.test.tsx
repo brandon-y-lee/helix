@@ -37,7 +37,7 @@ describe("customer product search", () => {
   it("retries the current query after a provider failure without displaying provider details", async () => {
     vi.stubEnv("NEXT_PUBLIC_ALGOLIA_APP_ID", "test-app");
     vi.stubEnv("NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY", "test-search-key");
-    vi.stubEnv("NEXT_PUBLIC_ALGOLIA_INDEX_NAME", "helix_products");
+    vi.stubEnv("NEXT_PUBLIC_ALGOLIA_INDEX_NAME", "helix_products_dev");
     searchForHits.mockRejectedValueOnce(new Error("Provider response: invalid test-search-key"));
     searchForHits.mockResolvedValueOnce({ results: [{ hits: [], nbHits: 0 }] });
 

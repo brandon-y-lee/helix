@@ -38,13 +38,6 @@ const workflowDocumentation = [
   "docs/git-workflow.md",
 ].map((path) => readFileSync(resolve(projectRoot, path), "utf8")).join("\n");
 
-const ciPublicRuntimeSecrets = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "NEXT_PUBLIC_ALGOLIA_APP_ID",
-  "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY",
-  "NEXT_PUBLIC_ALGOLIA_INDEX_NAME",
-] as const;
 
 function workflowStep(name: string, job?: string): string {
   const workflow = job ? workflowJob(job) : ciWorkflow;
@@ -353,9 +346,10 @@ process.exit(2);
 describe("GitHub Actions CI", () => {
   it("receives the approved public runtime configuration from repository secrets", () => {
     const productionWork = workflowJob("integration-verification");
-    for (const key of ciPublicRuntimeSecrets) {
-      expect(productionWork).toContain(`${key}: \${{ secrets.${key} }}`);
-    }
+    expect(productionWork).toContain("NEXT_PUBLIC_SUPABASE_URL: https://zyfkunnpnlmgvrojmrbg.supabase.co");
+    expect(productionWork).toContain("NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_DEV_SUPABASE_ANON_KEY }}");
+    expect(productionWork).not.toContain("HELIX_PRODUCTION");
+    expect(productionWork).not.toContain("secrets.NEXT_PUBLIC_ALGOLIA");
 
     expect(ciWorkflow).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(ciWorkflow).not.toContain("ALGOLIA_WRITE_API_KEY");

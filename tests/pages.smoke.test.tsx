@@ -1,6 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { supabaseOriginForTarget } from "@/lib/supabase/project-safety";
+import { syntheticMainContext } from "./helpers/supabase-target";
+
+vi.mock("next/headers", async (importOriginal) => ({
+  ...await importOriginal<typeof import("next/headers")>(),
+  headers: async () => new Headers({ host: "helixskin.vercel.app" }),
+}));
 
 vi.mock("@/lib/catalog-cache", () => ({
   getCachedProductCards: vi.fn(async () => []),
@@ -42,7 +49,35 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("public route states", () => {
+  it.each([
+    { page: SignUpPage, message: "Account creation is temporarily unavailable." },
+    { page: ForgotPasswordPage, message: "Password reset links are temporarily unavailable." },
+  ])("shows $message until the Preview return host is qualified", async ({ page, message }) => {
+    const devOrigin = "https://helixskin.vercel.app";
+    for (const [key, value] of Object.entries({
+      ...syntheticMainContext, VERCEL_ENV: "preview", VERCEL_TARGET_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev",
+      NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("development"), NEXT_PUBLIC_SITE_URL: devOrigin,
+      HELIX_EMAIL_SITE_ORIGIN: devOrigin, HELIX_DEV_AUTH_RETURN_ORIGIN: "",
+    })) vi.stubEnv(key, value);
+
+    const user = userEvent.setup();
+    const { container, rerender } = render(await page());
+    expect(screen.getByText(message)).toBeVisible();
+    expect(container.querySelector("form")).toBeNull();
+    const signIn = screen.getByRole("link", { name: /sign in/i });
+    expect(signIn).toHaveAttribute("href", "/account/sign-in");
+    await user.tab();
+    expect(signIn).toHaveFocus();
+
+    vi.stubEnv("HELIX_DEV_AUTH_RETURN_ORIGIN", devOrigin);
+    rerender(await page());
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeEnabled();
+  });
+
   it("renders a clear Shop empty state", async () => {
     render(
       await CollectionPage({
@@ -249,7 +284,7 @@ describe("public route states", () => {
 
   it("renders password recovery in the shared access layout", async () => {
     const user = userEvent.setup();
-    render(<ForgotPasswordPage />);
+    render(await ForgotPasswordPage());
 
     expect(
       screen.getByRole("heading", { level: 1, name: "Reset password" }),
@@ -305,7 +340,7 @@ describe("public route states", () => {
   });
 
   it("keeps recovery errors adjacent and globally announced", async () => {
-    render(<ForgotPasswordPage />);
+    render(await ForgotPasswordPage());
 
     const form = screen.getByRole("button", { name: "Send reset link" }).closest("form");
     if (!form) throw new Error("Expected the recovery form");

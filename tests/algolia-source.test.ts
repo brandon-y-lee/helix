@@ -1,5 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
+
 describe("public Product Search source", () => {
   beforeAll(() => {
     vi.resetModules();
@@ -8,9 +10,9 @@ describe("public Product Search source", () => {
   beforeEach(() => {
     vi.stubEnv(
       "NEXT_PUBLIC_SUPABASE_URL",
-      "https://erasogmsqpgiirovubjh.supabase.co",
+      "https://zyfkunnpnlmgvrojmrbg.supabase.co",
     );
-    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "test-public-key");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("development", "anon"));
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       const requestsPrivateHistory =

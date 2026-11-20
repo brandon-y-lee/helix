@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runAuthEmailCommand } from "@/scripts/auth-email/operations";
 
 const env = {
-  NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+  NEXT_PUBLIC_SUPABASE_URL: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
   HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted",
   HELIX_EMAIL_SITE_ORIGIN: "https://helixskin.vercel.app",
   HELIX_EMAIL_AUTH_FROM: "onboarding@resend.dev",
@@ -27,7 +27,7 @@ describe("Auth email operational boundary", () => {
     const result = await runAuthEmailCommand(["plan"], env, templates, fetcher);
     expect(fetcher).not.toHaveBeenCalled();
     expect(result).toMatchObject({
-      command: "plan", project: "erasogmsqpgiirovubjh", activationReady: false,
+      command: "plan", project: "zyfkunnpnlmgvrojmrbg", activationReady: false,
       target: { smtp_host: "smtp.resend.com", smtp_port: "465", smtp_user: "resend", smtp_admin_email: "onboarding@resend.dev" },
     });
     expect(Object.keys(result.templateHashes)).toEqual(expect.arrayContaining([
@@ -37,11 +37,22 @@ describe("Auth email operational boundary", () => {
     expect(JSON.stringify(result)).not.toContain(env.HELIX_EMAIL_OWNER_RECIPIENT);
   });
 
+  it("refuses parent or customer-facing callback configuration before fetching", async () => {
+    const fetcher = vi.fn();
+    for (const override of [
+      { NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co" },
+      { HELIX_EMAIL_SITE_ORIGIN: "https://www.helixskin.us" },
+    ]) {
+      await expect(runAuthEmailCommand(["verify"], { ...env, ...override }, templates, fetcher)).rejects.toThrow();
+    }
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("verifies with one fixed-origin GET and reports configuration separately from activation evidence", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify(currentConfig())));
     const result = await runAuthEmailCommand(["verify"], { ...env, SUPABASE_ACCESS_TOKEN: "private-management-token" }, templates, fetcher);
     expect(fetcher).toHaveBeenCalledOnce();
-    expect(fetcher).toHaveBeenCalledWith("https://api.supabase.com/v1/projects/erasogmsqpgiirovubjh/config/auth", expect.objectContaining({
+    expect(fetcher).toHaveBeenCalledWith("https://api.supabase.com/v1/projects/zyfkunnpnlmgvrojmrbg/config/auth", expect.objectContaining({
       method: "GET", redirect: "error", cache: "no-store", headers: { Authorization: "Bearer private-management-token" },
     }));
     expect(result).toMatchObject({ command: "verify", activationReady: false, configurationMatches: true, changedFields: [], findings: [] });

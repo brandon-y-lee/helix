@@ -1,6 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { createDecipheriv, createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe, type ProductionMarketingRequestStorage } from "../../lib/production-marketing/requests";
 import type { ProductionMarketingHeldEnvelope } from "../../lib/production-marketing/capabilities";
 
@@ -19,10 +22,10 @@ const literal = (value: string) => `'${value.replaceAll("'", "''")}'`;
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const origin = "https://www.helixskin.us";
 const env = {
-  VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_synthetic", VERCEL_DEPLOYMENT_ID: "dpl_synthetic",
+  VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_synthetic", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild",
   VERCEL_PROJECT_PRODUCTION_URL: "www.helixskin.us", HELIX_PRODUCTION_MARKETING_ENABLED: "true",
   HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_synthetic",
-  HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID: "dpl_synthetic", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+  HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-service-only", HELIX_PRODUCTION_MARKETING_ABUSE_KEY: "b".repeat(64),
   HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "c".repeat(64), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "synthetic-v1",
 };

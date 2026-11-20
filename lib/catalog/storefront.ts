@@ -29,6 +29,7 @@ import {
   type GovernedSystemStep,
   type SystemStepDatabaseRelation,
 } from "@/lib/catalog/system-steps";
+import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type VariantRow = {
@@ -358,7 +359,7 @@ function mapMedia(
   swatch: [string, string],
 ): ProductMedia[] {
   return (rows ?? [])
-    .slice()
+    .filter((row) => row.url === null || isCatalogProductMediaUrl(row.url))
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((row) => ({
       kind:
@@ -678,7 +679,8 @@ export async function getProductCardContents(): Promise<
     .select(PRODUCT_CARD_SELECT)
     .eq("catalog_status", "active")
     .in("product_media.role", [...CARD_MEDIA_ROLES])
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
   const { data, error } = await withMediaOrdering(query);
 
   if (error) {

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { CATALOG_MEDIA_BUCKET } from "@/lib/admin/catalog/media";
+import { CATALOG_MEDIA_BUCKET, catalogMediaOrigin, isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { CatalogAdminError, catalogErrorStatus } from "@/lib/admin/catalog/errors";
 import {
   decodeCatalogGridCursor,
@@ -428,7 +428,7 @@ export async function listCatalogProducts(url: URL): Promise<{
     { url: string | null; alt: string; rank: number; sortOrder: number }
   >();
   for (const media of mediaResult.data ?? []) {
-    if (media.media_type !== "image" || !media.url) continue;
+    if (media.media_type !== "image" || !isCatalogProductMediaUrl(media.url)) continue;
     const candidate = {
       url: media.url,
       alt: media.alt,
@@ -717,26 +717,16 @@ export type CatalogPublishDependencies = Readonly<{
 async function verifyCatalogProductMedia(
   document: ProductEditorDocumentV4,
 ): Promise<RealProductMediaVerificationReport> {
-  let approvedOrigin: string | null = null;
-  try {
-    approvedOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
-      : null;
-  } catch {
-    approvedOrigin = null;
-  }
   return verifyRealProductMedia({
     expectedMedia: expectedCatalogMedia(document).map(({ url, mediaType }) => ({
       url,
       mediaType,
     })),
     urlPolicy: {
-      approvedLocations: approvedOrigin
-        ? [{
-            origin: approvedOrigin,
-            pathPrefix: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/`,
-          }]
-        : [],
+      approvedLocations: [{
+        origin: catalogMediaOrigin(),
+        pathPrefix: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/products/`,
+      }],
       maxRedirects: 2,
       timeoutMs: 5_000,
     },

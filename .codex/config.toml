@@ -2,7 +2,7 @@ sandbox_mode = "danger-full-access"
 approval_policy = "never"
 web_search = "live"
 [mcp_servers.supabase]
-url = "https://mcp.supabase.com/mcp?project_ref=erasogmsqpgiirovubjh&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment%2Cstorage%2Cfunctions"
+url = "https://mcp.supabase.com/mcp?project_ref=zyfkunnpnlmgvrojmrbg&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment%2Cstorage%2Cfunctions"
 
 [sandbox_workspace_write]
 # Retained as the fallback if this project returns to workspace-write mode.

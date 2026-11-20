@@ -6,6 +6,7 @@ const boundary = vi.hoisted(() => ({
   cookieSet: vi.fn(),
   getCurrentIdentity: vi.fn(),
   rpc: vi.fn(),
+  from: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -25,10 +26,11 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: vi.fn(() => ({
     rpc: boundary.rpc,
+    from: boundary.from,
   })),
 }));
 
-import { mergeGuestCartIntoCurrentUser } from "@/lib/cart/server";
+import { getCartState, mergeGuestCartIntoCurrentUser } from "@/lib/cart/server";
 import {
   GUEST_CART_COOKIE,
   CHECKOUT_RECEIPT_COOKIE,
@@ -63,4 +65,32 @@ describe("Cart ownership transition boundary", () => {
       expect.objectContaining({ httpOnly: true, maxAge: 0, path: "/" }),
     );
   });
+});
+
+it("skips media from the production project when reading the development cart", async () => {
+  const currentImage = "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/super-serum/primary/image.webp";
+  const cartMedia = [
+    { role: "cart", url: currentImage.replace("zyfkunnpnlmgvrojmrbg", "erasogmsqpgiirovubjh"), media_type: "image", sort_order: 0 },
+    { role: "card", url: currentImage, media_type: "image", sort_order: 1 },
+  ];
+  const rows = [{
+    id: "line", product_id: "product", variant_key: "standard", quantity: 1,
+    products: {
+      slug: "super-serum", display_name: "Super Serum", routine_group: "core", status: "available",
+      catalog_status: "active", product_media: cartMedia,
+      product_variants: [{ variant_key: "standard", available: true, price_cents: 2500 }],
+    },
+  }];
+  boundary.getCurrentIdentity.mockResolvedValue({ id: "customer" });
+  boundary.rpc.mockResolvedValue({ data: [{ cart_id: "cart" }], error: null });
+  const query = {
+    select: () => query,
+    eq: () => query,
+    order: async () => ({ data: rows, error: null }),
+  };
+  boundary.from.mockReturnValue(query);
+
+  const { lines } = await getCartState();
+
+  expect(lines[0].imageUrl).toBe(currentImage);
 });

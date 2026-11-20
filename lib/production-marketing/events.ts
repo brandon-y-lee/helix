@@ -1,4 +1,5 @@
 import "server-only";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { Resend } from "resend";
 import { readProductionMarketingConfiguration } from "./config";
 import { productionMarketingUuid } from "./delivery-config";
@@ -48,6 +49,7 @@ export async function receiveProductionMarketingEvent(request:Request,deps:{env:
     ||!uuid(data.email_id)||typeof data.from!=="string"||!data.from||data.from.length>320||/[\r\n\x00]/.test(data.from)
     ||!Array.isArray(data.to)||data.to.length!==1||typeof data.to[0]!=="string"||!data.to[0]||data.to[0].length>254||data.to[0]!==data.to[0].trim().toLowerCase())return response(400);
   try {
+    if (!await productionDeploymentAuthorized(deps.env)) return response(503);
     const result=await deps.record({eventId:id,messageId:tags.helix_message_id,providerId:data.email_id,eventType:event.type,occurredAt:new Date(event.created_at).toISOString(),
       sender:data.from,recipient:data.to[0],purpose:tags.helix_purpose as "confirmation"|"welcome",contractVersion:tags.helix_contract,environment:"production"});
     return result==="recorded"?response(200,true):response(result==="paused"?503:400);

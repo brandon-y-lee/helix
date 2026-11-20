@@ -1,15 +1,18 @@
 // @vitest-environment node
 import { createHash, createHmac } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { receiveProductionEmail } from "@/lib/production-email-gateway/gateway";
 import { productionEmailDelegates } from "@/lib/production-email-gateway/runtime";
 import { parseLegacySnapshot, recipientSetHash, type LegacySnapshot } from "@/lib/production-email-gateway/legacy";
 const origin="https://www.helixskin.us", id="11111111-1111-4111-8111-111111111111", provider="22222222-2222-4222-8222-222222222222";
 const secret=`whsec_${Buffer.from("synthetic-gateway-signing-secret").toString("base64")}`;
 const old=`whsec_${Buffer.from("synthetic-retired-signing-secret").toString("base64")}`;
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"d",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
+const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
  HELIX_PRODUCTION_EMAIL_GATEWAY_ENABLED:"true",HELIX_PRODUCTION_EMAIL_GATEWAY_ORIGIN:origin,HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:"p",
- HELIX_PRODUCTION_EMAIL_GATEWAY_DEPLOYMENT_ID:"d",HELIX_PRODUCTION_EMAIL_GATEWAY_WEBHOOK_SECRET:secret,RESEND_WEBHOOK_SECRET:old};
+ HELIX_PRODUCTION_EMAIL_GATEWAY_WEBHOOK_SECRET:secret,RESEND_WEBHOOK_SECRET:old};
 const types=["email.sent","email.delivered","email.delivery_delayed","email.failed","email.bounced","email.complained","email.suppressed"];
 const supportTags={helix_support_contract:id,helix_support_outbox:id,helix_support_delivery:"a".repeat(64)};
 const welcomeTags={environment:"production",helix_message_id:id,helix_purpose:"welcome",helix_contract:"production_welcome_delivery_v1"};
@@ -113,10 +116,9 @@ it("requires full inbound ownership proof and a durable queue ID, excluding nati
  expect(fetch).not.toHaveBeenCalled();
 });
 it("runs real support/welcome delegates with unchanged signatures, keeping existing gates and unknown ownership retryable",async()=>{
- const full={...env,HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
+ const full={...env,VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",VERCEL_GIT_COMMIT_REF:"main",HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID:id,HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:"synthetic-only-service-key-32-characters",HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET:"synthetic-only-abuse-secret-32-characters",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID:"d",
- HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-only-welcome-key",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true"};
+ HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-only-welcome-key",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true"};
  let supportResult="matched",welcomeResult="recorded";
  const fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{const url=String(input);expect(url.startsWith("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/")).toBe(true);
  expect(init?.redirect).toBe("error");

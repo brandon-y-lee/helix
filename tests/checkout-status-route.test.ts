@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { POST } from "@/app/api/checkout/status/route";
 import { CheckoutAdmissionError } from "@/lib/checkout/admission";
 
@@ -53,8 +54,8 @@ beforeEach(() => {
   vi.stubEnv("CHECKOUT_ORIGIN", origin);
   vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_status_boundary");
   vi.stubEnv("STRIPE_WEBHOOK_SECRET", "whsec_status_boundary");
-  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://erasogmsqpgiirovubjh.supabase.co");
-  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-test-service-key");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", syntheticSupabaseKey("development", "service_role"));
   vi.clearAllMocks();
   boundary.cookies.mockResolvedValue({ get: () => ({ value: Buffer.alloc(32, 1).toString("base64url") }), getAll: () => [] });
   boundary.from.mockImplementation((table) => query(table === "orders" ? order : [

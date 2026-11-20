@@ -5,7 +5,7 @@
 // from Supabase (source of truth) and atomically replaces the Algolia index.
 //
 //   curl -X POST http://localhost:3000/api/admin/search-reindex \
-//     -H "x-webhook-secret: $SUPABASE_CATALOG_WEBHOOK_SECRET"
+//     -H "x-webhook-secret: $HELIX_DEV_CATALOG_WEBHOOK_SECRET"
 //
 // Fails clearly (and does no work) if the secret or required Algolia/Supabase
 // env vars are missing.

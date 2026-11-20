@@ -5,7 +5,7 @@
 // `product_pdp_content`, `product_families`, and
 // `product_family_memberships` tables
 // (INSERT/UPDATE/DELETE) pointing at this route, with an HTTP header
-// `x-webhook-secret: <SUPABASE_CATALOG_WEBHOOK_SECRET>`.
+// the environment-specific secret and source-project headers.
 // On each change we rebuild the affected product's record from Supabase (the
 // source of truth) and upsert/delete it in Algolia. This is the NORMAL,
 // automatic sync path — no manual script runs are required after setup.
@@ -24,6 +24,8 @@ import {
   type CatalogWebhookPayload,
 } from "@/lib/algolia/sync";
 import { getCatalogInvalidationTargets } from "@/lib/catalog-invalidation";
+import { verifySupabaseCredential } from "@/lib/supabase/key-binding";
+import { SUPABASE_PROJECT_REFS, assertSupabaseTargetUrl, runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { getIndexName } from "@/lib/algolia/server";
 
 // Needs Node (algoliasearch + supabase-js); never statically cached.
@@ -44,7 +46,8 @@ function invalidateCatalog(
 export async function POST(request: Request): Promise<NextResponse> {
   // 1) Auth FIRST — before touching env-gated Algolia config or parsing —
   //    so unauthorized callers get a uniform 401 and learn nothing.
-  if (!verifyWebhookSecret(request.headers.get(WEBHOOK_SECRET_HEADER))) {
+  if (!verifyWebhookSecret(request.headers.get(WEBHOOK_SECRET_HEADER))
+    || request.headers.get("x-helix-source-project") !== SUPABASE_PROJECT_REFS[runtimeSupabaseTarget()]) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -74,6 +77,17 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  // Misconfigured environments must not mutate either Search or the local cache.
+  let indexName: string;
+  try {
+    const target = runtimeSupabaseTarget();
+    assertSupabaseTargetUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", target);
+    verifySupabaseCredential(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "", target, "anon", process.env);
+    indexName = getIndexName();
+  } catch {
+    return NextResponse.json({ error: "catalog synchronization unavailable" }, { status: 503 });
+  }
+
   // 3) Apply the change to Algolia.
   let outcome: Awaited<ReturnType<typeof applyCatalogWebhookEvent>>;
   try {
@@ -99,7 +113,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({
       ok: true,
       ...outcome,
-      indexName: getIndexName(),
+      indexName,
       publicIndexName: process.env.NEXT_PUBLIC_ALGOLIA_INDEX_NAME,
       cache,
     });

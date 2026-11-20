@@ -4,7 +4,9 @@ The Node POST `/api/webhooks/resend-production` is disabled by default. It does 
 
 ## Configuration and ownership
 
-The route uses only `HELIX_PRODUCTION_EMAIL_GATEWAY_ENABLED`, `ORIGIN`, `PROJECT_ID`, `DEPLOYMENT_ID` and `WEBHOOK_SECRET` under that common prefix. Enabled must equal `true`; origin must be canonical `https://www.helixskin.us`; project and deployment pins must match the actual production Vercel context. No generic secret, database client or sending/read key fallback exists. The dedicated signing secret must differ from the generic secret if the latter remains present. Source cannot prove secret custody: fresh production-only material and effective removal of development access require operational verification.
+The gateway requires `HELIX_PRODUCTION_EMAIL_GATEWAY_ENABLED=true`, its exact canonical `ORIGIN` (`https://www.helixskin.us`), its Vercel `PROJECT_ID` and a dedicated `WEBHOOK_SECRET`, all under the `HELIX_PRODUCTION_EMAIL_GATEWAY_` prefix. The secret must differ from the generic secret. Verify custody and development isolation separately.
+
+After checking the request origin and raw signature, the gateway asks the production database whether the protected release controller has authorized this exact Vercel project, immutable deployment ID and Git SHA. The server uses the fixed parent project and its existing target-validated public Supabase key. The public RPC returns a single boolean for the supplied project, deployment ID and full Git SHA. Only the enrolled release controller can change it. Missing or revoked authorization returns 503. Authorization leaves the gateway and all sending controls at their independently configured states. The event table below describes handling after this check.
 
 Raw verification is local, with a 128 KiB body ceiling, three-second body deadline and bounded fresh Svix headers. Existing handlers re-verify the unchanged raw body with the dedicated gateway secret. Configuration and qualification gates in those handlers remain independent.
 

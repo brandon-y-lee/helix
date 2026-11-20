@@ -6,6 +6,7 @@ import {
   type ProductMedia,
 } from "@/lib/products";
 import type { AlgoliaProductRecord } from "@/lib/algolia/record";
+import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { statusLabel } from "@/lib/catalog/product-status";
 
 /** Availability-aware label shown on the result's link CTA. */
@@ -36,7 +37,7 @@ export function SearchResultCard({
   const colors: [string, string] = hit.placeholderMedia
     ? [hit.placeholderMedia.palette.start, hit.placeholderMedia.palette.end]
     : hit.swatch;
-  const media: ProductMedia | null = hit.imageMedia
+  const media: ProductMedia | null = hit.imageMedia && isCatalogProductMediaUrl(hit.imageMedia.url)
     ? {
         kind: "image",
         url: hit.imageMedia.url,

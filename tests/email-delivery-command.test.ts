@@ -1,10 +1,11 @@
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), createClient: vi.fn() }));
 vi.mock("@supabase/supabase-js", () => ({ createClient: mocks.createClient }));
 import { parseEmailDeliveryCommand, runEmailDeliveryCommand } from "../scripts/email-delivery";
 const id = "f83164ef-c327-44ae-bbb4-bbd25d254abc";
 const env = { HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted",
-  NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "test-service-key" };
+  NEXT_PUBLIC_SUPABASE_URL: "https://zyfkunnpnlmgvrojmrbg.supabase.co", SUPABASE_SERVICE_ROLE_KEY: syntheticSupabaseKey("development", "service_role") };
 const operation = { subscriberId: id, generation: 2, importState: "retry_wait", attemptCount: 1,
   nextSubmissionAt: "2026-09-29T22:00:00+00:00", providerImportId: null,
   firstFailure: { category: "rate_limited", httpStatus: 429, providerName: "rate_limit_exceeded", retryAfterSeconds: 60 },
@@ -22,23 +23,23 @@ it("requires a message, drift boundary, and exact project before applying a retr
   const args = ["retry", "--id", id, "--expected-updated-at", "2026-09-28T00:00:00Z", "--apply"];
   expect(() => parseEmailDeliveryCommand(args)).toThrow();
   expect(() => parseEmailDeliveryCommand([...args, "--confirm-project", "another-project"])).toThrow();
-  expect(parseEmailDeliveryCommand([...args, "--confirm-project", "erasogmsqpgiirovubjh"])).toMatchObject({ apply: true });
+  expect(parseEmailDeliveryCommand([...args, "--confirm-project", "zyfkunnpnlmgvrojmrbg"])).toMatchObject({ apply: true });
   expect(() => parseEmailDeliveryCommand(["retry", "--id", id])).toThrow();
   expect(() => parseEmailDeliveryCommand(["inspect", "--recipient", "someone@example.test"])).toThrow();
 });
 it("accepts marketing status only as a read-only command without delivery or retry options", () => {
   expect(parseEmailDeliveryCommand(["marketing-status"])).toMatchObject({ command: "marketing-status", apply: false, id: null });
   for (const options of [["--id", id], ["--apply"], ["--expected-updated-at", "2026-09-28T00:00:00Z"],
-    ["--confirm-project", "erasogmsqpgiirovubjh"], ["retry"], ["--limit", "100"]]) {
+    ["--confirm-project", "zyfkunnpnlmgvrojmrbg"], ["retry"], ["--limit", "100"]]) {
     expect(() => parseEmailDeliveryCommand(["marketing-status", ...options])).toThrow();
   }
 });
 it("reads marketing status in the approved restricted environment without Resend credentials", async () => {
   await expect(runEmailDeliveryCommand(["marketing-status"], env)).resolves.toMatchObject({
-    project: "erasogmsqpgiirovubjh", action: "marketing_status", imports: [],
+    project: "zyfkunnpnlmgvrojmrbg", action: "marketing_status", imports: [],
   });
   expect(mocks.rpc.mock.calls).toEqual([["read_marketing_operations", { p_limit: 20 }]]);
-  expect(mocks.createClient).toHaveBeenCalledWith(env.NEXT_PUBLIC_SUPABASE_URL, "test-service-key", {
+  expect(mocks.createClient).toHaveBeenCalledWith(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 });
@@ -60,7 +61,7 @@ it("projects only finite import diagnostics and adds bounded retry guidance", as
   mocks.rpc.mockResolvedValue({ data: [{ ...operation, email: "private@example.test", token: "private-token",
     firstFailure: { ...operation.firstFailure, message: "private provider detail" } }], error: null });
   const result = await runEmailDeliveryCommand(["marketing-status"], env);
-  expect(result).toEqual({ project: "erasogmsqpgiirovubjh", action: "marketing_status", imports: [{ ...operation,
+  expect(result).toEqual({ project: "zyfkunnpnlmgvrojmrbg", action: "marketing_status", imports: [{ ...operation,
     remediation: { code: "wait_for_scheduled_retry", action: "Wait for the worker to retry only while current consent and generation remain eligible." },
   }] });
   expect(JSON.stringify(result)).not.toMatch(/private@example|private-token|private provider/);

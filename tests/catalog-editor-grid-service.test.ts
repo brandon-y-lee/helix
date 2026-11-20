@@ -104,10 +104,11 @@ describe("catalog editor product grid service", () => {
       { product_id: productId, price_cents: 2200 },
       { product_id: productId, price_cents: 3600 },
     ]);
+    const mediaPrefix = "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/biotic-reset";
     const media = queryResult([
       {
         product_id: productId,
-        url: "https://example.test/detail.webp",
+        url: `${mediaPrefix}/detail.webp`,
         alt: "Detail",
         role: "detail",
         sort_order: 0,
@@ -115,7 +116,7 @@ describe("catalog editor product grid service", () => {
       },
       {
         product_id: productId,
-        url: "https://example.test/card.webp",
+        url: `${mediaPrefix}/card.webp`,
         alt: "Card",
         role: "card_default",
         sort_order: 4,
@@ -139,7 +140,7 @@ describe("catalog editor product grid service", () => {
     expect(result.items[0]).toMatchObject({
       id: productId,
       primaryMedia: {
-        url: "https://example.test/card.webp",
+        url: `${mediaPrefix}/card.webp`,
         alt: "Card",
       },
       variantCount: 2,
