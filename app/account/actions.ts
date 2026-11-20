@@ -19,11 +19,7 @@ import {
   logSupabaseUnavailable,
 } from "@/lib/supabase/network";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { accountEmailOrigin } from "@/lib/auth/email-confirmation";
-
-function originFromHeaders(headersList: Headers): string {
-  return accountEmailOrigin(headersList.get("origin"));
-}
+import { accountEmailLinkOrigin, accountEmailUnavailable } from "@/lib/auth/email-confirmation";
 
 async function unavailableAuthState(
   error: unknown,
@@ -97,8 +93,9 @@ export async function signUpAction(
     return { status: "error", fieldErrors, message: "Check the highlighted fields." };
   }
 
-  const headersList = await headers();
-  const emailRedirectTo = `${originFromHeaders(headersList)}/auth/callback?next=${encodeURIComponent("/account")}`;
+  const origin = accountEmailLinkOrigin(await headers(), "action");
+  if (!origin) return { status: "error", message: accountEmailUnavailable.signup };
+  const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/account")}`;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -142,8 +139,9 @@ export async function forgotPasswordAction(
     return { status: "error", fieldErrors, message: "Check the highlighted fields." };
   }
 
-  const headersList = await headers();
-  const redirectTo = `${originFromHeaders(headersList)}/auth/callback?next=${encodeURIComponent("/account/reset-password")}`;
+  const origin = accountEmailLinkOrigin(await headers(), "action");
+  if (!origin) return { status: "error", message: accountEmailUnavailable.recovery };
+  const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/account/reset-password")}`;
   try {
     const supabase = await createSupabaseServerClient();
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
