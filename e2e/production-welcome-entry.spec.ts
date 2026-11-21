@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect, test } from "./storefront-fixture";
 import { PRODUCTION_MARKETING_WORDING } from "../lib/production-marketing/contract";
 
 const canonical = "https://www.helixskin.us";
