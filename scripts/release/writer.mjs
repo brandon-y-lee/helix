@@ -20,8 +20,16 @@ export async function withReleaseWriter(env, run) {
     if (rows.length !== 1 || rows[0].role !== role || rows[0].environment !== "production" || rows[0].project_ref !== projectRef) {
       throw new Error("Release controller target mismatch.");
     }
+    const pairIdentity = release => [HELIX_VERCEL_PROJECT_ID, release.previousId, release.previousSha, release.candidateId, release.candidateSha];
+    async function admit(action, release, inspectionOnly) {
+      const { rows } = await client.query(
+        "select helix_release_control.admit_release($1,$2,$3,$4,$5,$6,$7) as accepted",
+        [action, inspectionOnly, ...pairIdentity(release)],
+      );
+      return rows.length === 1 && rows[0].accepted === true;
+    }
     async function change(action, release, failedRequestAt) {
-      const pair = [HELIX_VERCEL_PROJECT_ID, release.previousId, release.previousSha, release.candidateId, release.candidateSha];
+      const pair = pairIdentity(release);
       const retry = action === "retry_rollback";
       if (retry && !Number.isSafeInteger(failedRequestAt)) throw new Error("Invalid provider request identity.");
       const { rows: result } = await client.query(
@@ -40,7 +48,7 @@ export async function withReleaseWriter(env, run) {
       return { previousId: rows[0].previous_id, previousSha: rows[0].previous_sha,
         candidateId: rows[0].candidate_id, candidateSha: rows[0].candidate_sha };
     }
-    return await run({ change, recorded });
+    return await run({ admit, change, recorded });
   } finally {
     await client.end();
   }

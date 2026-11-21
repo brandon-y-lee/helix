@@ -8,6 +8,14 @@ const digest = raw => createHash("sha256").update(raw).digest("hex");
 const isRecovery = operation => operation === "rollback" || operation === "cancel";
 const canonical = "https://www.helixskin.us";
 
+function inspectionOnly(profile, operation) {
+  if (profile.mode !== "inspection-only") return false;
+  if (operation !== "verify" && operation !== "cancel") {
+    throw new Error("Release expectations: inspection allows only verification or cancellation.");
+  }
+  return true;
+}
+
 export function releaseSelector(value) {
   const pr = /^(?:#|https:\/\/github\.com\/brandon-y-lee\/helix\/pull\/)?([1-9][0-9]{0,9})$/.exec(value);
   if (pr) return { pr: Number(pr[1]) };
@@ -55,11 +63,11 @@ export async function run(command, env = process.env) {
     return;
   }
   const operation = env.RELEASE_OPERATION;
-  if (!["verify","promote","rollback","cancel"].includes(operation) || !["resolve","execute"].includes(command)) {
+  if (!["verify","promote","rollback","cancel"].includes(operation) || !["resolve","admit","execute"].includes(command)) {
     throw new Error("Unknown release operation.");
   }
   const selector = releaseSelector(env.RELEASE_SELECTOR);
-  const { readReleaseProfile, buildReleasePacket, verifyReleasePacket, observationsFor } = await import("./packet.mjs");
+  const { readReleaseProfile, buildReleasePacket, verifyReleasePacket, observationsFor, releaseEvidenceExpiry } = await import("./packet.mjs");
   const { verifyReleaseObservations } = await import("./observations.mjs");
   const probe = (phase, origin, deployment, profile, release) => verifyReleaseObservations({
     phase, origin, deploymentId: deployment.id, sha: deployment.sha, ...observationsFor(profile, release, phase),
@@ -67,7 +75,7 @@ export async function run(command, env = process.env) {
   });
   if (command === "resolve") {
     const rawProfile = env.HELIX_RELEASE_PROFILE;
-    readReleaseProfile(rawProfile);
+    inspectionOnly(readReleaseProfile(rawProfile), operation);
     const common = { operation, selector: env.RELEASE_SELECTOR, workflowSha: env.GITHUB_SHA };
     await controller.assertHeldProject();
     if (isRecovery(operation)) {
@@ -89,15 +97,24 @@ export async function run(command, env = process.env) {
   }
 
   const ctx = readContext(env);
-  const { executeRelease } = await import("./workflow.mjs");
   const { withReleaseWriter } = await import("./writer.mjs");
-  await withReleaseWriter(env, async ({ change, recorded }) => {
+  await withReleaseWriter(env, async ({ admit, change, recorded }) => {
     const recovery = isRecovery(operation);
     const release = recovery ? await recorded(ctx.lookup) : ctx.release;
     const pr = recovery ? selector.pr ?? await source.releasePrForCommit(release.candidateSha, repoId) : ctx.pr;
     const packet = recovery ? buildReleasePacket(ctx.rawProfile, release) : ctx.packet;
     const profile = () => verifyReleasePacket(packet.raw, packet.digest, release);
-    profile();
+    // A recovery selector is looked up afresh in the registry in both jobs.
+    // Bind the admitted pair and profile too, so the latest row cannot silently change.
+    const receipt = JSON.stringify({
+      version: 1, operation, candidateSha: release.candidateSha,
+      contextSha256: env.RELEASE_CONTEXT_SHA256, packetSha256: packet.digest,
+      expiresAt: releaseEvidenceExpiry(profile(), release),
+    });
+    const receiptDigest = digest(receipt);
+    if (command === "execute" && receiptDigest !== env.RELEASE_ADMISSION_SHA256) {
+      throw new Error("Release admission belongs to a different operation or deployment pair.");
+    }
     await source.verifyPr(pr, recovery ? "recorded" : "merged", release.candidateSha, repoId);
     const currentHead = async () => {
       profile();
@@ -106,6 +123,26 @@ export async function run(command, env = process.env) {
         throw new Error("The staged deployment changed.");
       }
     };
+    if (command === "admit") {
+      if (!env.GITHUB_OUTPUT) throw new Error("Missing protected admission output.");
+      if (recovery) {
+        const { serving } = await controller.inspectRecovery(release);
+        if (operation === "cancel" && serving !== "previous") throw new Error("Cancellation requires the prior deployment to serve.");
+      } else {
+        await currentHead();
+        const { serving } = await controller.inspect(release);
+        if (operation === "verify" && serving !== "previous") throw new Error("The candidate already serves production.");
+      }
+    }
+    const limited = inspectionOnly(profile(), operation);
+    if (await admit(operation, release, limited) !== true) {
+      throw new Error("Release transition unavailable for this profile and recorded deployment pair.");
+    }
+    if (command === "admit") {
+      await appendFile(env.GITHUB_OUTPUT, `admission=${receipt}\nadmission_sha256=${receiptDigest}\n`);
+      return;
+    }
+    const { executeRelease } = await import("./workflow.mjs");
     await executeRelease(operation, { controller, release, appliedSha: env.RELEASE_APPLIED_SHA, currentHead,
       check: (phase, origin, deployment) => probe(phase, origin, deployment, profile(), release),
       transition: (action, failureAt) => change(action, release, failureAt),

@@ -5,6 +5,7 @@ import {
   qualifiedMigrationConnection,
   releaseConnection,
   validateReleaseSources,
+  verifyForwardAdmission,
 } from "../scripts/db/forward-migrations.mjs";
 import { createHash } from "node:crypto";
 import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -16,6 +17,50 @@ const sql = "CREATE INDEX products_sort ON public.products(sort_order, id);\n";
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 const sidecar = { sourceSha256: hash(sql), verify: "SELECT true AS applied" };
+
+describe("production migration admission", () => {
+  const candidateSha = "a".repeat(40);
+  const expiresAt = "2026-11-21T10:00:00.000Z";
+  const deadline = Date.parse(expiresAt);
+  const receipt = {
+    version: 1, operation: "verify", candidateSha,
+    contextSha256: hash("context"), packetSha256: hash("packet"), expiresAt,
+  };
+  const raw = JSON.stringify(receipt);
+
+  it("binds the exact protected receipt and candidate until the deadline", () => {
+    for (const operation of ["verify", "promote"]) {
+      const bytes = JSON.stringify({ ...receipt, operation });
+      expect(verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline - 1)).toBe(deadline);
+      expect(() => verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline)).toThrow(/expired/);
+    }
+    expect(() => verifyForwardAdmission(raw, hash("different bytes"), candidateSha, deadline - 1)).toThrow();
+    expect(() => verifyForwardAdmission(raw, hash(raw), "b".repeat(40), deadline - 1)).toThrow();
+    expect(() => verifyForwardAdmission(undefined, undefined, candidateSha, deadline - 1)).toThrow();
+    expect(() => verifyForwardAdmission(raw, hash(raw), candidateSha, NaN)).toThrow();
+  });
+
+  it("rejects recovery operations and noncanonical or incomplete receipts, even with matching hashes", () => {
+    for (const bytes of [
+      JSON.stringify({ ...receipt, operation: "rollback" }),
+      JSON.stringify({ ...receipt, operation: "cancel" }),
+      JSON.stringify({ ...receipt, version: 2 }),
+      JSON.stringify({ ...receipt, extra: false }),
+      JSON.stringify({ ...receipt, candidateSha: "invalid" }),
+      JSON.stringify({ ...receipt, contextSha256: hash("context").toUpperCase() }),
+      JSON.stringify({ ...receipt, packetSha256: undefined }),
+      JSON.stringify({ ...receipt, expiresAt: "2026-11-21" }),
+      JSON.stringify({ ...receipt, expiresAt: "invalid" }),
+      raw + "\n",
+      raw.replace('"version":1', '"version":1,"version":1'),
+      JSON.stringify(Object.fromEntries(Object.entries(receipt).reverse())),
+      "not-json",
+      "null",
+    ]) {
+      expect(() => verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline - 1)).toThrow();
+    }
+  });
+});
 
 describe("reviewed forward migrations", () => {
   it("verifies the real repository legacy inventory and every forward sidecar", async () => {

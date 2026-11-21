@@ -116,6 +116,34 @@ describe("production release read-only probe", () => {
     await expect(verifyReleaseObservations({...args,sha:candidate.sha})).rejects.toThrow("legacy observation");
   });
 
+  it("runs every original public probe for bounded evidence only on the serving original build", async () => {
+    const fetchImpl = vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+      ["/marketing/production", "/api/support/production/intake"].includes(new URL(String(input)).pathname)
+        ? Promise.resolve(new Response(null, {status: 404})) : fixture(input, init));
+    const original = { phase: "previous", origin: canonical, deploymentId: "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC",
+      sha: "4d45e0d3e14271513fb887592faadf6c2c24fede", expectations: example, legacyPrevious: true,
+      statusToken, bypassToken, fetchImpl, env: catalogEnv };
+    await verifyReleaseObservations(original);
+    const paths = () => fetchImpl.mock.calls.map(([input, options]) => [String(input), options?.method]);
+    const normalLegacyProbes = paths();
+    fetchImpl.mockClear();
+    const limited = { ...original, inspectionOnly: true, expectations: {
+      productSlug: example.productSlug, mediaUrl: example.mediaUrl, canonicalCheckoutGet: example.canonicalCheckoutGet,
+    } };
+    await verifyReleaseObservations(limited);
+    expect(paths()).toEqual(normalLegacyProbes);
+    for (const [, options] of fetchImpl.mock.calls) {
+      const headers = new Headers(options?.headers);
+      expect(headers.has("x-vercel-protection-bypass")).toBe(false);
+      expect(headers.get("authorization")).not.toBe("Bearer " + statusToken);
+    }
+    fetchImpl.mockClear();
+    for (const override of [{ phase: "staged" }, { origin: candidate.url }, { legacyPrevious: false }, { sha: candidate.sha }]) {
+      await expect(verifyReleaseObservations({ ...limited, ...override })).rejects.toThrow();
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
   it("rejects a missing planned capability, including when the staged storefront is otherwise available", async () => {
     const fetchImpl = vi.fn(async (input:RequestInfo | URL, init?:RequestInit) => {
       const response = await fixture(input,init);
@@ -129,8 +157,8 @@ describe("production release read-only probe", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["ALGOLIA_WRITE_API_KEY", "HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET"])("rejects a nonempty substituted %s even when the qualified public Search is available", async key => {
-    const qualified = { ALGOLIA_WRITE_API_KEY:"synthetic-qualified-write-key", HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET:"synthetic-qualified-production-hook" };
+  it.each(["HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", "HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET"])("rejects a nonempty substituted %s even when the qualified public Search is available", async key => {
+    const qualified = { HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY:"synthetic-qualified-write-key", HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET:"synthetic-qualified-production-hook" };
     expect(searchCredentialFingerprints(qualified)).toEqual(example.searchCredentials);
     const actual = searchCredentialFingerprints({...qualified, [key]:"synthetic-unqualified-replacement"});
     const fetchImpl = vi.fn(async (input:RequestInfo | URL, init?:RequestInit) => {

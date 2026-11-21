@@ -103,6 +103,133 @@ function verifyManagedOwnerEnrollment(install) {
     'production|erasogmsqpgiirovubjh');
 }
 
+const legacyPrevious = ['dpl_91HXTZGJXtUp9P4Us9edBvC73CmC', '4d45e0d3e14271513fb887592faadf6c2c24fede'];
+const admission = (action, inspectionOnly, previous, candidate, projectId = project) =>
+  'select helix_release_control.admit_release(' + args([action, inspectionOnly, projectId, ...previous, ...candidate]) + ');';
+
+// The SQL boundary can explicitly refuse an action (false or a P0001 policy error).
+// Missing functions, broken SQL, and unrelated permission errors cannot satisfy this check.
+function refused(run) {
+  let result;
+  try {
+    result = run();
+  } catch (error) {
+    assert.match(String(error.stderr), /ERROR:\s+P0001:/);
+    return;
+  }
+  assert.equal(result, 'f');
+}
+
+function upgradePopulatedRegistry(install) {
+  const history = `select sequence_id,previous_id,previous_sha,candidate_id,candidate_sha,phase,
+    retained_id,retained_sha,last_failed_rollback_request_at from helix_release_control.transitions order by sequence_id;`;
+  const before = owner(history);
+  assert.ok(before.split('\n').length > 1);
+  owner('alter default privileges in schema helix_release_control grant select on tables to unexpected_reader;');
+  deny(() => owner(install), 'Unexpected release admission grants');
+  assert.equal(owner("select to_regclass('helix_release_control.release_admissions') is null;"), 't');
+  assert.equal(owner(history), before);
+  owner('alter default privileges in schema helix_release_control revoke select on tables from unexpected_reader;');
+  owner(install);
+  assert.equal(owner(history), before);
+  assert.equal(writer(admission('promote', false, B, build(6))), 't');
+  assert.equal(writer(transition('start_promote', B, build(6))), 't');
+  assert.equal(writer(transition('promoted', B, build(6))), 't');
+  assert.equal(read(build(6)), 't');
+}
+
+async function verifyInspectionAdmission(install) {
+  const db = 'managed_registry';
+  const direct = (role, sql) => docker([...psql(role).with(-1, db), '-v', 'VERBOSITY=verbose'], sql);
+  const control = sql => direct('helix_release_controller', sql);
+  const candidate = build(7);
+  const testAdmission = (action, held) => admission(action, held, legacyPrevious, candidate);
+  const step = action => transition(action, legacyPrevious, candidate);
+  const authorized = id => direct('anon',
+    'select public.read_helix_release_authorization(' + args([project, ...id]) + ');');
+  const phases = () => direct('registry_owner', 'select phase from helix_release_control.transitions order by sequence_id;');
+  direct('registry_owner', install);
+  // Use an independent empty registry for the competing protected dispatches.
+  owner('create database admission_race template managed_registry owner registry_owner;');
+  owner('create database admission_crossed template managed_registry owner registry_owner;');
+  const crossed = sql => docker([...psql('helix_release_controller').with(-1, 'admission_crossed'), '-v', 'VERBOSITY=verbose'], sql);
+  const downstream = build(9);
+  assert.equal(crossed(admission('verify', false, candidate, downstream)), 't');
+  assert.equal(crossed(testAdmission('verify', true)), 't');
+  // The previously admitted downstream tuple now names a held artifact as
+  // its serving predecessor. An older caller may still try its saved tuple.
+  refused(() => crossed(transition('prepare', candidate, downstream)));
+  assert.equal(docker(psql('registry_owner').with(-1, 'admission_crossed'),
+    'select count(*) from helix_release_control.transitions;'), '0');
+  for (const role of ['anon', 'authenticated', 'service_role']) {
+    deny(() => direct(role, testAdmission('verify', true)), 'permission denied');
+  }
+  refused(() => control(admission('verify', true, A, candidate)));
+  refused(() => control(admission('verify', true, [legacyPrevious[0], A[1]], candidate)));
+  refused(() => control(admission('verify', true, legacyPrevious, candidate, 'prj_other')));
+  refused(() => control(step('prepare')));
+  for (const unsupported of ['promote', 'rollback']) refused(() => control(testAdmission(unsupported, true)));
+  assert.equal(phases(), '');
+
+  // Admission precedes the migration. Retry may pin the same mode and tuple,
+  // but cannot prepare either build or overwrite an existing inspection hold.
+  assert.equal(control(testAdmission('verify', true)), 't');
+  assert.equal(control(testAdmission('verify', true)), 't');
+  for (const role of ['anon', 'authenticated', 'service_role', 'helix_release_controller']) {
+    deny(() => direct(role, 'update helix_release_control.release_admissions set inspection_only=false;'), 'permission denied');
+    deny(() => direct(role, 'delete from helix_release_control.release_admissions;'), 'permission denied');
+  }
+  for (const action of ['verify', 'promote', 'rollback', 'cancel']) refused(() => control(testAdmission(action, false)));
+  refused(() => control(admission('verify', true, legacyPrevious, [candidate[0], A[1]])));
+  assert.equal(phases(), '');
+  assert.equal(authorized(legacyPrevious), 'f');
+  assert.equal(authorized(candidate), 'f');
+  assert.equal(control(step('prepare')), 't');
+  assert.equal(authorized(legacyPrevious), 't');
+  assert.equal(authorized(candidate), 't');
+  for (const action of ['start_promote', 'promoted', 'start_rollback', 'rolled_back', 'failed_promotion']) {
+    refused(() => control(step(action)));
+  }
+  refused(() => control(retry(legacyPrevious, candidate, 123)));
+  assert.equal(phases(), 'prepared');
+  assert.equal(control(testAdmission('cancel', true)), 't');
+  assert.equal(control(step('cancel')), 't');
+  assert.equal(authorized(legacyPrevious), 't');
+  assert.equal(authorized(candidate), 'f');
+  for (const action of ['verify', 'promote', 'rollback']) refused(() => control(testAdmission(action, false)));
+  refused(() => control(step('prepare')));
+  refused(() => control(step('start_promote')));
+  assert.equal(phases(), 'cancelled');
+
+  // A different, fully qualified release keeps the ordinary lifecycle. The
+  // cancelled artifact's restriction survives this later registry record.
+  const full = build(8);
+  assert.equal(control(admission('promote', false, legacyPrevious, full)), 't');
+  for (const action of ['prepare', 'start_promote', 'promoted']) {
+    assert.equal(control(transition(action, legacyPrevious, full)), 't');
+  }
+  assert.equal(authorized(full), 't');
+  assert.equal(control(admission('rollback', false, legacyPrevious, full)), 't');
+  assert.equal(control(transition('start_rollback', legacyPrevious, full)), 't');
+  assert.equal(control(transition('rolled_back', legacyPrevious, full)), 't');
+  assert.equal(authorized(full), 'f');
+  refused(() => control(testAdmission('promote', false)));
+  assert.equal(phases(), 'cancelled\nrolled_back');
+
+  const raceConnection = [...psql('helix_release_controller').with(-1, 'admission_race'), '-v', 'VERBOSITY=verbose'];
+  const modes = [true, false];
+  const race = await Promise.allSettled(modes.map(held =>
+    promisify(execFile)('docker', [...raceConnection, '-c', testAdmission('verify', held)], { env, timeout: 20_000 })));
+  const won = result => result.status === 'fulfilled' && result.value.stdout.trim() === 't';
+  assert.equal(race.filter(won).length, 1, 'Exactly one evidence mode may pin this deployment');
+  const winner = modes[race.findIndex(won)];
+  const loser = race.find(result => !won(result));
+  if (loser.status === 'rejected') assert.match(String(loser.reason.stderr), /ERROR:\s+P0001:/);
+  else assert.equal(loser.value.stdout.trim(), 'f');
+  assert.equal(docker(raceConnection, testAdmission('verify', winner)), 't');
+  refused(() => docker(raceConnection, testAdmission('verify', !winner)));
+}
+
 try {
   for (let i = 0; ; i++) {
     try {
@@ -285,7 +412,10 @@ try {
   assert.equal(writer(transition('failed_promotion', B, failedCandidate)), 't');
   assert.equal(read(failedCandidate), 'f'); assert.equal(read(B), 't');
   assert.equal(writer(transition('prepare', B, build(6))), 't');
+  const inspectionInstall = source('supabase/operations/release-bootstrap/enroll_inspection_only_release.sql');
+  upgradePopulatedRegistry(inspectionInstall);
   verifyManagedOwnerEnrollment(install);
+  await verifyInspectionAdmission(inspectionInstall);
   console.log('PASS PostgreSQL 17 release authorization and observations: exact grants, capability states, concurrency, staged promotion and old-build rollback on expanded schema.');
 } finally {
   assert.equal(docker(['inspect', '--format', '{{index .Config.Labels "helix.release-auth"}}', container]), nonce);

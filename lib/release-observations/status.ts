@@ -25,9 +25,11 @@ function releaseReaderAuthorized(request: Request, env: Environment) {
 
 export function searchCredentialFingerprints(env: Environment) {
   const fingerprint = (value: string | undefined) => value ? createHash("sha256").update(value, "utf8").digest("hex") : null;
+  const signer = catalogWebhookSecret(env, "production");
+  if (env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET && !signer) throw new Error("Unbound Catalog webhook signer");
   return {
-    writeKeySha256: fingerprint(catalogWriteApiKey(env)),
-    webhookSecretSha256: fingerprint(catalogWebhookSecret(env, "production")),
+    writeKeySha256: fingerprint(catalogWriteApiKey(env, "production")),
+    webhookSecretSha256: fingerprint(signer),
   };
 }
 
@@ -41,8 +43,7 @@ export async function observeProduction(productSlug: string) {
   if (!await productionDeploymentAuthorized(env)) throw new Error("Unauthorized deployment");
   const searchCredentials = searchCredentialFingerprints(env);
   const searchWrite = searchCredentials.writeKeySha256 !== null;
-  if (searchWrite && (getIndexName() !== "helix_products" || !searchCredentials.webhookSecretSha256 ||
-      env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET === env.HELIX_DEV_CATALOG_WEBHOOK_SECRET)) {
+  if (searchWrite && getIndexName() !== "helix_products") {
     throw new Error("Unbound Search writer");
   }
   if (env.CHECKOUT_MODE && env.CHECKOUT_MODE !== "sandbox") throw new Error("Invalid payment mode");
