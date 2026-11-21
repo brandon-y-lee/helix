@@ -7,6 +7,7 @@ import { useCart, useCartMutations } from "@/components/cart/useCart";
 import type { CartState } from "@/lib/cart/types";
 
 const knownCart: CartState = {
+  checkout: { mode: "historical_sandbox", admissionOpen: true },
   lines: [
     {
       key: "line-1",
@@ -119,6 +120,58 @@ describe("cart client outage recovery", () => {
     expect(summary).toHaveTextContent(message);
     expect(summary).toHaveTextContent("Free standard US shipping applies at $50.00+ after discounts and before taxes.");
     expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["biotic-reset", "default", 2200, true],
+    ["other-product", "default", 2200, false],
+    ["biotic-reset", "different-size", 2200, false],
+    ["biotic-reset", "default", 4400, false],
+  ] as const)("allows checkout only for the available product, variant and price (%s, %s, %i)", async (productSlug, variantId, unitPriceCents, eligible) => {
+    vi.stubGlobal("fetch", vi.fn(() => response({
+      ...knownCart,
+      checkout: { mode: "live", admissionOpen: true, offer: {
+        productSlug, variantId, unitPriceCents, shippingCents: 700, freeShippingThresholdCents: 6500,
+        dispatchTerms: "Dispatches within three business days.", returnTerms: "Contact Helix within 14 days.",
+      } },
+    })));
+    render(<CartProvider><CartView /></CartProvider>);
+    const pay = await screen.findByRole("button", { name: "Checkout $44.00" });
+    if (eligible) expect(pay).toBeEnabled();
+    else expect(pay).toBeDisabled();
+    expect(screen.queryByText(/test checkout/i)).not.toBeInTheDocument();
+    expect(Boolean(screen.queryByText(/unavailable for checkout at their listed price/i))).toBe(!eligible);
+    const summary = screen.getByRole("complementary", { name: "Order summary" });
+    for (const term of ["$7.00", "$65.00", "Dispatches within three business days.", "Contact Helix within 14 days."]) {
+      if (eligible) expect(summary).toHaveTextContent(term);
+      else expect(summary).not.toHaveTextContent(term);
+    }
+  });
+
+  it.each(["live", "business_sandbox"] as const)("continues an owned %s checkout after stock or admission closes", async mode => {
+    const requests = vi.fn<typeof fetch>((input) => {
+      if (String(input) === "/api/cart") {
+        const cart = mode === "live"
+          ? { ...knownCart, lines: knownCart.lines.map(line => ({ ...line, available: false })) }
+          : { ...knownCart, lines: [], count: 0, subtotal: 0 };
+        return response({ ...cart, checkout: { mode, canResume: true, admissionOpen: false } });
+      }
+      return response({ error: { message: "Checkout unavailable." } }, 409);
+    });
+    vi.stubGlobal("fetch", requests);
+    render(<CartProvider><CartView /></CartProvider>);
+    const resume = await screen.findByRole("button", { name: "Continue checkout" });
+    expect(screen.queryByRole("button", { name: /^Checkout \$/ })).not.toBeInTheDocument();
+    expect(requests.mock.calls.every(([input]) => input === "/api/cart")).toBe(true);
+    await userEvent.click(resume);
+    const posts = requests.mock.calls.filter(([input]) => input === "/api/checkout/sessions");
+    expect(posts).toHaveLength(1);
+    const request = posts[0][1];
+    expect(request?.method).toBe("POST");
+    const payload = JSON.parse(String(request?.body));
+    expect(payload.resumeOnly).toBe(true);
+    expect(payload.rewardTierId ?? null).toBeNull();
+    expect(payload.offerId).toBeUndefined();
   });
 
   it("lets keyboard users reach drawer items independently from the order summary", async () => {

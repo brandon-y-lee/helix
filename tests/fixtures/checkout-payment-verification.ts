@@ -43,6 +43,6 @@ export function checkoutPaymentFixture(): {
       line1: "20 Billing Road", line2: null, city: "Austin", state: "TX", postal_code: "78701", country: "US",
     } },
   } as unknown as Stripe.Checkout.Session;
-  return { accepted, provider: { accountId: STRIPE_SANDBOX_ACCOUNT_ID, apiVersion: STRIPE_API_VERSION,
+  return { accepted, provider: { environment: "sandbox", accountId: STRIPE_SANDBOX_ACCOUNT_ID, apiVersion: STRIPE_API_VERSION,
     session, lineItems: [line], lineItemsComplete: true } };
 }

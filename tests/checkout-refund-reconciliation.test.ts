@@ -38,6 +38,7 @@ describe("full sandbox refund reconciliation", () => {
   let writes: Array<{ table: string; value: Record<string, unknown> }>;
   let failedTable: string | null;
   let missingAttempt: boolean;
+  let concurrentRefund: boolean;
   let storedOrder: Record<string, unknown>;
   let missingAward: boolean;
   beforeEach(() => {
@@ -45,6 +46,7 @@ describe("full sandbox refund reconciliation", () => {
     writes = [];
     failedTable = null;
     missingAttempt = false;
+    concurrentRefund = false;
     storedOrder = { ...order };
     missingAward = false;
     boundary.account.mockResolvedValue({ accountId: "acct_1Tm9WRFEzyaKzdmq", apiVersion: "2026-06-24.dahlia" });
@@ -59,7 +61,7 @@ describe("full sandbox refund reconciliation", () => {
     boundary.from.mockImplementation((table: string) => {
       let mutation = false;
       const result = () => ({
-        data: mutation ? (table === "orders" ? { id: order.id }
+        data: mutation ? (table === "orders" ? (concurrentRefund ? null : { id: order.id })
           : table === "payment_attempts" ? (missingAttempt ? [] : [{ id: "attempt-1" }]) : null)
           : table === "orders" ? { ...storedOrder }
           : table === "rewards_ledger_entries" ? (missingAward ? null : {
@@ -70,6 +72,7 @@ describe("full sandbox refund reconciliation", () => {
       const query = {
         select: vi.fn(() => query), eq: vi.fn(() => query), in: vi.fn(() => query),
         update: vi.fn((value: Record<string, unknown>) => {
+          if (table === "orders" && concurrentRefund) storedOrder.status = "refunded";
           mutation = true; writes.push({ table, value }); return query;
         }),
         maybeSingle: vi.fn(async () => result()),
@@ -170,6 +173,15 @@ describe("full sandbox refund reconciliation", () => {
     await reconcileFullStripeRefund("ch_1");
     expect(writes).toEqual([]);
     expect(boundary.reverse).not.toHaveBeenCalled();
+  });
+
+  it("scopes the sandbox Order and Attempt reads, updates and concurrent refund recovery to their mode", async () => {
+    concurrentRefund = true;
+    await reconcileFullStripeRefund("ch_1");
+    const orderQueries = boundary.from.mock.calls.flatMap(([table], index) =>
+      table === "orders" || table === "payment_attempts" ? [boundary.from.mock.results[index].value] : []);
+    expect(orderQueries).toHaveLength(4);
+    for (const query of orderQueries) expect(query.eq).toHaveBeenCalledWith("checkout_environment", "sandbox");
   });
 
   it.each(["pending", "failed", "canceled", "requires_action"])(

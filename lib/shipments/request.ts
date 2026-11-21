@@ -2,7 +2,9 @@ import { requireAdminCapability } from "@/lib/admin/capabilities";
 import { CatalogAdminError } from "@/lib/admin/catalog/errors";
 import { readBoundedBody } from "@/lib/email/provider";
 import { parseShipmentCommand } from "./contract";
-import { applyShipment, lookupShipmentOrder } from "./server";
+import { businessCheckoutOrigin } from "@/lib/checkout/business-origin";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
+import { applyShipment, lookupShipmentOrder, shipmentManagementScope } from "./server";
 const response = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
@@ -16,8 +18,18 @@ export async function handleShipmentRequest(request: Request) {
     const access = await requireAdminCapability("fulfillment.manage");
     if (request.method !== "POST")
       return response({ error: "Method not allowed." }, 405);
-    if (request.headers.get("origin") !== new URL(request.url).origin)
+    const origin = new URL(request.url).origin;
+    if (request.headers.get("origin") !== origin)
       return response({ error: "Same origin required." }, 403);
+    const scope = shipmentManagementScope();
+    if (scope && (origin !== businessCheckoutOrigin(scope.environment, process.env) ||
+        (scope.environment === "live" && !await productionDeploymentAuthorized(process.env)))) {
+      return response({ error: "Shipment origin could not be verified." }, 403);
+    }
+    const displayedEnvironment = request.headers.get("x-helix-shipment-environment");
+    if (scope ? displayedEnvironment !== scope.environment : displayedEnvironment !== null && displayedEnvironment !== "sandbox") {
+      return response({ error: "Reload the shipment console for this environment." }, 409);
+    }
     if (
       request.headers.get("content-type")?.split(";")[0].trim() !==
       "application/json"
@@ -41,7 +53,7 @@ export async function handleShipmentRequest(request: Request) {
       /^[A-Za-z0-9-]{1,100}$/.test(input.orderNumber)
     )
       return response({
-        order: await lookupShipmentOrder(input.orderNumber, access.userId),
+        order: await lookupShipmentOrder(input.orderNumber, access.userId, scope),
       });
     if (process.env.HELIX_MANUAL_SHIPMENTS_ENABLED !== "true")
       return response({ error: "Manual shipment updates are disabled." }, 503);
@@ -51,7 +63,7 @@ export async function handleShipmentRequest(request: Request) {
     } catch {
       return response({ error: "Check the shipment details." }, 400);
     }
-    const result = await applyShipment(command, access.userId);
+    const result = await applyShipment(command, access.userId, scope);
     return response(
       result,
       ["applied", "replayed"].includes(result.status)

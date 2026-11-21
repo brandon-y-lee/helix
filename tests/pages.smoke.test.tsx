@@ -124,7 +124,7 @@ describe("public route states", () => {
     expect(await screen.findByText(/your cart is empty/i)).toBeVisible();
   });
 
-  it("renders an informational checkout return and an explicit cancellation action", async () => {
+  it("shows only an informational return when the cart omits its checkout mode", async () => {
     render(
       <CartProvider>
         {await CartPage({
@@ -136,7 +136,8 @@ describe("public route states", () => {
     const notice = screen.getByText("You returned from checkout. Your cart is still here.");
     expect(notice).toBeVisible();
     expect(notice).not.toHaveTextContent(/order|session|payment intent/i);
-    expect(screen.getByRole("button", { name: "Cancel pending checkout" })).toBeEnabled();
+    await screen.findByText(/your cart is empty/i);
+    expect(screen.queryByRole("button", { name: "Cancel pending checkout" })).not.toBeInTheDocument();
     expect(screen.queryByText(/checkout was cancelled/i)).not.toBeInTheDocument();
   });
 

@@ -20,16 +20,16 @@ const STATUS_COPY: Record<OrderConfirmationState, {
     message: "Payment has not been verified yet. Refreshing this page is safe.",
   },
   paid: {
-    heading: "Sandbox payment verified",
+    heading: "Payment verified",
     label: "Paid Order details",
     status: "Paid",
-    message: "Your sandbox payment is verified. This Order will not be shipped.",
+    message: "Your payment was received.",
   },
   failed: {
     heading: "Payment failed",
     label: "Payment-failed Order details",
     status: "Failed",
-    message: "This sandbox payment attempt failed. You can return to your cart.",
+    message: "This payment attempt failed. You can return to your cart.",
   },
   cancelled: {
     heading: "Checkout cancelled",
@@ -41,13 +41,13 @@ const STATUS_COPY: Record<OrderConfirmationState, {
     heading: "Payment partially refunded",
     label: "Partially refunded Order details",
     status: "Partially refunded",
-    message: "Part of this sandbox payment has been refunded. The amounts below preserve the original Order.",
+    message: "Part of your payment has been refunded. The original order total is shown below.",
   },
   refunded: {
     heading: "Payment refunded",
     label: "Refunded Order details",
     status: "Refunded",
-    message: "This sandbox payment has been fully refunded. The amounts below preserve the original Order.",
+    message: "Your payment has been fully refunded. The original order total is shown below.",
   },
   exception: {
     heading: "Payment needs verification",
@@ -68,7 +68,7 @@ export function OrderConfirmationView({
     return (
       <div className="container public-utility-page">
         <div className="page-head">
-          <p className="eyebrow">Sandbox checkout</p>
+          <p className="eyebrow">Checkout</p>
           <h1>Order status</h1>
         </div>
         <div className="empty-state">
@@ -82,7 +82,9 @@ export function OrderConfirmationView({
   }
 
   const { order, items } = confirmation;
-  const copy = confirmation.state === "exception" && confirmation.verificationIssue === "refund_reconciliation"
+  const sandbox = confirmation.providerMode !== "live";
+  const historical = !confirmation.providerMode || confirmation.providerMode === "sandbox";
+  const copy = sandbox && confirmation.state === "exception" && confirmation.verificationIssue === "refund_reconciliation"
     ? {
       heading: "Refund needs verification",
       label: "Refund verification details",
@@ -90,20 +92,23 @@ export function OrderConfirmationView({
       message: "Stripe reported a sandbox refund. The Order records still need verification.",
     }
     : STATUS_COPY[confirmation.state];
-  const shipping = ["paid", "partially_refunded", "refunded"].includes(confirmation.state)
+  const sandboxPaid = sandbox && confirmation.state === "paid";
+  const shipping = historical && ["paid", "partially_refunded", "refunded"].includes(confirmation.state)
     ? confirmation.shipping
     : null;
 
   return (
     <div className="container checkout-result public-utility-page">
       <div className="page-head">
-        <p className="eyebrow">Sandbox checkout</p>
-        <h1>{copy.heading}</h1>
+        <p className="eyebrow">{sandbox ? "Sandbox checkout" : "Order receipt"}</p>
+        <h1>{sandboxPaid ? "Sandbox payment verified" : copy.heading}</h1>
       </div>
 
       <section className="checkout-result__panel" aria-label={copy.label}>
-        <p className="checkout-panel__notice">{confirmation.notice}</p>
-        <p className="form-status" role="status">{copy.message}</p>
+        {sandbox && <p className="checkout-panel__notice">{confirmation.notice}</p>}
+        <p className="form-status" role="status">
+          {sandboxPaid ? "Your sandbox payment is verified. This Order will not be shipped." : copy.message}
+        </p>
         {statusRefresh}
         <dl className="account-details">
           <div>
@@ -114,21 +119,26 @@ export function OrderConfirmationView({
             <dt>Status</dt>
             <dd>{copy.status}</dd>
           </div>
-          <div>
-            <dt>Points earned</dt>
-            <dd>{order.reward_points_earned}</dd>
-          </div>
-          <div>
-            <dt>Points redeemed</dt>
-            <dd>{order.reward_points_redeemed}</dd>
-          </div>
+          {historical && (
+            <>
+              <div>
+                <dt>Points earned</dt>
+                <dd>{order.reward_points_earned}</dd>
+              </div>
+              <div>
+                <dt>Points redeemed</dt>
+                <dd>{order.reward_points_redeemed}</dd>
+              </div>
+            </>
+          )}
         </dl>
       </section>
 
-      {confirmation.manualShipments && <ManualShipmentTimeline records={confirmation.manualShipments} />}
+      {confirmation.manualShipments?.environment === (confirmation.providerMode ?? "sandbox") &&
+        <ManualShipmentTimeline records={confirmation.manualShipments} />}
       {confirmation.manualShipmentsUnavailable && <p className="form-status">Shipment records are temporarily unavailable.</p>}
-      {confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
-      {confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
+      {historical && confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
+      {historical && confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
 
       {shipping && (
         <section className="checkout-result__panel" aria-label="Shipping address">
@@ -179,6 +189,12 @@ export function OrderConfirmationView({
           <span>Total</span>
           <span>{formatPrice(order.total_cents)}</span>
         </div>
+        {!historical && order.refunded_cents !== undefined && order.refunded_cents > 0 && (
+          <div className="summary-row">
+            <span>Amount refunded</span>
+            <span>{formatPrice(order.refunded_cents)}</span>
+          </div>
+        )}
       </section>
 
       <div className="checkout-result__actions">

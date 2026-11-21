@@ -10,6 +10,9 @@ import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import { composeProductTitle } from "@/lib/products";
 import { GUEST_CART_COOKIE } from "@/lib/customer-state-identifiers";
+import { configuredBusinessStripeReceiptScope, readBusinessStripeBinding, type BusinessStripeEnvironment } from "@/lib/stripe/live-provider";
+import { businessAdmissionEnabled } from "@/lib/checkout/storefront";
+import { readPreparedBusinessGuestReceipt } from "@/lib/orders/business-receipt-cookie";
 
 const GUEST_CART_DAYS = 60;
 
@@ -68,6 +71,9 @@ type CartItemRow = {
   quantity: number;
   products: ProductRow | ProductRow[] | null;
 };
+
+// Keep the storage identity alongside the exact cart read, outside its browser DTO.
+const cartGenerations = new WeakMap<CartState, { cartId: string; generation: string }>();
 
 type CatalogProductRow = ProductRow;
 
@@ -350,22 +356,46 @@ function mapCheckoutLine(row: CartItemRow): CheckoutCartLine {
 async function readCart(cartId: string): Promise<CartState> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
-    .from("cart_items")
+    .from("carts")
     .select(
-      "id, product_id, variant_key, quantity, products ( id, slug, display_name, product_type, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) )",
+      "checkout_generation, cart_items ( id, product_id, variant_key, quantity, products ( id, slug, display_name, product_type, routine_group, status, catalog_status, swatch_from, swatch_to, product_variants ( variant_key, label, price_cents, sort_order, sku, available, inventory_status ), product_media ( media_type, url, alt, role, sort_order, palette_id, placeholder_palette ) ) )",
     )
-    .eq("cart_id", cartId)
-    .order("created_at", { ascending: true });
+    .eq("id", cartId)
+    .order("created_at", { ascending: true, referencedTable: "cart_items" })
+    .maybeSingle();
 
   if (error) throw new Error(`[cart] Failed to read cart items: ${error.message}`);
-
-  const lines = (data as unknown as CartItemRow[]).map(mapLine);
-  return {
+  if (!data) return emptyCart();
+  const lines = (data.cart_items as unknown as CartItemRow[]).map(mapLine);
+  const state: CartState = {
     lines,
     count: lines.reduce((sum, line) => sum + line.quantity, 0),
     subtotal: lines.reduce((sum, line) => sum + line.lineSubtotal, 0),
     currency: "USD",
   };
+  const generation = data.checkout_generation;
+  if (generation) cartGenerations.set(state, { cartId, generation });
+  return state;
+}
+
+/** Only enrich a storefront that already passed the request-origin and issuer gates. */
+export async function canResumeBusinessCart(cart: CartState, environment: BusinessStripeEnvironment): Promise<boolean> {
+  const source = cartGenerations.get(cart);
+  if (!source) return false;
+  const scope = configuredBusinessStripeReceiptScope();
+  if (scope?.environment !== environment) return false;
+  const userId = await getUserId();
+  const guest = userId ? null : await readPreparedBusinessGuestReceipt(source.cartId, source.generation);
+  if (!userId && !guest) return false;
+  // Enforce the same local key and signer requirements as checkout without a provider request.
+  if (!readBusinessStripeBinding(environment).webhookSecret) return false;
+  const { data, error } = await createSupabaseAdminClient().rpc("read_business_checkout_resume", {
+    p_environment: environment, p_account_id: scope.accountId, p_cart_id: source.cartId,
+    p_checkout_generation: source.generation, p_user_id: userId,
+    p_guest_cart_hash: guest?.guestHash ?? null, p_receipt_hash: guest?.receiptHash ?? null,
+    p_allow_send: businessAdmissionEnabled(environment, process.env),
+  });
+  return !error && data === true;
 }
 
 async function readCheckoutCart(

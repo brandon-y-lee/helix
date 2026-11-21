@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/products";
 import type { RewardsSummary } from "@/lib/rewards/server";
 
 export type AccountDashboardOrder = {
+  providerMode?: "sandbox" | "business_sandbox" | "live";
   id: string;
   order_number: string;
   status: string;
@@ -96,14 +97,23 @@ export function AccountDashboardView({
             <ul className="account-orders" aria-label="Your orders">
               {orders.map((order) => (
                 <li key={order.id}>
-                  <div><h3>{order.order_number}</h3><p className="account-order-status">{order.status.replaceAll("_", " ")}</p></div>
-                  <dl><div><dt className="sr-only">Total</dt><dd>{formatPrice(order.total_cents)}</dd></div><div><dt className="sr-only">Points earned</dt><dd>{order.reward_points_earned} pts</dd></div></dl>
+                  <div>
+                    <h3>{order.order_number}</h3>
+                    {order.providerMode !== "live" && <p>Sandbox order</p>}
+                    <p className="account-order-status">{order.status.replaceAll("_", " ")}</p>
+                  </div>
+                  <dl>
+                    <div><dt className="sr-only">Total</dt><dd>{formatPrice(order.total_cents)}</dd></div>
+                    {(order.providerMode === "sandbox" || !order.providerMode) && (
+                      <div><dt className="sr-only">Points earned</dt><dd>{order.reward_points_earned} pts</dd></div>
+                    )}
+                  </dl>
                 </li>
               ))}
             </ul>
           ) : (
             <AccountEmpty title="Your routine starts here.">
-              <p>Sandbox order history will appear here after authenticated checkout. Guest orders do not appear in account history.</p>
+              <p>Orders placed while signed in appear here. Guest orders do not appear in account history.</p>
               <Link href="/collections/shop" className="account-text-link">Explore skincare <span aria-hidden="true">↗</span></Link>
             </AccountEmpty>
           )}
@@ -117,7 +127,7 @@ export function AccountDashboardView({
 
         <AccountSection id="payments" title="Payment methods">
           <AccountEmpty title="Payment details, kept at checkout.">
-            <p>Saved payment methods are not available in your account. Payment details are entered securely during sandbox checkout.</p>
+            <p>Saved payment methods are not available in your account. You enter payment details at checkout.</p>
           </AccountEmpty>
         </AccountSection>
 
@@ -145,7 +155,7 @@ export function AccountDashboardView({
               ))}
             </ul>
           ) : <AccountEmpty title={rewards ? "Nothing to share just yet." : "Feedback requests are unavailable."}>
-            <p>{rewards ? "Eligible Paid Orders can unlock one private feedback request with a 300-Point Award." : "We cannot check for eligible feedback requests right now. Please try again later."}</p>
+            <p>{rewards ? "Eligible sandbox orders can unlock one private feedback request with a 300-Point Award." : "We cannot check for eligible feedback requests right now. Please try again later."}</p>
           </AccountEmpty>}
         </AccountSection>
 

@@ -7,12 +7,13 @@ import {
   isCheckoutCancelledSearchParams,
 } from "@/lib/orders/checkout-cancel";
 
-const { refreshCart } = vi.hoisted(() => ({ refreshCart: vi.fn() }));
+const { refreshCart, readCart } = vi.hoisted(() => ({ refreshCart: vi.fn(), readCart: vi.fn() }));
 vi.mock("@/components/cart/useCart", () => ({
-  useCart: () => ({ refresh: refreshCart }),
+  useCart: readCart,
 }));
 beforeEach(() => {
   refreshCart.mockReset().mockResolvedValue(undefined);
+  readCart.mockReturnValue({ refresh: refreshCart, checkout: { mode: "historical_sandbox" } });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,6 +39,18 @@ describe("checkout cancellation routing", () => {
     expect(isCheckoutCancelledSearchParams({})).toBe(false);
   });
 
+  it.each(["live", "business_sandbox"] as const)("guides a %s return back to the cart without exposing legacy cancellation", (mode) => {
+    readCart.mockReturnValue({ refresh: refreshCart, checkout: { mode, canResume: true } });
+    const fetchRequest = vi.fn();
+    vi.stubGlobal("fetch", fetchRequest);
+    render(<CheckoutCancellationCleanup active />);
+
+    expect(screen.getByText(/choose Continue checkout in your cart/i)).toBeVisible();
+    expect(Boolean(screen.queryByText(/test checkout/i))).toBe(mode === "business_sandbox");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(fetchRequest).not.toHaveBeenCalled();
+  });
+
   it("waits for an explicit cancellation click before sending strict JSON", async () => {
     const fetchRequest = vi.fn().mockResolvedValue(Response.json({ status: "cancelled" }));
     vi.stubGlobal("fetch", fetchRequest);
@@ -59,7 +72,7 @@ describe("checkout cancellation routing", () => {
         credentials: "same-origin",
       }),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(refreshCart).toHaveBeenCalledOnce();
   });
 
@@ -81,7 +94,7 @@ describe("checkout cancellation routing", () => {
     expect(screen.getByRole("button")).toBeEnabled();
     expect(refreshCart).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button"));
-    expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(screen.getByRole("button")).toBeDisabled();
     expect(fetchRequest).toHaveBeenCalledTimes(2);
     expect(refreshCart).toHaveBeenCalledOnce();
@@ -120,7 +133,7 @@ describe("checkout cancellation routing", () => {
     expect(refreshCart).not.toHaveBeenCalled();
 
     await act(async () => { finishRequest(Response.json({ status: "cancelled" })); });
-    expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(screen.getByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(refreshCart).toHaveBeenCalledOnce();
   });
 
@@ -157,6 +170,6 @@ describe("explicit origin recovery UI", () => {
     }));
     expect(recovered).toHaveBeenCalledOnce();
     expect(refreshCart).toHaveBeenCalledOnce();
-    expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(screen.getByRole("status")).toHaveTextContent("Checkout was cancelled.");
   });
 });

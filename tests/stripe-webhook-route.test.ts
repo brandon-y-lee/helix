@@ -7,8 +7,8 @@ import { POST } from "@/app/api/webhooks/stripe/route";
 const secret = "whsec_route_test_only";
 const body = JSON.stringify({ id: "evt_route_test", livemode: false, type: "checkout.session.completed",
   api_version: "2026-06-24.dahlia", data: { object: { id: "cs_test_route" } } });
-function request(payload = body, signature?: string) {
-  return new Request("https://helix.example/api/webhooks/stripe", { method: "POST", body: payload,
+function request(payload = body, signature?: string, origin = "https://helix.example") {
+  return new Request(origin + "/api/webhooks/stripe", { method: "POST", body: payload,
     headers: { "stripe-signature": signature ?? Stripe.webhooks.generateTestHeaderString({ payload, secret }) } });
 }
 beforeEach(() => {
@@ -25,6 +25,14 @@ it("settles signed events with admission disabled and returns private success", 
   const response = await POST(request());
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toContain("no-store");
+  expect(processing).toHaveBeenCalledOnce();
+});
+it("keeps the hosted historical signer confined to its original receiver", async () => {
+  vi.stubEnv("VERCEL", "1");
+  vi.stubEnv("CHECKOUT_MODE", "sandbox");
+  expect((await POST(request(body, undefined, "https://helixskin.vercel.app"))).status).toBe(200);
+  expect((await POST(request(body, undefined, "https://helixskin-dev-payments.vercel.app"))).status).toBe(403);
+  expect((await POST(request(body, undefined, "https://a-preview.vercel.app"))).status).toBe(403);
   expect(processing).toHaveBeenCalledOnce();
 });
 it("returns retryable failure without exposing private errors", async () => {
