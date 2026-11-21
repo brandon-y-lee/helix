@@ -74,6 +74,8 @@ CREATE UNIQUE INDEX production_marketing_provider_identity ON private.production
 CREATE INDEX production_marketing_claim_candidates ON private.production_marketing_messages(next_attempt_at,created_at) WHERE state IN ('held','uncertain') AND NOT reconciliation_required;
 CREATE INDEX production_marketing_body_cleanup ON private.production_marketing_messages(payload_expires_at,id) WHERE body_text IS NOT NULL;
 CREATE INDEX production_marketing_confirmation_cleanup ON private.production_marketing_confirmation_intents(expires_at,id) WHERE delivery_payload IS NOT NULL;
+CREATE INDEX production_marketing_promotional_frequency ON private.production_marketing_messages(subscriber_id,(coalesce(last_admitted_at,first_prepared_at)))
+  WHERE first_prepared_at IS NOT NULL AND purpose<>'confirmation';
 CREATE TABLE private.production_marketing_withdrawal_capabilities (
   hash text PRIMARY KEY CHECK(hash ~ '^[a-f0-9]{64}$'),
   subscriber_id uuid NOT NULL REFERENCES private.production_marketing_subscribers(id),
@@ -245,6 +247,15 @@ BEGIN
     OR b->'tags' IS DISTINCT FROM jsonb_build_array(jsonb_build_object('name','environment','value','production'),jsonb_build_object('name','helix_message_id','value',m.id),
       jsonb_build_object('name','helix_purpose','value',m.purpose),jsonb_build_object('name','helix_contract','value','production_welcome_delivery_v1')) THEN RETURN NULL; END IF;
   IF m.purpose='welcome' THEN
+    -- The address lock serializes this check with preparation and retry across
+    -- every consent generation. Uncertainty, cancellation and erasure never
+    -- refund a logical promotion; retries refresh its latest handoff admission.
+    IF EXISTS(SELECT 1 FROM private.production_marketing_messages prior
+      WHERE prior.subscriber_id=m.subscriber_id AND prior.purpose<>'confirmation' AND prior.first_prepared_at IS NOT NULL
+        AND coalesce(prior.last_admitted_at,prior.first_prepared_at)>v_now-interval '24 hours')
+      OR (SELECT count(*) FROM private.production_marketing_messages prior
+        WHERE prior.subscriber_id=m.subscriber_id AND prior.purpose<>'confirmation' AND prior.first_prepared_at IS NOT NULL
+          AND coalesce(prior.last_admitted_at,prior.first_prepared_at)>v_now-interval '7 days')>=3 THEN RETURN NULL; END IF;
     v_token:=substring(b->'headers'->>'List-Unsubscribe' FROM '^<https://www\.helixskin\.us/api/marketing/production/unsubscribe\?token=([A-Za-z0-9_-]{43})>$');
     IF v_token IS NULL OR p_preference_hash IS NULL OR encode(sha256(convert_to(v_token,'UTF8')),'hex')<>p_preference_hash
       OR b->'headers' IS DISTINCT FROM jsonb_build_object('List-Unsubscribe','<https://www.helixskin.us/api/marketing/production/unsubscribe?token='||v_token||'>','List-Unsubscribe-Post','List-Unsubscribe=One-Click') THEN RETURN NULL; END IF;
