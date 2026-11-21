@@ -85,6 +85,19 @@ it("qualifies measured template bytes, preserves the exact P4 confirmation bytes
   expect(changed.policy.publisher_deployment_id).toBe("dpl_another");
 });
 
+it("binds a disabled staged Automation to the same contract and keeps full qualification paused", () => {
+  const p = packet();
+  const { version, activeEventAutomations, template, topic, approvedMail } = p;
+  const source = { version, activeEventAutomations, template, topic, approvedMail };
+  const enabled = nativeWelcomeContract(source);
+  expect(enabled.status).toBe("contract");
+  activeEventAutomations[0].status = "disabled";
+  expect(nativeWelcomeContract(source)).toEqual(enabled);
+  expect(qualifyNativeWelcome(p, now)).toEqual({ status: "paused", gate: "automation" });
+  activeEventAutomations[0].status = "unknown";
+  expect(nativeWelcomeContract(source)).toEqual({ status: "paused", gate: "automation" });
+});
+
 type Packet = ReturnType<typeof packet>;
 it.each<[string, (p: Packet) => void]>([
   ["duplicate active Automation", p => { p.activeEventAutomations.push(p.activeEventAutomations[0]); }],

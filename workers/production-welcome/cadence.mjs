@@ -49,27 +49,28 @@ export async function runCadence(request, env, { fetchImpl = fetch, wake }) {
     try {
       const state = await counts(await post("maintenance"));
       ({ uncertainAttempts, unresolvedHolds } = state);
-      reason = "welcome_requires_review";
-      if (!uncertainAttempts && !unresolvedHolds) {
-        if (state.dispatchEnabled) {
-          const response = await post("dispatch");
-          void response.body?.cancel().catch(() => {});
-          if (!response.ok) throw new Error();
-        }
-        if (env.HELIX_NATIVE_WELCOME_ENABLED === "true") {
-          const response = await wake(new Request(env.HELIX_NATIVE_WELCOME_ORIGIN + "/api/wake", {
-            method: "POST", headers: { authorization: "Bearer " + env.HELIX_NATIVE_WELCOME_WAKE_TOKEN },
-          }));
-          if (!response.ok) throw new Error();
-        }
-        return reply(200, "checked");
+      if (state.dispatchEnabled) {
+        const response = await post("dispatch");
+        void response.body?.cancel().catch(() => {});
+        if (!response.ok) throw new Error();
       }
+      // Unknown attempts are permanently ineligible in PostgreSQL. An operator
+      // can investigate one without interrupting other customers' confirmations or welcomes.
+      if (!unresolvedHolds && env.HELIX_NATIVE_WELCOME_ENABLED === "true") {
+        const response = await wake(new Request(env.HELIX_NATIVE_WELCOME_ORIGIN + "/api/wake", {
+          method: "POST", headers: { authorization: "Bearer " + env.HELIX_NATIVE_WELCOME_WAKE_TOKEN },
+        }));
+        if (!response.ok) throw new Error();
+      }
+      if (!uncertainAttempts && !unresolvedHolds) return reply(200, "checked");
+      reason = "welcome_requires_review";
     } catch { reason = "maintenance_unavailable"; }
     // Operator-configured recipient. Never forward tokens, customer identities, errors or raw provider responses.
     const alert = await fetchImpl(alertUrl.href, { method: "POST", redirect: "error", cache: "no-store",
       headers: { "content-type": "application/json" }, signal: AbortSignal.timeout(5000),
       body: JSON.stringify({ reason, project: env.VERCEL_PROJECT_ID, deployment: env.VERCEL_DEPLOYMENT_ID, uncertainAttempts, unresolvedHolds }) });
     void alert.body?.cancel().catch(() => {});
-    return reply(503, alert.ok ? "alerted" : "alert_failed");
+    if (!alert.ok) return reply(503, "alert_failed");
+    return reply(reason === "welcome_requires_review" ? 200 : 503, "alerted");
   } catch { return reply(503, "unavailable"); }
 }

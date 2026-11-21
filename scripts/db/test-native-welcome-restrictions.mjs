@@ -182,9 +182,9 @@ try {
       "'; COMMIT;",
   );
   assert.deepEqual(alerts(), { uncertainAttempts: 1, unresolvedHolds: 0 });
-  assert.equal(sql(reserve, worker), "");
+  const tryReserve = () => sql(reserve, worker);
   const { exerciseNativeWelcomeAlert } = await import("./exercise-native-welcome-alert.mjs");
-  await exerciseNativeWelcomeAlert(alerts, cleanup);
+  await exerciseNativeWelcomeAlert(alerts, cleanup, tryReserve);
   execFileSync("pnpm", ["exec", "vitest", "run", "--config", "scripts/db/native-welcome-journey.config.ts"], {
     cwd: new URL("../..", import.meta.url),
     env: { ...process.env, HELIX_NATIVE_JOURNEY_CONTAINER: container, HELIX_NATIVE_JOURNEY_OWNER: label },

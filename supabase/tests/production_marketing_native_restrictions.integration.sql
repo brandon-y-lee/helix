@@ -123,13 +123,28 @@ DO $$ DECLARE n int; t timestamptz:=clock_timestamp(); id uuid; original_id uuid
   PERFORM proof.check(proof.observation('retained','email.suppressed',NULL,'retired@helixskin.us')='held','retained epoch sender without confirmed local recipient held');
   PERFORM proof.check(proof.resolve('retained'),'retired native sender reconciled');
   PERFORM proof.request('topic-denied','topic-denied',true);
-  UPDATE private.production_marketing_controls SET events_enabled=false,dispatch_enabled=false,native_welcome_enabled=false;
-  PERFORM proof.check(proof.observation('topic-true','contact.topics.updated','topic-denied@example.invalid',topics=>ARRAY['00000000-0000-4000-8000-000000000598']::uuid[])='applied',
-    'signed matching topic withdrawal works with every send paused');
+  UPDATE private.production_marketing_controls SET events_enabled=false,enrollment_enabled=false,dispatch_enabled=false,native_welcome_enabled=false;
+  PERFORM proof.check(proof.observation('hard-deny','contact.updated','confirmed@example.invalid',denied=>true,at_time=>t)='duplicate',
+    'acknowledged signed receipt can be retried without mutation during event pause');
+  BEGIN
+    PERFORM proof.observation('hard-deny','contact.updated','new-conflict@example.invalid',denied=>true,at_time=>t);
+    RAISE EXCEPTION 'paused receiver acknowledged a new conflicting observation';
+  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
+  BEGIN
+    PERFORM proof.observation('topic-true','contact.topics.updated','topic-denied@example.invalid',
+      topics=>ARRAY['00000000-0000-4000-8000-000000000598']::uuid[],at_time=>t);
+    RAISE EXCEPTION 'paused receiver acknowledged a new restrictive observation';
+  EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END;
+  PERFORM proof.check((SELECT state='pending' FROM private.production_marketing_subscribers WHERE normalized_email='topic-denied@example.invalid')
+    AND NOT EXISTS (SELECT FROM private.production_marketing_native_receipts WHERE event_id='topic-true')
+    AND private.production_marketing_native_unresolved_holds()=0,'explicit event pause leaves subscriber, receipt and hold ledger untouched');
+  UPDATE private.production_marketing_controls SET events_enabled=true;
+  PERFORM proof.check(proof.observation('topic-true','contact.topics.updated','topic-denied@example.invalid',
+    topics=>ARRAY['00000000-0000-4000-8000-000000000598']::uuid[],at_time=>t)='applied','same signed retry applies with sends and enrollment still paused');
   PERFORM proof.check(NOT public.confirm_production_marketing_subscription(proof.hash('topic-denied-c')),'withdrawn pending cannot confirm later');
   PERFORM proof.check((SELECT i.state='cancelled' AND i.delivery_payload IS NULL FROM private.production_marketing_confirmation_intents i JOIN private.production_marketing_subscribers s ON s.id=i.subscriber_id
     WHERE s.normalized_email='topic-denied@example.invalid'),'pending ciphertext cleared');
-  UPDATE private.production_marketing_controls SET events_enabled=true,dispatch_enabled=true,native_welcome_enabled=true;
+  UPDATE private.production_marketing_controls SET events_enabled=true,enrollment_enabled=true,dispatch_enabled=true,native_welcome_enabled=true;
   BEGIN PERFORM proof.request('topic-denied','fresh-retry',false); RAISE EXCEPTION 'legacy explicit request reactivated suppressed recipient';
     EXCEPTION WHEN raise_exception THEN IF SQLERRM<>'synthetic consent request failed' THEN RAISE; END IF; END;
   BEGIN PERFORM proof.request('topic-denied','fresh-qualified',true); RAISE EXCEPTION 'native explicit request reactivated suppressed recipient';

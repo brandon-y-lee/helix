@@ -1,6 +1,6 @@
 // Offline only. Feed one sanitized, independently inspected packet through stdin.
 // --contract accepts just version, activeEventAutomations, template, topic and
-// approvedMail. Pin its stable result when building the publisher. With no
+// approvedMail. Pin the same result for the staged disabled and enabled Automation. With no
 // arguments, qualify the full deployed tuple and current allocation.
 // The synthetic Vitest packet documents its shape. Evidence fields are SHA-256
 // references to controlled operator records with verifier, target and check time.
@@ -49,7 +49,7 @@ const providerFields = ["version", "activeEventAutomations", "template", "topic"
 function validatedContract({ activeEventAutomations: inventory, template, topic, approvedMail: approved }) {
   if (!Array.isArray(inventory) || inventory.length !== 1) return null;
   const automation = inventory[0];
-  if (!exact(automation, ["id", "status", "steps"]) || !uuid(automation.id) || automation.status !== "enabled" ||
+  if (!exact(automation, ["id", "status", "steps"]) || !uuid(automation.id) || !["enabled", "disabled"].includes(automation.status) ||
       !Array.isArray(automation.steps) || automation.steps.length !== 2) return null;
   const [trigger, send] = automation.steps;
   if (!exact(trigger, ["type", "event"]) || trigger.type !== "trigger" || trigger.event !== "helix.welcome.confirmed.v1" ||
@@ -70,7 +70,7 @@ function validatedContract({ activeEventAutomations: inventory, template, topic,
       digest(JSON.stringify({ subject, html, text })) !== reviewed.contentSha256 ||
       !reviewed.content.text.endsWith("\nHelix\n" + approved.postalAddress)) return null;
   return digest(canonical({
-    version: "helix:production-marketing:native-welcome:v1", automation,
+    version: "helix:production-marketing:native-welcome:v1", automation: { id: automation.id, steps: automation.steps },
     template: { id: template.id, contentSha256: reviewed.contentSha256 },
     topic, sender: approved.sender, replyTo: approved.replyTo, postalAddress: approved.postalAddress,
   }));
@@ -152,7 +152,7 @@ export function qualifyNativeWelcome(packet, now = Date.now()) {
   if (!(observed <= now && now < until)) return paused("freshness");
   if (!exact(packet.evidence, attestations) || !attestations.every(k => sha256(packet.evidence[k]))) return paused("evidence");
   const contractHash = validatedContract(packet);
-  if (!contractHash) return paused("automation");
+  if (!contractHash || packet.activeEventAutomations[0].status !== "enabled") return paused("automation");
   if (!qualifiedTarget(packet.target, contractHash, packet.approvedMail, packet.template)) return paused("target");
   const confirmationHash = confirmationDigest(packet.confirmation, packet.approvedMail.sender);
   if (!confirmationHash) return paused("confirmation");

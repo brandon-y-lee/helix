@@ -185,6 +185,7 @@ CREATE FUNCTION public.record_native_welcome_restriction(
 DECLARE
   policy private.production_marketing_native_policy%ROWTYPE;
   controls_digest text;
+  receive_enabled boolean;
   observed_digest text;
   original_digest text;
   held_reason text := p_ambiguity;
@@ -223,12 +224,18 @@ BEGIN
   -- This lock serializes every negative decision, resolution, policy refresh and
   -- native reserve. Older raw consent/delivery paths share the address lock.
   SELECT * INTO STRICT policy FROM private.production_marketing_native_policy WHERE singleton FOR UPDATE;
-  SELECT native_welcome_contract_hash INTO controls_digest FROM private.production_marketing_controls WHERE singleton FOR SHARE;
+  SELECT native_welcome_contract_hash,events_enabled INTO controls_digest,receive_enabled
+    FROM private.production_marketing_controls WHERE singleton FOR SHARE;
   SELECT encode(sha256(convert_to(jsonb_build_array(p_event_id,p_event_type,p_occurred_at,p_sender,p_recipient,p_global_denied,
     ARRAY(SELECT t FROM unnest(p_denied_topic_ids) t ORDER BY t),p_ambiguity)::text,'UTF8')),'hex') INTO observed_digest;
   SELECT fingerprint INTO original_digest FROM private.production_marketing_native_receipts WHERE event_id=p_event_id;
-  IF FOUND THEN
-    IF observed_digest=original_digest THEN RETURN 'duplicate'; END IF;
+  IF observed_digest=original_digest THEN RETURN 'duplicate'; END IF;
+  -- A previous acknowledgment is durable. Every new observation, including a
+  -- conflicting reuse of its ID, must retry while stored event intake is paused.
+  IF receive_enabled IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'Native callback intake unavailable' USING ERRCODE='55000';
+  END IF;
+  IF original_digest IS NOT NULL THEN
     INSERT INTO private.production_marketing_native_holds(event_id,fingerprint,reason) VALUES(p_event_id,observed_digest,'event_id_conflict')
       ON CONFLICT DO NOTHING;
     IF NOT FOUND THEN RETURN 'duplicate'; END IF;

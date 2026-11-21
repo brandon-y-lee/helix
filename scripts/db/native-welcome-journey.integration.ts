@@ -3,15 +3,18 @@ import { afterEach, expect, it, vi } from "vitest";
 import { GET as status, POST as subscribe } from "@/app/api/marketing/production/subscription/route";
 import { POST as confirm } from "@/app/api/marketing/production/confirm/route";
 import { POST as dispatch } from "@/app/api/internal/marketing/production/dispatch/route";
+import { POST as maintenance } from "@/app/api/internal/marketing/production/maintenance/route";
 import { POST as callback } from "@/app/api/webhooks/marketing-production/route";
 import { productionSignupQualification } from "@/lib/production-marketing/storage";
 import { nativeWelcomeTemplate, productionMarketingTemplateHash } from "@/lib/production-marketing/template-content";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 import { handleWake } from "../../workers/production-welcome/publisher.mjs";
+import { runCadence } from "../../workers/production-welcome/cadence.mjs";
 import { journeyServiceKey, rpcFixture, sql, withJourneyDatabase } from "./native-welcome-journey-pg";
 
 const origin = "https://www.helixskin.us";
 const address = "first-person-journey@example.invalid";
+const uncertainAddress = "previous-unknown@example.invalid";
 const nativeSender = "welcome@updates.helixskin.us";
 const topic = "00000000-0000-4000-8000-000000000598";
 const templateId = "d353756a-2b37-44d2-88b3-32a777d80276";
@@ -48,6 +51,9 @@ const publisher = {
   HELIX_NATIVE_WELCOME_CONTRACT_SHA256: contractHash, HELIX_NATIVE_WELCOME_ENABLED: "true",
   HELIX_NATIVE_WELCOME_WAKE_TOKEN: "local-wake-".repeat(5), HELIX_NATIVE_WELCOME_DB_PASSWORD: "synthetic-publisher-db",
   HELIX_NATIVE_WELCOME_RESEND_KEY: "re_synthetic_native_events_only",
+  HELIX_NATIVE_WELCOME_CADENCE_ENABLED: "true", CRON_SECRET: "schedule-local-".repeat(4),
+  HELIX_SCHEDULED_CONFIRMATION_WORKER_TOKEN: storefront.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN,
+  HELIX_NATIVE_WELCOME_ALERT_URL: "https://alerts.example.invalid/first-person-journey",
 };
 const signupPath = "/api/marketing/production/subscription";
 const emailPredicate = "s.normalized_email='first-person-journey@example.invalid'";
@@ -55,9 +61,6 @@ const human = (path: string, body: object) => new Request(origin + path, {
   method: "POST", headers: { origin, "content-type": "application/json", "x-vercel-forwarded-for": "192.0.2.15" },
   body: JSON.stringify(body),
 });
-const rawWake = () => dispatch(new Request(origin + "/api/internal/marketing/production/dispatch", {
-  method: "POST", headers: { authorization: "Bearer " + storefront.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN },
-}));
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
@@ -72,6 +75,8 @@ it("takes one new customer from qualified signup to a native welcome and durable
   expect(sql("SELECT count(*) FROM private.production_marketing_subscribers s WHERE " + emailPredicate)).toBe("0");
   expect(sql(`SELECT EXISTS(SELECT FROM private.production_marketing_native_epochs WHERE contract_hash=repeat('c',64)
     AND sender='welcome@updates.helixskin.us' AND topic_id='00000000-0000-4000-8000-000000000598');`)).toBe("t");
+  // One earlier customer has already confirmed through the installed database contract.
+  sql("SELECT proof.confirmed('previous-unknown','previous-unknown',true);");
 
   // Bind this disposable deployment to the real worker, callback and published template contract.
   sql(`UPDATE private.production_marketing_controls SET delivery_contract_text='${rawContract}',
@@ -82,8 +87,19 @@ it("takes one new customer from qualified signup to a native welcome and durable
   const inbox: { subject: string; text: string }[] = [];
   const hostedPreferences = "https://preferences.example.invalid/journey";
   const welcome = nativeWelcomeTemplate().content;
-  let eventAttempts = 0;
+  const eventRecipients: string[] = [];
+  let alerts = 0;
   const simulatedTransport = vi.fn<typeof fetch>(async (url, options) => {
+    if (String(url) === origin + "/api/internal/marketing/production/maintenance") return maintenance(new Request(url, options));
+    if (String(url) === origin + "/api/internal/marketing/production/dispatch") return dispatch(new Request(url, options));
+    if (String(url) === publisher.HELIX_NATIVE_WELCOME_ALERT_URL) {
+      expect(new Headers(options?.headers).has("authorization")).toBe(false);
+      expect(JSON.parse(String(options?.body))).toMatchObject({
+        reason: "welcome_requires_review", uncertainAttempts: 1, unresolvedHolds: 0,
+      });
+      alerts++;
+      return new Response(null, { status: 204 });
+    }
     if (String(url) === "https://api.resend.com/emails") {
       expect(options?.method).toBe("POST");
       expect(options?.redirect).toBe("error");
@@ -100,11 +116,14 @@ it("takes one new customer from qualified signup to a native welcome and durable
       expect(options?.redirect).toBe("error");
       expect(new Headers(options?.headers).get("authorization")).toBe("Bearer " + publisher.HELIX_NATIVE_WELCOME_RESEND_KEY);
       const body = JSON.parse(String(options?.body));
-      expect(body).toEqual({ event: "helix.welcome.confirmed.v1", email: address,
+      expect([address, uncertainAddress]).toContain(body.email);
+      expect(body).toEqual({ event: "helix.welcome.confirmed.v1", email: body.email,
         payload: { attempt_id: expect.stringMatching(/^[0-9a-f-]{36}$/) } });
+      const predicate = body.email === uncertainAddress ? "s.normalized_email='previous-unknown@example.invalid'" : emailPredicate;
       expect(sql(`SELECT native_attempt_id FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s
-        ON m.subscriber_id=s.id WHERE ${emailPredicate} AND m.state='native_reserved';`)).toBe(body.payload.attempt_id);
-      eventAttempts++;
+        ON m.subscriber_id=s.id WHERE ${predicate} AND m.state='native_reserved';`)).toBe(body.payload.attempt_id);
+      eventRecipients.push(body.email);
+      if (body.email === uncertainAddress) throw new Error("Lost synthetic event acknowledgement");
       // One simulated Automation with a default opted-in Topic issues the reviewed welcome.
       // This synthetic inbox lets the customer follow its provider-owned preference link.
       expect(welcome.text).toContain("{{{RESEND_UNSUBSCRIBE_URL}}}");
@@ -114,21 +133,34 @@ it("takes one new customer from qualified signup to a native welcome and durable
     return rpcFixture(url, options);
   });
   vi.stubGlobal("fetch", simulatedTransport);
-  const nativeWake = () => handleWake(new Request(publisher.HELIX_NATIVE_WELCOME_ORIGIN + "/api/wake", {
+  const wakeRequest = () => new Request(publisher.HELIX_NATIVE_WELCOME_ORIGIN + "/api/wake", {
     method: "POST", headers: { authorization: "Bearer " + publisher.HELIX_NATIVE_WELCOME_WAKE_TOKEN },
-  }), publisher, { withDatabase: withJourneyDatabase, fetchImpl: simulatedTransport });
+  });
+  const nativeWake = (request: Request) => handleWake(request, publisher, {
+    withDatabase: withJourneyDatabase, fetchImpl: simulatedTransport,
+  });
+  const scheduled = async () => {
+    const response = await runCadence(new Request(publisher.HELIX_NATIVE_WELCOME_ORIGIN + "/api/cadence", {
+      method: "POST", headers: { authorization: "Bearer " + publisher.CRON_SECRET },
+    }), publisher, { fetchImpl: simulatedTransport, wake: nativeWake });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: "alerted" });
+  };
+  const uncertainState = () => sql(`SELECT m.state FROM private.production_marketing_messages m
+    JOIN private.production_marketing_subscribers s ON m.subscriber_id=s.id
+    WHERE s.normalized_email='previous-unknown@example.invalid' AND m.purpose='welcome';`);
+  expect(await (await nativeWake(wakeRequest())).json()).toEqual({ status: "held" });
+  expect(uncertainState()).toBe("native_unknown");
   const reenter = () => subscribe(human(signupPath, { email: address, consent: true }));
   expect(await (await status(new Request(origin + signupPath))).json()).toEqual({ production: true, enabled: true });
   expect((await reenter()).status).toBe(202);
   expect(sql("SELECT state FROM private.production_marketing_subscribers s WHERE " + emailPredicate)).toBe("pending");
-  expect(await (await nativeWake()).json()).toEqual({ status: "idle" });
-  expect(await (await rawWake()).json()).toEqual({ status: "accepted" });
+  await scheduled();
   expect(inbox.map(message => message.subject)).toEqual(["Confirm your Helix welcome emails"]);
   const token = /https:\/\/www\.helixskin\.us\/marketing\/production\/confirm#token=([A-Za-z0-9_-]{43})\b/.exec(inbox[0].text)?.[1];
   expect(Boolean(token)).toBe(true);
   expect((await confirm(human("/api/marketing/production/confirm", { token }))).status).toBe(200);
-  expect(await (await rawWake()).json()).toEqual({ status: "idle" });
-  expect(await (await nativeWake()).json()).toEqual({ status: "submitted" });
+  await scheduled();
   expect(inbox.map(message => message.subject)).toEqual(["Confirm your Helix welcome emails", "Welcome to Helix"]);
   expect(inbox[1].text).toContain(hostedPreferences);
   expect(sql(`SELECT m.state FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s
@@ -152,8 +184,9 @@ it("takes one new customer from qualified signup to a native welcome and durable
   expect(await (await status(new Request(origin + signupPath))).json()).toEqual({ production: true, enabled: true });
   expect((await reenter()).status).toBe(202);
   expect(sql("SELECT generation FROM private.production_marketing_subscribers s WHERE " + emailPredicate)).toBe("1");
-  expect(await (await rawWake()).json()).toEqual({ status: "idle" });
-  expect(await (await nativeWake()).json()).toEqual({ status: "idle" });
-  expect(eventAttempts).toBe(1);
+  await scheduled();
+  expect(alerts).toBe(3);
+  expect(eventRecipients).toEqual([uncertainAddress, address]);
+  expect(uncertainState()).toBe("native_unknown");
   expect(inbox).toHaveLength(2);
 }, 30000);

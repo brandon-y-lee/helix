@@ -22,7 +22,7 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 }));
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-function fixture(uncertainAttempts: number) {
+function fixture(uncertainAttempts: number, unresolvedHolds = 0) {
   const sequence: string[] = [];
   const notices: object[] = [];
   const wake = vi.fn(async () => { sequence.push("native"); return Response.json({ status: "idle" }); });
@@ -53,7 +53,7 @@ function fixture(uncertainAttempts: number) {
     const name = new URL(url).pathname.split("/").at(-1);
     sequence.push(String(name));
     if (name === "cleanup_production_marketing_delivery") return Response.json(0);
-    if (name === "production_marketing_native_alerts") return Response.json({ uncertainAttempts, unresolvedHolds: 0 });
+    if (name === "production_marketing_native_alerts") return Response.json({ uncertainAttempts, unresolvedHolds });
     throw new Error("Unrecognized database operation");
   }));
   function tick(settings = env, secret = env.CRON_SECRET) {
@@ -70,12 +70,21 @@ it("runs bounded cleanup, confirmation and native wake on one qualified empty sc
   expect(f.notices).toEqual([]);
 });
 
-it("delivers an aggregate operator alert for a stale reservation without retrying the welcome", async () => {
+it("alerts on a stale individual attempt while continuing other eligible work", async () => {
   const f = fixture(1);
   expect(await (await f.tick()).json()).toEqual({ status: "alerted" });
-  expect(f.sequence).toEqual(["cleanup_production_marketing_delivery", "production_marketing_native_alerts"]);
+  expect(f.sequence).toEqual(["cleanup_production_marketing_delivery", "production_marketing_native_alerts", "confirmation", "native"]);
   expect(f.notices).toEqual([{ reason: "welcome_requires_review", project: env.VERCEL_PROJECT_ID,
     deployment: env.VERCEL_DEPLOYMENT_ID, uncertainAttempts: 1, unresolvedHolds: 0 }]);
+});
+
+it("continues confirmations and alerts on an unresolved callback hold while pausing new native welcomes", async () => {
+  const f = fixture(0, 1);
+  const result = await f.tick();
+  expect(result.status).toBe(200);
+  expect(await result.json()).toEqual({ status: "alerted" });
+  expect(f.sequence).toEqual(["cleanup_production_marketing_delivery", "production_marketing_native_alerts", "confirmation"]);
+  expect(f.notices).toHaveLength(1);
 });
 
 it("stays cold without activation and rejects untrusted scheduler calls before any I/O", async () => {
