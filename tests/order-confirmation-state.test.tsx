@@ -25,6 +25,32 @@ function receipt(state: OrderConfirmationState): OrderConfirmationDisplay {
 }
 
 describe("truthful private Order confirmation", () => {
+  it("leaves the payment mode and outcome undisclosed when a receipt is unavailable", () => {
+    render(<OrderConfirmationView confirmation={null} />);
+    expect(screen.getByRole("heading", { name: "Order status" })).toBeVisible();
+    expect(screen.queryByText(/sandbox|payment verified/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a stored live payment without a sandbox warning or a shipment promise", () => {
+    render(<OrderConfirmationView confirmation={{ ...receipt("paid"), providerMode: "live" }} />);
+    expect(screen.getByRole("heading", { name: "Payment verified" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Your payment was received.");
+    expect(screen.queryByText(/sandbox|fulfillment|shipped/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the original total and recorded live refund without sandbox or fulfillment claims", () => {
+    const confirmation: OrderConfirmationDisplay = {
+      ...receipt("partially_refunded"), providerMode: "live",
+      order: { ...receipt("partially_refunded").order, refunded_cents: 1250 },
+      trackingUnavailable: true, manualShipmentsUnavailable: true,
+    };
+    render(<OrderConfirmationView confirmation={confirmation} />);
+    expect(screen.getByRole("heading", { name: "Payment partially refunded" })).toBeVisible();
+    const totals = screen.getByRole("region", { name: "Order totals" });
+    expect(within(totals).getByText("$32.40")).toBeVisible();
+    expect(within(totals).getByText("$12.50")).toBeVisible();
+    expect(screen.queryByText(/sandbox|pts|points|tracking|shipment|fulfillment/i)).not.toBeInTheDocument();
+  });
   it("preserves the paid receipt when tracking history is temporarily unavailable", () => {
     render(<OrderConfirmationView confirmation={{ ...receipt("paid"), trackingUnavailable: true }} />);
     expect(screen.getByRole("heading", { name: "Sandbox payment verified" })).toBeVisible();

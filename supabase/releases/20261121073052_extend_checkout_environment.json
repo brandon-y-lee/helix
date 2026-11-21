@@ -1,0 +1,4 @@
+{
+  "sourceSha256": "ab39f220fe2bccc96e039a9bc0a9a82244830217920b811b21860f17a889f8e4",
+  "verify": "SELECT COALESCE((SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) = ARRAY['sandbox','live']\n  FROM pg_catalog.pg_enum e WHERE e.enumtypid = pg_catalog.to_regtype('public.checkout_environment')), false) AS applied"
+}

@@ -74,6 +74,14 @@ describe("customer presentation views", () => {
             total_cents: 6800,
             reward_points_earned: 68,
           },
+          {
+            id: "order-2",
+            order_number: "HLX-1002",
+            providerMode: "live",
+            status: "partially_refunded",
+            total_cents: 7200,
+            reward_points_earned: 0,
+          },
         ]}
         rewards={{
           pointsBalance: 425,
@@ -109,6 +117,11 @@ describe("customer presentation views", () => {
     expect(within(orders).getByText("HLX-1001")).toBeVisible();
     expect(within(orders).getByText("$68.00")).toBeVisible();
     expect(within(orders).getByText("68 pts")).toBeVisible();
+    expect(within(orders).getByText("Sandbox order")).toBeVisible();
+    const liveOrder = within(orders).getByRole("heading", { name: "HLX-1002" }).closest("li")!;
+    expect(within(liveOrder).getByText("partially refunded")).toBeVisible();
+    expect(within(liveOrder).getByText("$72.00")).toBeVisible();
+    expect(within(liveOrder).queryByText(/pts|sandbox/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Reviews").closest("summary")!);
     expect(screen.getByRole("button", { name: "Feedback for HLX-1001" })).toBeVisible();
     expect(screen.getByText(/Feedback shared here is private/)).toBeVisible();

@@ -15,6 +15,12 @@ function validToken(token: string | undefined): token is string {
     && Buffer.from(token, "base64url").toString("base64url") === token;
 }
 
+/** Live receipts accept only the separately issued receipt capability. */
+export async function readCheckoutReceiptTokenHash(): Promise<string | null> {
+  const token = (await cookies()).get(CHECKOUT_RECEIPT_COOKIE)?.value;
+  return validToken(token) ? tokenHash(token) : null;
+}
+
 function decision(value: unknown): value is {
   allowed: boolean; reused: boolean; expires_at: string | null; retry_after_seconds: number;
 } {

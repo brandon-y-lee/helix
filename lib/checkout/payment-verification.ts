@@ -19,7 +19,8 @@ export type AcceptedCheckoutContract = {
   sessionId: string;
   accountId: string;
   apiVersion: string;
-  environment: "sandbox";
+  environment: "sandbox" | "live";
+  bindingNonce?: string;
   currency: "USD";
   customerId: string | null;
   lines: AcceptedCheckoutLine[];
@@ -28,7 +29,7 @@ export type AcceptedCheckoutContract = {
   shippingCents: number;
   preTaxTotalCents: number;
   couponId: string | null;
-  offerId?: string;
+  offerId?: string | null;
   shippingRateId: string | null;
   freeShipping: boolean;
   automaticTaxEnabled: boolean | null;
@@ -37,6 +38,7 @@ export type AcceptedCheckoutContract = {
 
 /** Supplied only by authenticated retrieval, including every provider line page. */
 export type CheckoutPaymentProviderBundle = {
+  environment: "sandbox" | "live";
   accountId: string;
   apiVersion: string;
   session: Stripe.Checkout.Session;
@@ -90,11 +92,21 @@ export type CheckoutPaymentVerification =
   | { status: "exception"; code: PaymentVerificationExceptionCode;
       paymentIntentId: string | null; providerPaymentStatus: string; observedTotalCents: number | null };
 
-export function checkoutSessionDefinitelyExpired(session: Stripe.Checkout.Session): boolean {
-  const intent = session.payment_intent;
-  return session.status === "expired" && session.payment_status === "unpaid" && session.recovered_from === null &&
-    (session.after_expiration === null || session.after_expiration?.recovery?.enabled === false && !session.after_expiration.recovery.url) &&
-    (intent === null || typeof intent === "object" && intent.livemode === false && intent.status === "canceled" && intent.amount_received === 0 && intent.amount_capturable === 0);
+function hasNoCheckoutRecovery(session: Stripe.Checkout.Session): boolean {
+  const recovery = session.after_expiration?.recovery;
+  return session.recovered_from === null && (session.after_expiration === null ||
+    (recovery?.enabled === false && !recovery.url));
+}
+
+function canceledUnfundedIntent(intent: Stripe.Checkout.Session["payment_intent"], live: boolean): boolean {
+  return intent !== null && typeof intent === "object" && intent.livemode === live && intent.status === "canceled" &&
+    intent.amount_received === 0 && intent.amount_capturable === 0;
+}
+
+export function checkoutSessionDefinitelyExpired(session: Stripe.Checkout.Session, environment: AcceptedCheckoutContract["environment"] = "sandbox"): boolean {
+  const live = environment === "live";
+  return session.livemode === live && session.status === "expired" && session.payment_status === "unpaid" &&
+    hasNoCheckoutRecovery(session) && (session.payment_intent === null || canceledUnfundedIntent(session.payment_intent, live));
 }
 
 export function verifyCheckoutPayment(input: {
@@ -109,8 +121,9 @@ export function verifyCheckoutPayment(input: {
     providerPaymentStatus: session.payment_status,
     observedTotalCents: money(session.amount_total) ? session.amount_total : null,
   });
-  const legacy = accepted.version === "checkout_v1" && accepted.legacyEligible;
-  if ((!legacy && accepted.version !== "checkout_v2") ||
+  const live = accepted.environment === "live";
+  const legacy = accepted.environment === "sandbox" && accepted.version === "checkout_v1" && accepted.legacyEligible;
+  if ((live && !validLiveTerms(accepted)) || (!legacy && accepted.version !== "checkout_v2") ||
       (!legacy && (!accepted.attemptId || typeof accepted.automaticTaxEnabled !== "boolean")) ||
       !accepted.orderId || !money(accepted.merchandiseSubtotalCents) || !money(accepted.discountCents) ||
       !money(accepted.shippingCents) || !money(accepted.preTaxTotalCents) ||
@@ -118,25 +131,32 @@ export function verifyCheckoutPayment(input: {
       accepted.preTaxTotalCents !== accepted.merchandiseSubtotalCents - accepted.discountCents + accepted.shippingCents) {
     return exception("invalid_contract");
   }
-  if (accepted.accountId !== STRIPE_SANDBOX_ACCOUNT_ID || provider.accountId !== accepted.accountId ||
+  if ((!live && (accepted.environment !== "sandbox" || accepted.accountId !== STRIPE_SANDBOX_ACCOUNT_ID)) || provider.accountId !== accepted.accountId ||
       accepted.apiVersion !== STRIPE_API_VERSION || provider.apiVersion !== accepted.apiVersion ||
-      accepted.environment !== "sandbox" || accepted.currency !== "USD" || session.livemode !== false) {
+      accepted.environment !== provider.environment || accepted.currency !== "USD" || session.livemode !== live) {
     return exception("provider_context_mismatch");
   }
   if (!accepted.sessionId || session.id !== accepted.sessionId || session.mode !== "payment" ||
+      (live && (!/^cs_live_[A-Za-z0-9_]{1,200}$/.test(session.id) || session.object !== "checkout.session")) ||
       session.currency !== "usd" || session.client_reference_id !== accepted.orderId ||
       !identityMetadata(session.metadata, accepted, legacy)) {
     return exception("session_identity_mismatch");
   }
   const intent = session.payment_intent && typeof session.payment_intent === "object" ? session.payment_intent : null;
-  if (session.payment_intent && (!intent || !intent.id || intent.livemode !== false || intent.currency !== "usd" ||
+  if (session.payment_intent && (!intent || !intent.id || intent.livemode !== live || intent.currency !== "usd" ||
       !identityMetadata(intent.metadata, accepted, legacy) ||
       objectId(intent.customer) !== objectId(session.customer))) {
     return exception("payment_identity_mismatch");
   }
-  if (accepted.customerId && objectId(session.customer) !== accepted.customerId) {
+  if (((live || accepted.customerId) && objectId(session.customer) !== accepted.customerId) ||
+      (live && (!matchingLiveCustomer(session.customer) ||
+        (intent && (intent.object !== "payment_intent" || !matchingLiveCustomer(intent.customer)))))) {
     return exception("payment_identity_mismatch");
   }
+  const cardOnly = Array.isArray(session.payment_method_types) && session.payment_method_types.length === 1 &&
+    session.payment_method_types[0] === "card";
+  if (live && (!cardOnly || (session.allow_promotion_codes !== false && session.allow_promotion_codes !== null) ||
+      (intent?.payment_method && !matchingLiveCard(intent.payment_method)))) return exception("payment_identity_mismatch");
   if (session.payment_status === "no_payment_required" || session.amount_total === 0 || accepted.preTaxTotalCents === 0) {
     return exception("unsupported_zero_total");
   }
@@ -148,30 +168,30 @@ export function verifyCheckoutPayment(input: {
   }
   if (session.payment_status !== "paid") {
     if (session.payment_status !== "unpaid" || intent?.status === "succeeded") return exception("payment_state_mismatch");
-    if (session.status === "expired") return { status: checkoutSessionDefinitelyExpired(session) ? "expired" : "pending", paymentIntentId };
+    if (live) {
+      if (intent && (intent.amount_received !== 0 || (session.amount_total !== null && intent.amount !== session.amount_total))) {
+        return exception("payment_identity_mismatch");
+      }
+      if (session.status === "complete" && hasNoCheckoutRecovery(session) && canceledUnfundedIntent(intent, true)) {
+        const quote = verifiedQuote(accepted, provider, false);
+        return typeof quote === "string" ? exception(quote) : { status: "failed", paymentIntentId };
+      }
+    }
+    if (session.status === "expired") return { status: checkoutSessionDefinitelyExpired(session, accepted.environment) ? "expired" : "pending", paymentIntentId };
     if (session.status !== "open" && session.status !== "complete") return exception("payment_state_mismatch");
     return { status: "pending", paymentIntentId };
   }
   if (session.status !== "complete" || !intent || intent.status !== "succeeded") return exception("payment_state_mismatch");
   const method = intent.payment_method;
-  if (!method || typeof method === "string" || method.livemode !== false || !method.id ||
+  if (!method || typeof method === "string" || method.livemode !== live || !method.id ||
       typeof method.type !== "string" || !/^[a-z0-9_]{1,80}$/.test(method.type) ||
-      (!legacy && (!Array.isArray(session.payment_method_types) || session.payment_method_types.length !== 1 ||
-        session.payment_method_types[0] !== "card" || method.type !== "card"))) {
+      (!legacy && (!cardOnly || method.type !== "card"))) {
     return exception("payment_identity_mismatch");
   }
-  if (!session.shipping_cost) return exception("shipping_mismatch");
-  const tax = verifiedTax(accepted, provider, legacy);
+  const tax = verifiedQuote(accepted, provider, legacy);
   if (typeof tax === "string") return exception(tax);
-  if (!matchingLines(accepted, provider)) return exception("line_items_mismatch");
-  if (!matchingDiscount(accepted, provider, legacy)) return exception("discount_mismatch");
-  if (!matchingShipping(accepted, session, legacy)) return exception("shipping_mismatch");
   const details = session.total_details;
-  if (!details || !money(session.amount_subtotal) || !money(session.amount_total) ||
-      !money(details.amount_discount) || !money(details.amount_shipping) || !money(details.amount_tax) ||
-      session.amount_subtotal !== accepted.merchandiseSubtotalCents || details.amount_discount !== accepted.discountCents ||
-      details.amount_shipping !== accepted.shippingCents || session.amount_total !== accepted.preTaxTotalCents + details.amount_tax ||
-      provider.lineItems.reduce((sum, line) => sum + line.amount_total, 0) + session.shipping_cost.amount_total !== session.amount_total ||
+  if (!details || session.amount_subtotal === null || session.amount_total === null || !money(details.amount_shipping) ||
       !money(intent.amount) || !money(intent.amount_received) ||
       intent.amount !== session.amount_total || intent.amount_received !== session.amount_total) return exception("amount_mismatch");
   const shipping = session.collected_information?.shipping_details;
@@ -191,6 +211,60 @@ export function verifyCheckoutPayment(input: {
   } };
 }
 
+/** Only a server-loaded pending contract may be bound to an original live Session. */
+export function verifyLiveCheckoutBinding(accepted: AcceptedCheckoutContract, provider: CheckoutPaymentProviderBundle): boolean {
+  const session = provider.session;
+  if (!hasNoCheckoutRecovery(session) || accepted.environment !== "live" || provider.environment !== "live") return false;
+  const result = verifyCheckoutPayment({ accepted, provider });
+  if (result.status === "exception") return false;
+  if (result.status === "paid" || result.status === "failed") return true;
+  const intent = session.payment_intent;
+  const intentMatches = intent === null ? result.status === "expired" :
+    typeof intent === "object" && intent.amount === session.amount_total && intent.amount_received === 0;
+  return intentMatches && typeof verifiedQuote(accepted, provider, false) !== "string";
+}
+
+function validLiveTerms(accepted: AcceptedCheckoutContract): boolean {
+  return accepted.legacyEligible === false && accepted.discountCents === 0 && accepted.couponId === null && accepted.offerId == null &&
+    accepted.taxBehavior === "exclusive" && accepted.freeShipping === (accepted.shippingCents === 0) &&
+    (accepted.shippingRateId === null ? accepted.freeShipping : /^shr_[A-Za-z0-9_]{1,200}$/.test(accepted.shippingRateId)) &&
+    /^acct_[A-Za-z0-9]{1,120}$/.test(accepted.accountId) &&
+    (accepted.customerId === null || /^cus_[A-Za-z0-9]{1,120}$/.test(accepted.customerId)) &&
+    typeof accepted.bindingNonce === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(accepted.bindingNonce) &&
+    Array.isArray(accepted.lines) && accepted.lines.length > 0 &&
+    accepted.lines.every((line) => line && typeof line.lineId === "string" && line.lineId.trim() !== "") &&
+    new Set(accepted.lines.map((line) => line.lineId)).size === accepted.lines.length;
+}
+
+function matchingLiveCustomer(customer: Stripe.Checkout.Session["customer"]): boolean {
+  return customer === null || typeof customer === "string" ||
+    (customer?.object === "customer" && !customer.deleted && customer.livemode === true);
+}
+
+function matchingLiveCard(method: NonNullable<Stripe.PaymentIntent["payment_method"]>): boolean {
+  return typeof method === "object" && method.object === "payment_method" && !!method.id && method.livemode === true && method.type === "card";
+}
+
+function verifiedQuote(accepted: AcceptedCheckoutContract, provider: CheckoutPaymentProviderBundle, legacy: boolean):
+  VerifiedTaxComponent[] | PaymentVerificationExceptionCode {
+  const { session } = provider;
+  if (!session.shipping_cost) return "shipping_mismatch";
+  const tax = verifiedTax(accepted, provider, legacy);
+  if (typeof tax === "string") return tax;
+  if (!matchingLines(accepted, provider)) return "line_items_mismatch";
+  if (!matchingDiscount(accepted, provider, legacy)) return "discount_mismatch";
+  if (!matchingShipping(accepted, session, legacy)) return "shipping_mismatch";
+  const details = session.total_details;
+  if (!details || !money(session.amount_subtotal) || !money(session.amount_total) ||
+      !money(details.amount_discount) || !money(details.amount_shipping) || !money(details.amount_tax) ||
+      session.amount_subtotal !== accepted.merchandiseSubtotalCents || details.amount_discount !== accepted.discountCents ||
+      details.amount_shipping !== accepted.shippingCents || session.amount_total !== accepted.preTaxTotalCents + details.amount_tax ||
+      provider.lineItems.reduce((sum, line) => sum + line.amount_total, 0) + session.shipping_cost.amount_total !== session.amount_total) {
+    return "amount_mismatch";
+  }
+  return tax;
+}
+
 function money(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= 2_147_483_647;
 }
@@ -200,13 +274,15 @@ function objectId(value: string | { id: string } | null | undefined): string | n
 }
 
 function identityMetadata(metadata: Stripe.Metadata | null, accepted: AcceptedCheckoutContract, legacy: boolean): boolean {
-  return (!accepted.offerId || metadata?.offer_id === accepted.offerId) && metadata?.order_id === accepted.orderId && metadata.environment === "sandbox" &&
+  return (!accepted.offerId || metadata?.offer_id === accepted.offerId) && metadata?.order_id === accepted.orderId && metadata.environment === accepted.environment &&
+    (accepted.environment !== "live" || (metadata.binding_nonce === accepted.bindingNonce && !metadata.offer_id &&
+      (!metadata.referral || metadata.referral === "false"))) &&
     (legacy ? (!metadata.schema || metadata.schema === "checkout_v1") :
       metadata.schema === "checkout_v2" && metadata.attempt_id === accepted.attemptId);
 }
 
 function matchingLines(accepted: AcceptedCheckoutContract, provider: CheckoutPaymentProviderBundle): boolean {
-  if (!provider.lineItemsComplete || !accepted.lines.length || provider.lineItems.length !== accepted.lines.length) return false;
+  if (provider.lineItemsComplete !== true || !accepted.lines.length || provider.lineItems.length !== accepted.lines.length) return false;
   const expected = new Map<string, AcceptedCheckoutLine>();
   for (const line of accepted.lines) {
     const key = JSON.stringify([line.productId, line.variantKey]);
@@ -219,8 +295,10 @@ function matchingLines(accepted: AcceptedCheckoutContract, provider: CheckoutPay
   for (const line of provider.lineItems) {
     const price = line.price;
     const product = price?.product;
-    if (!price || !product || typeof product === "string" || product.deleted || product.livemode !== false ||
-        price.livemode !== false || price.type !== "one_time" || price.billing_scheme !== "per_unit" ||
+    if (!price || !product || typeof product === "string" || product.deleted ||
+        (accepted.environment === "live" && (line.object !== "item" || price.object !== "price" || !price.id ||
+          product.object !== "product" || !product.id)) || product.livemode !== (accepted.environment === "live") ||
+        price.livemode !== (accepted.environment === "live") || price.type !== "one_time" || price.billing_scheme !== "per_unit" ||
         price.transform_quantity || price.currency !== "usd" || line.currency !== "usd" ||
         !line.id || providerIds.has(line.id) || line.adjustable_quantity?.enabled ||
         !money(price.unit_amount) || !money(line.quantity) || line.quantity === 0 ||
@@ -254,7 +332,7 @@ function matchingDiscount(accepted: AcceptedCheckoutContract, provider: Checkout
   }
   if (discounts.length !== 1 || discounts[0].promotion_code || session.allow_promotion_codes === true) return false;
   const coupon = discounts[0].coupon;
-  if (!coupon || typeof coupon === "string" || coupon.deleted || coupon.livemode !== false ||
+  if (!coupon || typeof coupon === "string" || coupon.deleted || coupon.livemode !== (accepted.environment === "live") ||
       (!legacy && accepted.couponId !== coupon.id) ||
       (legacy && accepted.couponId !== null && accepted.couponId !== coupon.id)) return false;
   const eligibleSubtotal = lineItems.reduce((sum, line) => {
@@ -276,6 +354,9 @@ function matchingDiscount(accepted: AcceptedCheckoutContract, provider: Checkout
   if (expected !== accepted.discountCents) return false;
   const validComponent = (component: Stripe.LineItem.Discount) => money(component.amount) &&
     component.discount?.source?.type === "coupon" && objectId(component.discount.source.coupon) === coupon.id &&
+    (typeof component.discount.source.coupon === "string" ||
+      (component.discount.source.coupon !== null && !component.discount.source.coupon.deleted &&
+        component.discount.source.coupon.livemode === (accepted.environment === "live"))) &&
     !component.discount.promotion_code &&
     (!component.discount.checkout_session || component.discount.checkout_session === session.id);
   if (!breakdown.every(validComponent) || breakdown.reduce((sum, item) => sum + item.amount, 0) !== expected) return false;
@@ -298,7 +379,7 @@ function matchingDiscount(accepted: AcceptedCheckoutContract, provider: Checkout
 function matchingShipping(accepted: AcceptedCheckoutContract, session: Stripe.Checkout.Session, legacy: boolean): boolean {
   const shipping = session.shipping_cost;
   const rate = shipping?.shipping_rate;
-  if (!shipping || !rate || typeof rate === "string" || !rate.id || rate.livemode !== false ||
+  if (!shipping || !rate || typeof rate === "string" || (accepted.environment === "live" && rate.object !== "shipping_rate") || !rate.id || rate.livemode !== (accepted.environment === "live") ||
       rate.type !== "fixed_amount" || !rate.fixed_amount || rate.fixed_amount.currency !== "usd" ||
       !money(rate.fixed_amount.amount) || !money(shipping.amount_subtotal) || !money(shipping.amount_tax) ||
       !money(shipping.amount_total) || rate.fixed_amount.amount !== accepted.shippingCents ||
@@ -306,13 +387,14 @@ function matchingShipping(accepted: AcceptedCheckoutContract, session: Stripe.Ch
       shipping.amount_total !== shipping.amount_subtotal + shipping.amount_tax ||
       (accepted.freeShipping && accepted.shippingCents !== 0)) return false;
   if (accepted.shippingRateId) return rate.id === accepted.shippingRateId;
+  if (accepted.environment === "live") return accepted.freeShipping && rate.metadata?.environment === "live";
   return legacy || (accepted.freeShipping && rate.metadata?.environment === "sandbox" && rate.metadata.free_shipping_threshold === "5000");
 }
 
 type ProviderTaxComponent = Stripe.LineItem.Tax;
 
-function validTaxPart(part: ProviderTaxComponent): boolean {
-  return money(part.amount) && !!part.rate?.id && part.rate.livemode === false && part.rate.inclusive === false &&
+function validTaxPart(part: ProviderTaxComponent, environment: AcceptedCheckoutContract["environment"]): boolean {
+  return money(part.amount) && !!part.rate?.id && (environment !== "live" || part.rate.object === "tax_rate") && part.rate.livemode === (environment === "live") && part.rate.inclusive === false &&
     typeof part.rate.percentage === "number" && Number.isFinite(part.rate.percentage) && part.rate.percentage >= 0 &&
     (part.taxable_amount === null || money(part.taxable_amount)) &&
     (part.taxability_reason === null || /^[a-z_]{1,80}$/.test(part.taxability_reason));
@@ -335,11 +417,13 @@ function verifiedTax(accepted: AcceptedCheckoutContract, provider: CheckoutPayme
   const byRate = new Map<string, number>();
   let sum = 0;
   for (const source of [...sources, shippingSource]) {
-    if (enabled && (source.behavior === "inclusive" || source.parts.some((part) => part.rate?.inclusive))) return "unsupported_tax_behavior";
     const zeroShipping = source.source === "shipping" && accepted.freeShipping && accepted.shippingCents === 0 &&
       shipping?.amount_subtotal === 0 && shipping.amount_tax === 0 && shipping.amount_total === 0;
+    if (accepted.environment === "live" && source.behavior !== accepted.taxBehavior &&
+        !(zeroShipping && source.behavior === "unspecified" && !source.parts.length)) return "unsupported_tax_behavior";
+    if (enabled && (source.behavior === "inclusive" || source.parts.some((part) => part.rate?.inclusive))) return "unsupported_tax_behavior";
     if (enabled && source.behavior !== "exclusive" && source.parts.length === 0 && !zeroShipping) return "unsupported_tax_behavior";
-    if (!money(source.amount) || !source.parts.every(validTaxPart) ||
+    if (!money(source.amount) || !source.parts.every((part) => validTaxPart(part, accepted.environment)) ||
         source.parts.reduce((total, part) => total + part.amount, 0) !== source.amount ||
         (!enabled && source.amount !== 0)) return "tax_mismatch";
     for (const part of source.parts) {
@@ -351,7 +435,7 @@ function verifiedTax(accepted: AcceptedCheckoutContract, provider: CheckoutPayme
     if (!money(sum)) return "tax_mismatch";
   }
   const aggregate = session.total_details?.breakdown?.taxes ?? [];
-  if (!aggregate.every(validTaxPart) || session.total_details?.amount_tax !== sum) return "tax_mismatch";
+  if (!aggregate.every((part) => validTaxPart(part, accepted.environment)) || session.total_details?.amount_tax !== sum) return "tax_mismatch";
   const aggregateByRate = new Map<string, number>();
   for (const part of aggregate) aggregateByRate.set(part.rate.id, (aggregateByRate.get(part.rate.id) ?? 0) + part.amount);
   if (aggregateByRate.size !== byRate.size || [...byRate].some(([id, amount]) => aggregateByRate.get(id) !== amount)) return "tax_mismatch";

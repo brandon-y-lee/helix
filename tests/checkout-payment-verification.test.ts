@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { describe, expect, it } from "vitest";
-import { verifyCheckoutPayment } from "@/lib/checkout/payment-verification";
+import { verifyCheckoutPayment, verifyLiveCheckoutBinding } from "@/lib/checkout/payment-verification";
 import { checkoutPaymentFixture } from "./fixtures/checkout-payment-verification";
 
 function discountedFixture() {
@@ -409,4 +409,220 @@ describe("payment verification", () => {
     input.provider.session.payment_method_types = ["us_bank_account"];
     expect(verifyCheckoutPayment(input)).toEqual({ status: "pending", paymentIntentId: "pi_1" });
   });
+});
+
+function livePaymentFixture(input = checkoutPaymentFixture()) {
+  const { accepted, provider } = input;
+  accepted.environment = "live";
+  accepted.taxBehavior = "exclusive";
+  accepted.accountId = provider.accountId = "acct_SelectedMerchant";
+  accepted.bindingNonce = "af372e39-545d-431d-876c-f11c8cc34e3f";
+  accepted.sessionId = provider.session.id = "cs_live_accepted";
+  accepted.lines[0].lineId = "immutable-line";
+  provider.environment = "live";
+  const session = provider.session;
+  session.livemode = true;
+  session.recovered_from = null;
+  session.after_expiration = null;
+  session.metadata = { ...session.metadata, environment: "live", binding_nonce: accepted.bindingNonce };
+  const intent = session.payment_intent as Stripe.PaymentIntent;
+  intent.livemode = true;
+  intent.metadata = { ...session.metadata };
+  (intent.payment_method as Stripe.PaymentMethod).livemode = true;
+  const price = provider.lineItems[0].price!;
+  price.livemode = true;
+  price.tax_behavior = "exclusive";
+  const product = price.product as Stripe.Product;
+  product.livemode = true;
+  product.metadata.order_line_id = accepted.lines[0].lineId;
+  const shippingRate = session.shipping_cost!.shipping_rate as Stripe.ShippingRate;
+  shippingRate.livemode = true;
+  shippingRate.tax_behavior = "exclusive";
+  for (const part of [...(provider.lineItems[0].taxes ?? []), ...(session.shipping_cost!.taxes ?? []),
+    ...(session.total_details!.breakdown!.taxes ?? [])]) part.rate.livemode = true;
+  return input;
+}
+
+describe("merchant-bound live verification", () => {
+  it("settles a fully matched live payment and verifies the same locked terms during unpaid recovery", () => {
+    const input = livePaymentFixture(taxedFixture());
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "paid", facts: { totalCents: 6050 } });
+    input.provider.session.status = "open";
+    input.provider.session.payment_status = "unpaid";
+    const intent = input.provider.session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "requires_payment_method";
+    intent.amount_received = 0;
+    expect(verifyLiveCheckoutBinding(input.accepted, input.provider)).toBe(true);
+    input.provider.lineItems[0].quantity = 3;
+    expect(verifyLiveCheckoutBinding(input.accepted, input.provider)).toBe(false);
+  });
+
+  it("holds an unbound Session with missing intent evidence or provider recovery ancestry", () => {
+    const { accepted, provider } = livePaymentFixture();
+    provider.session.status = "open";
+    provider.session.payment_status = "unpaid";
+    const intent = provider.session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "requires_payment_method";
+    intent.amount_received = 0;
+    expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(true);
+    provider.session.recovered_from = "cs_live_earlier";
+    expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
+    provider.session.recovered_from = null;
+    provider.session.payment_intent = null;
+    expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
+  });
+
+  it("binds an irreversibly expired original live Session when Stripe never created an Intent", () => {
+    const { accepted, provider } = livePaymentFixture();
+    const session = provider.session;
+    session.status = "expired";
+    session.payment_status = "unpaid";
+    session.payment_intent = null;
+    expect(verifyCheckoutPayment({ accepted, provider })).toEqual({ status: "expired", paymentIntentId: null });
+    expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(true);
+  });
+
+  it.each(["incomplete line pages", "wrong quote", "missing nonce", "different Order", "different merchant",
+    "recoverable Session", "missing intent field", "open Session"] as const)(
+    "holds an unbound live Session without an Intent and with %s", (condition) => {
+      const { accepted, provider } = livePaymentFixture();
+      const session = provider.session;
+      session.status = "expired";
+      session.payment_status = "unpaid";
+      session.payment_intent = null;
+      if (condition === "incomplete line pages") provider.lineItemsComplete = false;
+      if (condition === "wrong quote") provider.lineItems[0].quantity = 1;
+      if (condition === "missing nonce") delete session.metadata!.binding_nonce;
+      if (condition === "different Order") session.client_reference_id = "another-order";
+      if (condition === "different merchant") provider.accountId = "acct_Elsewhere";
+      if (condition === "recoverable Session") session.recovered_from = "cs_live_previous";
+      if (condition === "missing intent field") Reflect.deleteProperty(session, "payment_intent");
+      if (condition === "open Session") session.status = "open";
+      expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
+    });
+
+  it("recognizes a definitively expired live Intent only under its accepted original Session", () => {
+    const input = livePaymentFixture();
+    const session = input.provider.session;
+    session.status = "expired";
+    session.payment_status = "unpaid";
+    const intent = session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "canceled";
+    intent.amount_received = 0;
+    intent.amount_capturable = 0;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "expired" });
+    expect(verifyLiveCheckoutBinding(input.accepted, input.provider)).toBe(true);
+    intent.livemode = false;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception" });
+  });
+
+  it("keeps a bound live Session pending before the address is collected and releases only definite expiry", () => {
+    const input = livePaymentFixture(taxedFixture());
+    const session = input.provider.session;
+    session.status = "open";
+    session.payment_status = "unpaid";
+    session.shipping_cost = null;
+    session.automatic_tax.status = "requires_location_inputs";
+    const intent = session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "requires_payment_method";
+    intent.amount_received = 0;
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    expect(verifyLiveCheckoutBinding(input.accepted, input.provider)).toBe(false);
+    session.status = "expired";
+    intent.status = "canceled";
+    intent.amount_capturable = 0;
+    expect(verifyCheckoutPayment(input).status).toBe("expired");
+    expect(verifyLiveCheckoutBinding(input.accepted, input.provider)).toBe(false);
+    intent.amount_capturable = 50;
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    intent.amount_capturable = 0;
+    intent.amount_received = 50;
+    expect(verifyCheckoutPayment(input).status).toBe("exception");
+    intent.amount_received = 0;
+    intent.status = "processing";
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+  });
+
+  it("marks a live completed unpaid Session failed only with a canceled unfunded Intent and no recovery path", () => {
+    const input = livePaymentFixture();
+    const session = input.provider.session;
+    session.payment_status = "unpaid";
+    const intent = session.payment_intent as Stripe.PaymentIntent;
+    intent.status = "canceled";
+    intent.amount_received = 0;
+    intent.amount_capturable = 0;
+    expect(verifyCheckoutPayment(input)).toEqual({ status: "failed", paymentIntentId: intent.id });
+    session.status = "open";
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    session.status = "complete";
+    session.recovered_from = "cs_live_previous";
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    session.recovered_from = null;
+    intent.amount_capturable = 100;
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    Reflect.deleteProperty(intent, "amount_capturable");
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    intent.amount_capturable = 0;
+    intent.status = "requires_payment_method";
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+    session.payment_intent = null;
+    expect(verifyCheckoutPayment(input).status).toBe("pending");
+  });
+
+  it("honors the accepted live zero shipping amount without inheriting a sandbox threshold", () => {
+    const input = livePaymentFixture();
+    const { accepted, provider } = input;
+    accepted.freeShipping = true;
+    accepted.shippingRateId = null;
+    accepted.shippingCents = 0;
+    accepted.preTaxTotalCents = 5000;
+    const shipping = provider.session.shipping_cost!;
+    shipping.amount_subtotal = shipping.amount_tax = shipping.amount_total = 0;
+    const rate = shipping.shipping_rate as Stripe.ShippingRate;
+    rate.fixed_amount!.amount = 0;
+    rate.metadata = { environment: "live" };
+    rate.tax_behavior = "unspecified";
+    provider.session.amount_total = 5000;
+    provider.session.total_details!.amount_shipping = 0;
+    const intent = provider.session.payment_intent as Stripe.PaymentIntent;
+    intent.amount = intent.amount_received = 5000;
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "paid", facts: { shippingCents: 0, totalCents: 5000 } });
+    rate.metadata.environment = "sandbox";
+    expect(verifyCheckoutPayment(input)).toMatchObject({ status: "exception", code: "shipping_mismatch" });
+  });
+
+  it.each(["account", "provenance", "session nonce", "intent nonce", "invalid nonce", "line identity",
+    "payment method", "price", "product", "shipping", "tax", "v1", "guest customer", "promotion entry",
+    "coupon", "offer", "provider offer", "provider referral", "discount", "missing tax policy", "price tax behavior", "shipping tax behavior"] as const)(
+    "refuses unmatched live %s", (mismatch) => {
+      const input = livePaymentFixture(taxedFixture());
+      const { accepted, provider } = input;
+      const session = provider.session;
+      const intent = session.payment_intent as Stripe.PaymentIntent;
+      const price = provider.lineItems[0].price!;
+      if (mismatch === "coupon") accepted.couponId = "coupon_not_authorized";
+      if (mismatch === "provider offer") session.metadata!.offer_id = "offer_not_authorized";
+      if (mismatch === "provider referral") intent.metadata.referral = "true";
+      if (mismatch === "offer") accepted.offerId = "offer_not_authorized";
+      if (mismatch === "discount") { accepted.discountCents = 200; accepted.preTaxTotalCents -= 200; }
+      if (mismatch === "missing tax policy") accepted.taxBehavior = null;
+      if (mismatch === "price tax behavior") price.tax_behavior = "inclusive";
+      if (mismatch === "shipping tax behavior") (session.shipping_cost!.shipping_rate as Stripe.ShippingRate).tax_behavior = "unspecified";
+      if (mismatch === "account") provider.accountId = "acct_OtherMerchant";
+      if (mismatch === "provenance") provider.environment = "sandbox";
+      if (mismatch === "session nonce") delete session.metadata!.binding_nonce;
+      if (mismatch === "intent nonce") delete intent.metadata.binding_nonce;
+      if (mismatch === "invalid nonce") accepted.bindingNonce = intent.metadata.binding_nonce = session.metadata!.binding_nonce = "short";
+      if (mismatch === "line identity") delete accepted.lines[0].lineId;
+      if (mismatch === "payment method") (intent.payment_method as Stripe.PaymentMethod).livemode = false;
+      if (mismatch === "price") price.livemode = false;
+      if (mismatch === "product") (price.product as Stripe.Product).livemode = false;
+      if (mismatch === "shipping") (session.shipping_cost!.shipping_rate as Stripe.ShippingRate).livemode = false;
+      if (mismatch === "tax") provider.lineItems[0].taxes![0].rate.livemode = false;
+      if (mismatch === "v1") { accepted.version = "checkout_v1"; accepted.legacyEligible = true; }
+      if (mismatch === "guest customer") accepted.customerId = null;
+      if (mismatch === "promotion entry") session.allow_promotion_codes = true;
+      expect(verifyCheckoutPayment(input).status).toBe("exception");
+      expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
+    });
 });
