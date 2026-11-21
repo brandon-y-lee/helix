@@ -5,6 +5,8 @@ import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { POST as receive } from "@/app/api/webhooks/resend-production/route";
 import { POST as enroll } from "@/app/api/marketing/production/subscription/route";
+import { productionSignupQualification } from "@/lib/production-marketing/storage";
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 
 const key = "sb_publishable_syntheticKeyForLocalTests";
 const env = {
@@ -42,14 +44,16 @@ it("requires the Helix Production main build, the parent database and its matchi
 });
 
 it("refuses enrollment from an immutable Production URL even if all marketing configuration is enabled", async () => {
-  const origin = "https://www.helixskin.us";
   for (const [name, value] of Object.entries({
-    ...env, VERCEL_PROJECT_PRODUCTION_URL: "www.helixskin.us", HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: env.VERCEL_PROJECT_ID,
-    HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin, HELIX_PRODUCTION_MARKETING_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
-    HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic", HELIX_PRODUCTION_MARKETING_ENABLED: "true",
-    HELIX_PRODUCTION_MARKETING_ABUSE_KEY: "a".repeat(32), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "a".repeat(64),
+    ...productionMarketingTestTarget, VERCEL_URL: "helix-stage.vercel.app",
+    HELIX_PRODUCTION_MARKETING_ENABLED: "true", HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED: "true",
+    HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED: "true", HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: "re_synthetic_restricted_sender",
+    HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET: "whsec_" + Buffer.from("test-only-dedicated-signer").toString("base64"),
+    HELIX_PRODUCTION_MARKETING_WORKER_TOKEN: "w".repeat(48), CRON_SECRET: "c".repeat(48),
+    HELIX_PRODUCTION_MARKETING_ABUSE_KEY: "a".repeat(32), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "b".repeat(64),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "synthetic",
   })) vi.stubEnv(name, value);
+  expect(productionSignupQualification(process.env).p_worker_binding_hash).toMatch(/^[a-f0-9]{64}$/);
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
   const stage = "https://helix-stage.vercel.app";
