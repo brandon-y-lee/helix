@@ -168,41 +168,32 @@ try {
   }
   // Race two real service transactions on the same prepared intent. Both
   // commit orders must independently establish the same accepted provider ID.
-  for (const receiptFirst of [true, false]) {
-    const name = receiptFirst ? "positive-first" : "finish-first";
-    const message = sql("SELECT proof.seed_lease('" + name + "','first');");
-    const lease = sql("SELECT lease FROM proof.races WHERE id='" + message + "';");
-    const provider = randomUUID();
-    assert.equal(
-      sql("SELECT proof.handoff('" + message + "','" + name + "','first') IS NOT NULL;", "service_role"),
-      "t",
-    );
-    const receipt =
-      "SELECT proof.raw_event('" + name + "','" + message + "','" + provider + "','email.delivered','" + name + "');";
-    const finish =
-      "SELECT public.finish_production_marketing_message('" +
-      message +
-      "','" +
-      lease +
-      "','accepted','" +
-      provider +
-      "');";
-    assert.deepEqual(
-      await ordered(receiptFirst ? receipt : finish, receiptFirst ? finish : receipt),
-      receiptFirst ? ["recorded", "t"] : ["t", "recorded"],
-      name,
-    );
-    assert.equal(
-      sql(
-        "SELECT state='accepted' AND NOT reconciliation_required AND delivery_status='delivered' AND provider_id='" +
-          provider +
-          "' FROM private.production_marketing_messages WHERE id='" +
-          message +
-          "';",
-      ),
-      "t",
-      name,
-    );
+  for (const [event, status] of Object.entries({
+    "email.sent": "sent",
+    "email.delivery_delayed": "delayed",
+    "email.delivered": "delivered",
+    "email.failed": "failed",
+  })) {
+    for (const receiptFirst of [true, false]) {
+      const name = status + (receiptFirst ? "-callback-first" : "-finish-first");
+      const message = sql("SELECT proof.seed_lease('" + name + "','first');");
+      const lease = sql("SELECT lease FROM proof.races WHERE id='" + message + "';");
+      const provider = randomUUID();
+      assert.equal(sql(`SELECT proof.handoff('${message}','${name}','first') IS NOT NULL;`, "service_role"), "t");
+      const receipt = `SELECT proof.raw_event('${name}','${message}','${provider}','${event}','${name}');`;
+      const finish = `SELECT public.finish_production_marketing_message('${message}','${lease}','accepted','${provider}');`;
+      assert.deepEqual(
+        await ordered(receiptFirst ? receipt : finish, receiptFirst ? finish : receipt),
+        receiptFirst ? ["recorded", "t"] : ["t", "recorded"],
+        name,
+      );
+      assert.equal(
+        sql(`SELECT state='accepted' AND NOT reconciliation_required AND delivery_status='${status}' AND provider_id='${provider}'
+        FROM private.production_marketing_messages WHERE id='${message}';`),
+        "t",
+        name,
+      );
+    }
   }
   console.log(
     "PASS PostgreSQL 17 direct welcome storage, receipt ownership, retained consent and first/retry handoff races.",

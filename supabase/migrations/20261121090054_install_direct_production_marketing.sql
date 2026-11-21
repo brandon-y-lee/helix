@@ -8,7 +8,7 @@ BEGIN
     AND p.proparallel='u' AND p.prosqlbody IS NULL
     AND p.prorettype='pg_catalog.void'::pg_catalog.regtype AND p.provolatile='v'
     AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp','lock_timeout=3s']
-    AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')='c2ef661377640e25650b5a52117b5c1a4c3164dcc69536e1d3717dc1b5159d4a'
+    AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')='828c7e3b299564874c5bb16a6b5ef417dff3bd1a1a408594140baf5a4a32be90'
     AND EXISTS (SELECT FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=session_user::pg_catalog.regrole
       AND a.grantor=p.proowner AND a.privilege_type='EXECUTE' AND NOT a.is_grantable)
     AND NOT EXISTS (SELECT FROM pg_catalog.aclexplode(coalesce(p.proacl,pg_catalog.acldefault('f',p.proowner))) a

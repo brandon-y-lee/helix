@@ -481,7 +481,7 @@ CREATE FUNCTION private.production_marketing_record_signed_event(
   p_strict boolean,p_event_id text,p_message_id uuid,p_provider_id uuid,p_event_type text,p_occurred_at timestamptz,
   p_sender text,p_recipient text,p_purpose text,p_contract_version text,p_environment text
 ) RETURNS text LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
-DECLARE m record; address text; shared boolean; observed text; previous text;
+DECLARE m record; address text; shared boolean; informational boolean; observed text; previous text;
 BEGIN
   IF NOT private.production_marketing_direct_parent() THEN RETURN 'paused'; END IF;
   PERFORM FROM private.production_marketing_controls WHERE singleton AND events_enabled FOR SHARE;
@@ -489,6 +489,7 @@ BEGIN
   IF p_event_id IS NULL OR p_event_id !~ '^[A-Za-z0-9_-]{1,200}$' OR p_event_type IS NULL OR p_event_type NOT IN
     ('email.sent','email.delivered','email.delivery_delayed','email.failed','email.bounced','email.complained','email.suppressed')
     THEN RETURN 'rejected'; END IF;
+  informational:=p_event_type IN ('email.sent','email.delivered','email.delivery_delayed','email.failed');
   PERFORM pg_advisory_xact_lock(hashtextextended('production-marketing:event:'||p_event_id,0));
   SELECT s.normalized_email INTO address FROM private.production_marketing_messages x
     JOIN private.production_marketing_subscribers s ON s.id=x.subscriber_id WHERE x.id=p_message_id;
@@ -522,10 +523,10 @@ BEGIN
         private.production_marketing_iso(p_occurred_at),p_sender,p_recipient,p_purpose,p_contract_version,p_environment)::text,'UTF8')),'hex');
       SELECT fingerprint INTO previous FROM private.production_marketing_events WHERE event_id=p_event_id;
       IF previous=observed THEN RETURN 'recorded'; END IF;
-      -- A genuine positive receipt can precede the sender's HTTP response.
-      -- The event ledger records that observation. Only finish can bind the ID.
-      IF previous IS NULL AND p_event_type IN ('email.sent','email.delivered')
-        AND m.state='prepared' AND m.provider_id IS NULL AND NOT m.reconciliation_required
+      -- An informational receipt can precede the sender's HTTP response. The
+      -- event ledger keeps the observation; only finish can bind the ID.
+      IF previous IS NULL AND informational
+        AND m.state='prepared' AND m.provider_id IS NULL
         AND NOT EXISTS (SELECT FROM private.production_marketing_direct_receipts WHERE event_id=p_event_id)
         AND NOT EXISTS (SELECT FROM private.production_marketing_events WHERE message_id=p_message_id AND provider_id<>p_provider_id)
         AND NOT EXISTS (SELECT FROM private.production_marketing_messages WHERE provider_id=p_provider_id AND id<>p_message_id) THEN
@@ -536,8 +537,12 @@ BEGIN
         UPDATE private.production_marketing_messages SET last_event_at=last_event_at WHERE id=p_message_id;
         RETURN 'recorded';
       END IF;
-      IF previous IS NULL AND m.state='accepted' AND NOT m.reconciliation_required AND m.provider_id=p_provider_id
-        AND (p_strict OR p_event_type NOT IN ('email.bounced','email.complained','email.suppressed'))
+      -- A marked generation was created after every direct ingress stopped
+      -- binding provider IDs. Its immutable ID therefore identifies a genuine
+      -- collision-free HTTP acceptance even when another receipt held the job.
+      -- Older shared records need the independently accepted, unheld P3 state.
+      IF previous IS NULL AND m.provider_id=p_provider_id AND (p_strict OR informational)
+        AND ((m.state='accepted' AND NOT m.reconciliation_required) OR (m.direct AND p_strict AND NOT informational))
         AND NOT EXISTS (SELECT FROM private.production_marketing_direct_receipts WHERE event_id=p_event_id) THEN
         RETURN private.production_marketing_record_legacy_event(p_event_id,p_message_id,p_provider_id,p_event_type,p_occurred_at,
           p_sender,p_recipient,p_purpose,p_contract_version,p_environment);
@@ -568,29 +573,35 @@ CREATE FUNCTION public.record_production_marketing_event(
 -- locks. Reconcile any earlier positives inside that same accepted HTTP update.
 CREATE FUNCTION private.production_marketing_finish_observed_delivery() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
-DECLARE conflict boolean; delivered boolean; latest timestamptz; status text;
+DECLARE receipt record; conflict boolean:=false;
 BEGIN
-  SELECT bool_or(e.binding_conflict OR e.provider_id<>NEW.provider_id),bool_or(e.event_type='email.delivered'),max(e.occurred_at)
-    INTO conflict,delivered,latest FROM private.production_marketing_events e
-    WHERE e.message_id=NEW.id AND e.event_type IN ('email.sent','email.delivered');
+  FOR receipt IN SELECT e.provider_id,e.binding_conflict,e.occurred_at,
+       CASE e.event_type WHEN 'email.sent' THEN 'sent' WHEN 'email.delivered' THEN 'delivered'
+         WHEN 'email.delivery_delayed' THEN 'delayed' WHEN 'email.failed' THEN 'failed' END AS status
+     FROM private.production_marketing_events e WHERE e.message_id=NEW.id
+       AND e.event_type IN ('email.sent','email.delivered','email.delivery_delayed','email.failed')
+  LOOP
+    IF receipt.binding_conflict OR receipt.provider_id<>NEW.provider_id THEN
+      conflict:=true;
+    ELSE
+      IF private.production_marketing_event_rank(receipt.status)>private.production_marketing_event_rank(NEW.delivery_status) THEN
+        NEW.delivery_status:=receipt.status;
+      END IF;
+      NEW.last_event_at:=greatest(NEW.last_event_at,receipt.occurred_at);
+    END IF;
+  END LOOP;
   IF conflict THEN
     INSERT INTO private.production_marketing_identity_conflicts(message_id,provider_id,source)
       VALUES(NEW.id,NEW.provider_id,'response') ON CONFLICT DO NOTHING;
     NEW.reconciliation_required:=true;
     NEW.state:='uncertain';
-  ELSIF latest IS NOT NULL THEN
-    status:=CASE WHEN delivered THEN 'delivered' ELSE 'sent' END;
-    IF private.production_marketing_event_rank(status)>private.production_marketing_event_rank(NEW.delivery_status) THEN
-      NEW.delivery_status:=status;
-    END IF;
-    NEW.last_event_at:=greatest(NEW.last_event_at,latest);
   END IF;
   RETURN NEW;
 END $$;
 CREATE TRIGGER finish_observed_direct_delivery BEFORE UPDATE OF state,provider_id ON private.production_marketing_messages
-  FOR EACH ROW WHEN (OLD.sender='hello@helixskin.us' AND OLD.state='prepared' AND OLD.lease_token IS NOT NULL
-    AND OLD.provider_id IS NULL AND NEW.provider_id IS NOT NULL AND NEW.state='accepted' AND NEW.lease_token IS NULL
-    AND NOT NEW.reconciliation_required) EXECUTE FUNCTION private.production_marketing_finish_observed_delivery();
+  FOR EACH ROW WHEN (OLD.sender='hello@helixskin.us' AND OLD.state IN ('prepared','uncertain') AND OLD.lease_token IS NOT NULL
+    AND OLD.provider_id IS NULL AND NEW.provider_id IS NOT NULL AND NEW.state IN ('accepted','uncertain')
+    AND NEW.lease_token IS NULL) EXECUTE FUNCTION private.production_marketing_finish_observed_delivery();
 
 CREATE FUNCTION public.read_direct_production_marketing_status(p_actor_id uuid) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$

@@ -33,8 +33,8 @@ $$;
 UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,events_enabled=true,daily_limit=100,monthly_limit=1000,
   delivery_contract_text=proof.contract(),confirmation_worker_binding_hash=repeat('b',64);
 CREATE TABLE proof.before_direct (id uuid PRIMARY KEY,lease uuid NOT NULL,prepared jsonb NOT NULL);
-DO $$ DECLARE label text; msg jsonb; lease uuid; id uuid; frozen jsonb; BEGIN
-  FOREACH label IN ARRAY ARRAY['legacy-accepted','legacy-prepared'] LOOP
+DO $$ DECLARE label text; msg jsonb; lease uuid; id uuid; proposed uuid; frozen jsonb; BEGIN
+  FOREACH label IN ARRAY ARRAY['legacy-accepted','legacy-prepared','legacy-callback-only'] LOOP
     PERFORM proof.check(proof.original_request(label),'original P1 request');
     PERFORM proof.check(public.confirm_production_marketing_subscription(proof.hash(label||'-c')),'original confirmation');
     lease:=gen_random_uuid(); msg:=public.claim_production_marketing_message(lease); id:=(msg->>'id')::uuid;
@@ -45,6 +45,14 @@ DO $$ DECLARE label text; msg jsonb; lease uuid; id uuid; frozen jsonb; BEGIN
     INSERT INTO proof.before_direct VALUES(id,lease,frozen);
     IF label='legacy-accepted' THEN
       PERFORM proof.check(public.finish_production_marketing_message(id,lease,'accepted','00000000-0000-4000-8000-000000000611'),'original P3 accepted');
+    ELSE
+      proposed:=CASE WHEN label='legacy-prepared' THEN '00000000-0000-4000-8000-000000000610'::uuid ELSE gen_random_uuid() END;
+      PERFORM proof.check(public.record_production_marketing_event('legacy-'||label,id,proposed,'email.sent',clock_timestamp(),
+        'hello@helixskin.us',label||'@example.invalid','welcome','production_welcome_delivery_v1','production')='recorded',
+        'old P3 can supply provider_id from a callback before the HTTP response');
+      IF label='legacy-callback-only' THEN
+        PERFORM proof.check(public.finish_production_marketing_message(id,lease,'uncertain',NULL),'old P3 records a lost response');
+      END IF;
     END IF;
   END LOOP;
   PERFORM proof.check(proof.original_request('legacy-pending'),'retained pending link');
@@ -126,7 +134,7 @@ GRANT USAGE ON SCHEMA proof TO service_role;
 GRANT SELECT ON proof.races TO service_role;
 
 SELECT proof.check(NOT proof.ready(),'direct package initially closed');
-SELECT proof.check((SELECT count(*)=2 FROM proof.before_direct b JOIN private.production_marketing_messages m USING(id)
+SELECT proof.check((SELECT count(*)=3 FROM proof.before_direct b JOIN private.production_marketing_messages m USING(id)
   WHERE m.body_text=b.prepared->>'body' AND m.idempotency_key=b.prepared->>'idempotencyKey'
     AND m.body_hash=proof.hash(m.body_text) AND (SELECT count(*) FROM private.production_marketing_quota_reservations q WHERE q.message_id=m.id)=2),
   'earlier prepared/accepted message identities and quota survived');
@@ -210,6 +218,24 @@ SELECT proof.check(proof.ready() AND NOT proof.request('no-local-row') AND NOT p
   'configuration renewal preserves historical denials across releases');
 ROLLBACK;
 
+-- Old P3 could populate provider_id from a webhook. An actually prepared
+-- or uncertain predecessor with that column set carries no HTTP acceptance.
+BEGIN;
+DO $$ DECLARE old record; BEGIN
+  FOR old IN SELECT m.id,m.provider_id,s.normalized_email,m.state FROM private.production_marketing_messages m
+    JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id
+    WHERE s.normalized_email IN ('legacy-prepared@example.invalid','legacy-callback-only@example.invalid') AND m.purpose='welcome'
+  LOOP
+    PERFORM proof.check(old.provider_id IS NOT NULL AND old.state IN ('prepared','uncertain'),'authentic historical callback-only fixture');
+    PERFORM proof.check(public.record_direct_production_marketing_event('historical-'||old.id,old.id,old.provider_id,'email.complained',
+      clock_timestamp(),'hello@helixskin.us',old.normalized_email,'welcome','production_welcome_delivery_v1','production')='recorded',
+      'negative for historical callback-only binding goes to reconciliation');
+    PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=old.id AND m.reconciliation_required
+      AND m.delivery_status<>'suppressed' AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
+      'predecessor callback-only ID cannot authorize shared-mailbox suppression');
+  END LOOP;
+END $$;
+ROLLBACK;
 -- Authorized finish records a response from before the rollout; it never replaces
 -- the frozen body or introduces a new message or provider identity.
 SELECT proof.check((SELECT public.finish_production_marketing_message(b.id,b.lease,'accepted','00000000-0000-4000-8000-000000000610')
@@ -273,25 +299,40 @@ END $$;
 -- the worker's matching response can turn their proposed ID into a binding.
 BEGIN;
 DO $$ DECLARE
-  msg uuid; lease_id uuid; observed_id uuid:=gen_random_uuid(); returned_id uuid; observed timestamptz; sample text;
+  msg uuid; lease_id uuid; observed_id uuid; returned_id uuid; observed timestamptz; sample text; fact record;
 BEGIN
   FOREACH sample IN ARRAY ARRAY['positive-matched','positive-mismatched'] LOOP
     msg:=proof.seed_lease(sample,'first');
     SELECT r.lease INTO STRICT lease_id FROM proof.races r WHERE r.id=msg;
     PERFORM proof.check(proof.handoff(msg,sample,'first') IS NOT NULL,'prepare before provider callback');
     observed:=clock_timestamp(); observed_id:=gen_random_uuid();
-    PERFORM proof.check(proof.raw_event(sample||'-sent',msg,observed_id,'email.sent',sample,sample='positive-matched',observed)='recorded','early sent durably acknowledged');
-    PERFORM proof.check(proof.raw_event(sample||'-delivered',msg,observed_id,'email.delivered',sample,false,observed)='recorded','early delivery durably acknowledged');
-    PERFORM proof.check(proof.raw_event(sample||'-sent',msg,observed_id,'email.sent',sample,sample='positive-matched',observed)='recorded','exact early positive replay acknowledged');
+    -- Rank and latest provider timestamp are independent. The highest rank
+    -- arrives with the oldest occurrence; replay each exact signed projection.
+    FOR fact IN SELECT * FROM (VALUES
+      ('sent',4),('delivered',2),('delivery_delayed',3),('failed',1)
+    ) AS e(kind,seconds_after) LOOP
+      PERFORM proof.check(proof.raw_event(sample||'-'||fact.kind,msg,observed_id,'email.'||fact.kind,sample,sample='positive-matched',
+        observed+make_interval(secs=>fact.seconds_after))='recorded','early informational receipt durably recorded');
+      PERFORM proof.check(proof.raw_event(sample||'-'||fact.kind,msg,observed_id,'email.'||fact.kind,sample,sample='positive-matched',
+        observed+make_interval(secs=>fact.seconds_after))='recorded','duplicate provisional receipt acknowledged');
+    END LOOP;
     PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.provider_id IS NULL
-      AND m.state='prepared' AND NOT m.reconciliation_required AND m.delivery_status='pending'
+      AND m.state='prepared' AND NOT m.reconciliation_required AND m.delivery_status='pending' AND m.last_event_at IS NULL
       AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
       'early positive observations keep the active lease open without attributing delivery or suppression');
     returned_id:=CASE WHEN sample='positive-matched' THEN observed_id ELSE gen_random_uuid() END;
     PERFORM proof.check(public.finish_production_marketing_message(msg,lease_id,'accepted',returned_id),'record independent HTTP response');
     IF returned_id=observed_id THEN
       PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.provider_id=returned_id
-        AND m.state='accepted' AND NOT m.reconciliation_required AND m.delivery_status='delivered'),'matching HTTP identity resolves early sent/delivered facts');
+        AND m.state='accepted' AND NOT m.reconciliation_required AND m.delivery_status='failed' AND m.last_event_at=observed+interval '4 seconds'),
+        'matching HTTP identity projects the P3 maximum rank and greatest occurrence independently');
+      PERFORM proof.check(proof.raw_event(sample||'-delivered',msg,observed_id,'email.delivered',sample,false,observed+interval '2 seconds')='recorded',
+        'early receipt can replay after the HTTP commit');
+      PERFORM proof.check(proof.raw_event(sample||'-later-sent',msg,observed_id,'email.sent',sample,false,observed+interval '5 seconds')='recorded',
+        'later lower-ranked information remains valid');
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.delivery_status='failed'
+        AND m.last_event_at=observed+interval '5 seconds' AND (SELECT count(*)=5 FROM private.production_marketing_events e WHERE e.message_id=msg)),
+        'later event advances time without lowering rank or duplicating early receipts');
       PERFORM proof.check(proof.raw_event(sample||'-complaint',msg,observed_id,'email.complained',sample)='recorded','later strict complaint acknowledged');
       PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m JOIN private.production_marketing_suppressions s ON m.subscriber_id=s.subscriber_id
         WHERE m.id=msg AND m.provider_id=returned_id AND m.delivery_status='suppressed' AND s.reason='complained'),'matching identity authorizes the later complaint');
@@ -304,10 +345,37 @@ BEGIN
       PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.reconciliation_required
         AND m.delivery_status='pending' AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
         'complaint for the conflicting proposed ID does not suppress');
+      PERFORM proof.check(proof.raw_event(sample||'-authenticated-complaint',msg,returned_id,'email.complained',sample)='recorded',
+        'negative for the independently returned HTTP UUID is durably acknowledged');
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m JOIN private.production_marketing_suppressions s ON m.subscriber_id=s.subscriber_id
+        WHERE m.id=msg AND m.reconciliation_required AND m.state='uncertain' AND s.reason='complained'),
+        'a known accepted HTTP binding can suppress even while attribution conflict remains quarantined');
       PERFORM proof.check(proof.ready() AND public.claim_direct_production_marketing_message(gen_random_uuid(),proof.hash(proof.contract()),repeat('b',64)) IS NULL,
         'an isolated ambiguous attempt cannot be replayed or block unrelated enrollments');
     END IF;
   END LOOP;
+END $$;
+ROLLBACK;
+
+-- An ambiguous claimed callback remains durable, even after independently
+-- acknowledging the real response and applying a later legitimate restriction.
+BEGIN;
+DO $$ DECLARE msg uuid; lease_id uuid; proposed uuid:=gen_random_uuid(); accepted uuid:=gen_random_uuid(); sample text:='held-then-accepted'; BEGIN
+  msg:=proof.seed_lease(sample,'first');
+  SELECT r.lease INTO STRICT lease_id FROM proof.races r WHERE r.id=msg;
+  PERFORM proof.check(proof.handoff(msg,sample,'first') IS NOT NULL,'prepared HTTP handoff');
+  PERFORM proof.check(public.hold_direct_production_marketing_receipt('ambiguous-before-http',msg,proposed)='held','ambiguous receipt isolates its message');
+  PERFORM proof.check(public.finish_production_marketing_message(msg,lease_id,'accepted',accepted),'worker records the actual HTTP acceptance during a hold');
+  PERFORM proof.check(proof.raw_event('wrong-negative',msg,proposed,'email.bounced',sample)='recorded','foreign proposed provider UUID held');
+  PERFORM proof.check(NOT EXISTS (SELECT FROM private.production_marketing_suppressions s JOIN private.production_marketing_messages m
+    ON m.subscriber_id=s.subscriber_id WHERE m.id=msg),'a different proposed ID never suppresses the subscriber');
+  PERFORM proof.check(proof.raw_event('verified-negative',msg,accepted,'email.bounced',sample)='recorded','strict negative references the real accepted response');
+  PERFORM proof.check((SELECT count(*)=1 FROM private.production_marketing_suppressions)
+    AND EXISTS (SELECT FROM private.production_marketing_messages m JOIN private.production_marketing_suppressions s ON s.subscriber_id=m.subscriber_id
+      WHERE m.id=msg AND m.reconciliation_required AND m.state='uncertain' AND s.reason='bounced'),
+    'later verified negative suppresses exactly that address and leaves its message quarantined');
+  PERFORM proof.check(public.claim_direct_production_marketing_message(gen_random_uuid(),proof.hash(proof.contract()),repeat('b',64)) IS NULL
+    AND proof.ready(),'no held replay or global intake pause');
 END $$;
 ROLLBACK;
 
