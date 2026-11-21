@@ -14,7 +14,7 @@ BEGIN
       AND p.prorettype='boolean'::regtype AND NOT p.proretset AND NOT p.prosecdef AND p.provolatile='s'
       AND p.prolang=(SELECT oid FROM pg_language WHERE lanname='sql')
       AND ARRAY(SELECT replace(x,' ','') FROM unnest(p.proconfig) x)=ARRAY['search_path=pg_catalog,pg_temp']
-      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='1320b6b730d4def795f6bd691914782eefcbf10bb376c767bd8661bc034eae9c'
+      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='7be48b6366baae93bccac0681324f1d3d6ebf892197134e97dd638ce37b387be'
       AND NOT EXISTS (SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE
         a.grantor<>p.proowner OR (a.grantee<>p.proowner AND
           (a.grantee<>session_user::regrole OR a.is_grantable OR a.privilege_type<>'EXECUTE'))))
@@ -124,6 +124,9 @@ BEGIN
     SELECT * INTO STRICT att FROM public.payment_attempts WHERE id=NEW.attempt_id AND order_id=NEW.order_id AND checkout_environment='live' FOR SHARE;
     IF (NEW.terms->>'version',NEW.terms->>'orderId',NEW.terms->>'accountId',NEW.terms->>'environment',NEW.terms->>'currency')
       IS DISTINCT FROM ('checkout_v2',ord.id::text,NEW.account_id,'live','USD')
+      OR ord.status<>'pending_payment' OR att.status NOT IN ('requires_payment','processing')
+      OR (att.idempotency_key,att.amount_cents,att.currency,att.provider) IS DISTINCT FROM
+        (NEW.idempotency_key,ord.merchandise_subtotal_cents-ord.discount_cents+ord.shipping_cents,ord.currency,'stripe')
       OR pg_column_size(NEW.terms)>64000
       OR NEW.first_send_at>clock_timestamp()
       OR (NEW.terms ? 'attemptId' AND NEW.terms->>'attemptId' IS DISTINCT FROM NEW.attempt_id::text)
@@ -610,7 +613,7 @@ SELECT
       ('private.preserve_checkout_mode()','e83c7e4ba7a87108651e6c3a5a456fc73ccea4b8b429e211c47f9e51c1184f35',false,'trigger','plpgsql','v'),
       ('private.live_checkout_target()','094513a67a99d83aa0d1c4bd5fd43ca0884e53ea07aad507372f8b89be6c4694',false,'boolean','sql','s'),
       ('private.valid_live_checkout_binding(text,uuid,uuid)','ea179142d5d6839b40f22e8015fa36c631845d77e65f6254d11c151002c06963',false,'boolean','sql','s'),
-      ('private.guard_live_checkout_binding()','252b906e7d67219d72cba65504bb0f70688aaf324066d1e7e323d86423347743',false,'trigger','plpgsql','v'),
+      ('private.guard_live_checkout_binding()','cd4f10380af4ecd7b410a81028f295aef8aa7be6f47f15282f92d983afd0ab54',false,'trigger','plpgsql','v'),
       ('private.read_live_checkout_payment_contract(text,uuid,text)','2aa426f8d8172e96b40cc51034bb3b68f6566106320f7eb54b165a987ec26bf3',true,'jsonb','sql','s'),
       ('public.read_live_checkout_payment_contract(text,uuid,text)','232d9f452dbc131a12795809b2b51c63faf743fd38e794a51d57cc182cbb35cc',false,'jsonb','sql','s'),
       ('private.read_pending_live_checkout_contract(text,uuid,uuid)','479921d4ae490b53c6f2c4f5d9d0632c34776125395060ad4c047da832e57cb3',true,'jsonb','sql','s'),

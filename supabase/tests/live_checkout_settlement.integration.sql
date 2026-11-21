@@ -43,6 +43,15 @@ BEGIN
     END;
     PERFORM pg_temp.check_settlement(rejected,'invalid original live terms must be rejected before uniqueness');
   END LOOP;
+  rejected:=false;
+  BEGIN
+    INSERT INTO private.live_checkout_bindings(account_id,order_id,attempt_id,idempotency_key,terms,binding_nonce)
+    SELECT account_id,order_id,attempt_id,'live:unrelated-attempt-key',terms,binding_nonce
+      FROM private.live_checkout_bindings WHERE attempt_id=o;
+  EXCEPTION WHEN raise_exception THEN
+    rejected:=SQLERRM='Live binding does not match the original checkout contract';
+  END;
+  PERFORM pg_temp.check_settlement(rejected,'original Attempt idempotency is bound to the recoverable payment');
   INSERT INTO public.stripe_webhook_events(stripe_event_id,type,payload) VALUES(original_event,'checkout.session.completed','{}');
   SELECT count(*) INTO value_before FROM private.email_intents WHERE purpose='order_confirmation';
   SELECT (public.read_pending_live_checkout_contract(mer,o,o)->>'bindingNonce')::uuid INTO nonce_;

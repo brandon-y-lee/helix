@@ -117,14 +117,23 @@ async function verifyTarget(environment, database, port) {
     assert.deepEqual(after.forward.slice(0, 3), afterFailure.forward);
     assert.deepEqual(await forward(), { pending: [], applied: [] });
     assert.deepEqual(await ledger(), after);
-    for (const drift of [
-      "ALTER TABLE public.orders DROP CONSTRAINT orders_checkout_mode, ADD CONSTRAINT orders_checkout_mode CHECK (true)",
-      "ALTER TABLE private.live_checkout_bindings DISABLE TRIGGER live_checkout_binding_immutable",
-      "ALTER FUNCTION private.live_checkout_target() SET search_path = public",
+    const check = owner("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='public.orders'::regclass AND conname='orders_checkout_mode'");
+    const replaceCheck = "ALTER TABLE public.orders DROP CONSTRAINT orders_checkout_mode, ADD CONSTRAINT orders_checkout_mode ";
+    const bindingTrigger = " TRIGGER live_checkout_binding_immutable";
+    const targetPath = "ALTER FUNCTION private.live_checkout_target() SET search_path = ";
+    for (const [drift, restore] of [
+      [replaceCheck + "CHECK (true)", replaceCheck + check],
+      ["ALTER TABLE private.live_checkout_bindings DISABLE" + bindingTrigger,
+       "ALTER TABLE private.live_checkout_bindings ENABLE" + bindingTrigger],
+      [targetPath + "public", targetPath + "pg_catalog, pg_temp"],
     ]) {
-      // Run the same protected verifier as the writer against a real drifted
-      // catalog, and roll the fixture change back before the next assertion.
-      assert.equal(owner(`BEGIN; ${drift}; SET LOCAL ROLE ${writer}; ${migrations[3].verify}; ROLLBACK;`), "f");
+      owner(drift);
+      try {
+        assert.equal((await client.query(migrations[3].verify)).rows[0].applied, false);
+      } finally {
+        owner(restore);
+      }
+      assert.equal((await client.query(migrations[3].verify)).rows[0].applied, true);
     }
     await runLiveCheckoutSettlementTests({ ownerSql: owner, client, database, environment, stack, writerRole: writer });
     console.log(JSON.stringify({ environment, postgres: "17.12", legacyCount: after.legacy_count,

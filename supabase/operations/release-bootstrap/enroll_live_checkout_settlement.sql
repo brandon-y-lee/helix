@@ -89,7 +89,7 @@ begin
   if exists (
     select from (values
       ('private.extend_checkout_environment()'::regprocedure,'22402553e06d27f061cd711ab1dda066ce2b5069981639c7783a481ac1d593d0'),
-      ('private.install_live_checkout_contract()'::regprocedure,'665b199538c8280057bade308542d3e485dbc0d5aeed90dbc45c4f2146e07b46')
+      ('private.install_live_checkout_contract()'::regprocedure,'4fc5dd8cc582027ab16f2873ab3d04f35e85211981f70ad7d441ee80ab481e92')
     ) expected(routine,body_sha) join pg_proc p on p.oid = expected.routine
     where p.proowner <> current_user::regrole or not p.prosecdef or p.prolang <> (select oid from pg_language where lanname = 'plpgsql')
       or p.proconfig is distinct from array['search_path=pg_catalog, pg_temp','lock_timeout=3s']
