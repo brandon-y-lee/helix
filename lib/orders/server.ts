@@ -87,6 +87,7 @@ import {
 } from "@/lib/orders/payment-contracts";
 import { authorizeCheckoutReceipt, ensureGuestReceiptBinding } from "@/lib/orders/receipt-access";
 import type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
+import { readLiveOrderConfirmation, readLiveOrderHistory, type AccountOrderHistoryEntry } from "@/lib/orders/live-receipts";
 import { readSimulatedTracking } from "@/lib/tracking/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
@@ -783,7 +784,7 @@ export async function createStripeCheckoutSession(
     try { session = await stripe.checkout.sessions.create(params, { idempotencyKey: stripeIdempotencyKey,
       apiVersion: STRIPE_API_VERSION, timeout: 4_000, maxNetworkRetries: 2 }); }
     catch { throw uncertainCheckout(); }
-    const provider = { accountId: config.accountId, apiVersion: STRIPE_API_VERSION, session,
+    const provider: CheckoutPaymentProviderBundle = { environment: CHECKOUT_ENVIRONMENT, accountId: config.accountId, apiVersion: STRIPE_API_VERSION, session,
       lineItems: [] as Stripe.LineItem[], lineItemsComplete: true as const };
     if (session.payment_status !== "unpaid" || session.status !== "open") {
       const current = await retrieveCheckoutPaymentProviderBundle({ sessionId: session.id, stripe });
@@ -844,6 +845,7 @@ async function loadOrderBySession(sessionId: string): Promise<OrderRow | null> {
   const { data, error } = await admin
     .from("orders")
     .select("*")
+    .eq("checkout_environment", CHECKOUT_ENVIRONMENT)
     .eq("stripe_checkout_session_id", sessionId)
     .maybeSingle();
   if (error) throw new Error("[orders] Failed to load order.");
@@ -855,6 +857,7 @@ async function loadOrderById(orderId: string): Promise<OrderRow | null> {
   const { data, error } = await admin
     .from("orders")
     .select("*")
+    .eq("checkout_environment", CHECKOUT_ENVIRONMENT)
     .eq("id", orderId)
     .maybeSingle();
   if (error) throw new Error("[orders] Failed to load order.");
@@ -1217,32 +1220,34 @@ export async function getOrderConfirmationBySession(
   sessionId: string,
 ): Promise<OrderConfirmation | null> {
   if (!/^cs_[A-Za-z0-9_]{1,200}$/.test(sessionId)) return null;
+  if (sessionId.startsWith("cs_live_")) return readLiveOrderConfirmation(sessionId);
   // Inspect only the local binding before authorization; provider reads and the
   // private Order/line records are unavailable to a Session-ID bearer alone.
   const admin = createSupabaseAdminClient();
   const { data: binding, error: bindingError } = await admin.from("orders")
-    .select("id").eq("stripe_checkout_session_id", sessionId).maybeSingle();
+    .select("id").eq("checkout_environment", CHECKOUT_ENVIRONMENT).eq("stripe_checkout_session_id", sessionId).maybeSingle();
   if (bindingError) throw new Error("[orders] Failed to inspect receipt binding.");
   const orderId = (binding as { id: string } | null)?.id;
   if (!orderId) return null;
   const user = await getCurrentUser();
   if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: STRIPE_SANDBOX_ACCOUNT_ID, verifiedUserId: user?.id ?? null })) return null;
-  const config = readPaymentProviderConfig();
-  let order = await loadOrderBySession(sessionId);
-  if (!order || order.id !== orderId) return null;
   let retryAfterSeconds = 5;
-  try {
-    const refresh = await refreshOwnedCheckoutSession(config, getStripeClient(config), order, sessionId);
-    retryAfterSeconds = Math.max(5, refresh.retryAfterSeconds);
-    if (refresh.provider) order = await reconcileLoadedCheckoutPayment(order, refresh.provider) ?? order;
-  } catch (error) {
-    // Shared admission failure defers refresh but cannot invent a payment state.
-    if (!(error instanceof CheckoutAdmissionError)) throw error;
-    retryAfterSeconds = Math.max(5, error.retryAfterSeconds);
+  // The original sandbox receiver continues settling its Sessions after this build switches merchants.
+  if (!hasLivePaymentConfiguration(process.env)) {
+    const config = readPaymentProviderConfig();
+    const stored = await loadOrderBySession(sessionId);
+    if (!stored || stored.id !== orderId) return null;
+    try {
+      const refresh = await refreshOwnedCheckoutSession(config, getStripeClient(config), stored, sessionId);
+      retryAfterSeconds = Math.max(5, refresh.retryAfterSeconds);
+      if (refresh.provider) await reconcileLoadedCheckoutPayment(stored, refresh.provider);
+    } catch (error) {
+      if (!(error instanceof CheckoutAdmissionError)) throw error;
+      retryAfterSeconds = Math.max(5, error.retryAfterSeconds);
+    }
   }
-  const currentOrder = await loadOrderBySession(sessionId);
-  if (!currentOrder || currentOrder.id !== orderId) return null;
-  order = currentOrder;
+  const order = await loadOrderBySession(sessionId);
+  if (!order || order.id !== orderId) return null;
   const exception = await getCheckoutPaymentException({ orderId: order.id, sessionId });
   const items = await loadOrderItems(order.id);
   const state = exception ? "exception" : order.status === "pending_payment" ? "pending"
@@ -1255,7 +1260,7 @@ export async function getOrderConfirmationBySession(
   let manualShipmentsUnavailable = false;
   const manualShipments = await readManualShipments(order.id).catch(() => { manualShipmentsUnavailable = true; return null; });
   // Ownership and Session binding can change while an admitted provider read runs.
-  if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: config.accountId, verifiedUserId: user?.id ?? null })) return null;
+  if (!await authorizeCheckoutReceipt({ orderId, sessionId, accountId: STRIPE_SANDBOX_ACCOUNT_ID, verifiedUserId: user?.id ?? null })) return null;
   // Historical Orders may contain billing details in their shipping columns.
   // Only immutable delivery facts established by the verifier reach the receipt.
   const address = delivery?.shippingAddress;
@@ -1283,34 +1288,30 @@ export async function getOrderConfirmationBySession(
   };
 }
 
-export async function getOrdersForCurrentUser(): Promise<Array<{
-  id: string;
-  order_number: string;
-  status: OrderStatus;
-  total_cents: number;
-  reward_points_earned: number;
-  reward_points_redeemed: number;
-  created_at: string;
-}>> {
+// Postgres retains microseconds. Date.parse alone can reorder ties across the two queries.
+function compareAccountOrderHistory(left: AccountOrderHistoryEntry, right: AccountOrderHistoryEntry): number {
+  const millis = Date.parse(right.created_at) - Date.parse(left.created_at);
+  if (millis !== 0) return millis;
+  const submillis = (timestamp: string) => (timestamp.match(/\.\d{3}(\d{1,3})/)?.[1] ?? "").padEnd(3, "0");
+  return submillis(right.created_at).localeCompare(submillis(left.created_at)) || right.id.localeCompare(left.id);
+}
+
+export async function getOrdersForCurrentUser(): Promise<AccountOrderHistoryEntry[]> {
   const user = await getCurrentUser();
   if (!user) return [];
   const admin = createSupabaseAdminClient();
-  const { data, error } = await admin
+  const limit = 10;
+  const [sandbox, live] = await Promise.all([admin
     .from("orders")
     .select("id, order_number, status, total_cents, reward_points_earned, reward_points_redeemed, created_at")
     .eq("user_id", user.id)
+    .eq("checkout_environment", CHECKOUT_ENVIRONMENT)
     .order("created_at", { ascending: false })
-    .limit(10);
-  if (error) throw new Error("[orders] Failed to load account orders.");
-  return (data ?? []) as Array<{
-    id: string;
-    order_number: string;
-    status: OrderStatus;
-    total_cents: number;
-    reward_points_earned: number;
-    reward_points_redeemed: number;
-    created_at: string;
-  }>;
+    .order("id", { ascending: false })
+    .limit(limit), readLiveOrderHistory(user.id, limit)]);
+  if (sandbox.error) throw new Error("[orders] Failed to load account orders.");
+  const stored = (sandbox.data ?? []).map(row => ({ ...row, providerMode: "sandbox" as const }));
+  return [...stored, ...live].sort(compareAccountOrderHistory).slice(0, limit);
 }
 
 export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number; code?: "CHECKOUT_ORIGIN_CHANGED" } {

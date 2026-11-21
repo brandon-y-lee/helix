@@ -12,6 +12,7 @@ export type OrderConfirmationState =
 
 /** The private receipt's display contract. Never pass storage/provider records to the UI. */
 export type OrderConfirmationDisplay = {
+  providerMode?: "sandbox" | "live";
   state: OrderConfirmationState;
   verificationIssue?: "refund_reconciliation" | null;
   notice: string;
@@ -30,6 +31,7 @@ export type OrderConfirmationDisplay = {
     shipping_cents: number;
     tax_cents: number;
     total_cents: number;
+    refunded_cents?: number;
   };
   items: Array<{
     product_name: string;

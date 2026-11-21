@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { CheckoutConfigError, assertSandboxStripeObject } from "@/lib/checkout/config";
 import { processStripeWebhookEvent } from "@/lib/stripe/webhook";
 import { constructStripeWebhookEvent } from "@/lib/stripe/server";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
+import { hasLivePaymentConfiguration, readLiveStripeBinding, type LiveStripeBinding } from "@/lib/stripe/live-provider";
+import { processLiveStripeEvent } from "@/lib/stripe/live-webhook";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,19 +33,32 @@ async function readBody(request: Request): Promise<Buffer> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   const signature = request.headers.get("stripe-signature");
+  let live: LiveStripeBinding | undefined;
   let event;
 
   try {
+    if (hasLivePaymentConfiguration(process.env)) {
+      if (new URL(request.url).origin !== "https://www.helixskin.us" || !await productionDeploymentAuthorized(process.env)) {
+        return NextResponse.json({ error: "invalid Stripe webhook" }, { status: 403, headers });
+      }
+      live = readLiveStripeBinding();
+      if (!live.webhookSecret) throw new CheckoutConfigError("checkout_misconfigured", "Live destination is unavailable.");
+    }
     const rawBody = await readBody(request);
-    event = constructStripeWebhookEvent({ rawBody, signature });
-    assertSandboxStripeObject(event);
+    if (live) {
+      if (!signature || signature.length > 4096) throw new Error("Invalid Stripe signature.");
+      event = live.stripe.webhooks.constructEvent(rawBody, signature, live.webhookSecret);
+    } else {
+      event = constructStripeWebhookEvent({ rawBody, signature });
+      assertSandboxStripeObject(event);
+    }
   } catch (error) {
     const status = error instanceof RangeError ? 413 : error instanceof CheckoutConfigError ? 503 : 400;
     return NextResponse.json({ error: "invalid Stripe webhook" }, { status, headers });
   }
 
   try {
-    const result = await processStripeWebhookEvent(event);
+    const result = live ? await processLiveStripeEvent(event, live) : await processStripeWebhookEvent(event);
     return NextResponse.json({ ok: true, ...result }, { headers });
   } catch {
     return NextResponse.json({ error: "webhook processing failed" }, { status: 500, headers });

@@ -8,6 +8,19 @@ On the exact reviewed main build, request `GET /api/internal/release-status?chec
 
 For a held build, `verifyClosedLiveCheckout` in `scripts/release/observations.mjs` first resolves the expected deployment ID and commit through Vercel using a read-only credential supplied as `vercelToken` or `HELIX_RELEASE_VERCEL_TOKEN`. It sends the release-reader token only after the authenticated Production build and its immutable hostname match. The canonical reader uses the fixed customer origin.
 
-Keep the new production destination at `https://www.helixskin.us/api/webhooks/stripe` unregistered until its live handler is ready on the public route. Preserve the legacy test destination for its outstanding Sessions, refunds and retries. Exercise the development checkout on its isolated child data and authorized stable testing origin. Keep Vercel rules scoped to that named origin. A firewall or authentication denial is distinct from an application assertion.
+The live handler at `https://www.helixskin.us/api/webhooks/stripe` requires the reviewed release on the public origin and both verified settlement migrations on its database. Keep admission closed while qualifying this destination. In the intended Stripe account, use the application's pinned API version and select these six events.
+
+- `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
+- `checkout.session.expired`
+- `charge.refunded`
+- `charge.dispute.created`
+
+The handler verifies the original signed request body and reads the authenticated merchant, Checkout Session, complete line items and expanded payment facts. Refund reconciliation reads the original Charge and its full refund history. Use a restricted server key with the read permissions for those objects. A healthy GET or a configured secret proves reachability or configuration. Confirm delivery and acknowledgment separately in the correct Stripe destination's event history.
+
+Transient provider and storage failures produce a retryable response. A previously processed event is idempotent. For a disagreement about the merchant, Order, accepted price or payment facts, inspect the durable event outcome and the original payment in Stripe before taking any action. Escalate a recorded dispute through Stripe Dashboard. Reconcile the original Session when its creation response was lost. Never create a replacement Session in response to an event. Customer receipts show the stored gross and refunded amounts after the owner or guest capability is verified.
+
+Preserve the historical sandbox receiver for its already-issued Sessions, receipts and refunds. Exercise new development checkout on its isolated child data and authorized stable testing origin. Scope any Vercel rule to that named origin. Confirm the handler actually received the event before treating an edge response as an application observation.
 
 Real sales require verified stock and an approved live offer. Rehearse payments in Stripe sandbox. After activation, observe the first genuine sale. [Stripe testing guidance](https://docs.stripe.com/testing)

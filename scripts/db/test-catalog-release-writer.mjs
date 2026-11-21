@@ -51,7 +51,7 @@ export function createCatalogReleaseWriter(docker, psql, writerRole, writerPassw
 
 // Exercise the real CLI's ledger insertion with a harmless historical fixture.
 // The owner never inserts a record on the writer's behalf.
-function seedCliHistory(cli, connectionUrl, password) {
+export function seedCliHistory(cli, connectionUrl, password) {
   const working = mkdtempSync(join(tmpdir(), "helix-media-history-"));
   try {
     mkdirSync(join(working, "supabase", "migrations"), { recursive: true });

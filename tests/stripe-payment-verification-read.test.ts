@@ -192,6 +192,7 @@ describe("Stripe payment verification reads", () => {
     expect(await retrieveCheckoutPaymentProviderBundle({ stripe, sessionId: "cs_test_accepted" })).toEqual({
       accountId: "acct_1Tm9WRFEzyaKzdmq",
       apiVersion: "2026-06-24.dahlia",
+      environment: "sandbox",
       session: sourceSession,
       lineItems: [sourceLine],
       lineItemsComplete: true,
@@ -309,5 +310,42 @@ describe("Stripe payment verification reads", () => {
 
     await expect(verifyStripeAccount(stripe)).rejects.toMatchObject({ code: "account_unverified" });
     await expect(verifyStripeAccount(stripe)).resolves.toMatchObject({ accountId: "acct_1Tm9WRFEzyaKzdmq" });
+  });
+});
+
+describe("live Checkout evidence retrieval", () => {
+  function fixture() {
+    const stripe = stripeClient();
+    const binding = { environment: "live" as const, accountId: "acct_SelectedMerchant", webhookSecret: "", stripe };
+    const ownAccount = vi.spyOn(stripe.accounts, "retrieve").mockResolvedValue({
+      ...account(binding.accountId), charges_enabled: true, payouts_enabled: true,
+    });
+    const source = { ...session(), id: "cs_live_accepted", livemode: true };
+    const retrieve = vi.spyOn(stripe.checkout.sessions, "retrieve").mockResolvedValue(source);
+    const list = vi.spyOn(stripe.checkout.sessions, "listLineItems").mockResolvedValue(page([line()]));
+    return { binding, ownAccount, source, retrieve, list };
+  }
+
+  it("uses the authenticated merchant for each live binding and pages its Session", async () => {
+    const { binding, ownAccount, source, retrieve, list } = fixture();
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: source.id, binding })).resolves.toMatchObject({
+      environment: "live", accountId: binding.accountId, apiVersion: STRIPE_API_VERSION,
+      session: source, lineItemsComplete: true,
+    });
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: source.id, binding: { ...binding, accountId: "acct_Other" } }))
+      .rejects.toThrow("Live payment merchant could not be verified.");
+    expect(ownAccount).toHaveBeenCalledTimes(2);
+    expect(retrieve).toHaveBeenCalledTimes(1);
+    expect(list).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a test Session reference before checking the live account and rejects a false live flag before line reads", async () => {
+    const { binding, source, ownAccount, retrieve, list } = fixture();
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: "cs_test_accepted", binding })).rejects.toMatchObject({ code: "invalid_live_session" });
+    expect(ownAccount).not.toHaveBeenCalled();
+    expect(retrieve).not.toHaveBeenCalled();
+    retrieve.mockResolvedValueOnce({ ...source, livemode: false });
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: source.id, binding })).rejects.toMatchObject({ code: "invalid_live_session" });
+    expect(list).not.toHaveBeenCalled();
   });
 });

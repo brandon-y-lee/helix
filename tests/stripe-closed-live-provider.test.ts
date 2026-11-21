@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { STRIPE_API_VERSION } from "@/lib/checkout/config";
-import { hasLivePaymentConfiguration, observeClosedLivePaymentProvider } from "@/lib/stripe/live-provider";
+import { hasLivePaymentConfiguration, observeClosedLivePaymentProvider, readLiveStripeBinding, readLiveStripeReceiptAccountId, verifyLiveStripeAccount } from "@/lib/stripe/live-provider";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 
 const { client, retrieve } = vi.hoisted(() => ({
@@ -127,5 +127,30 @@ describe("closed live payment provider", () => {
     await expect(observeClosedLivePaymentProvider(production())).rejects.toThrow(
       /^Live payment merchant could not be verified\.$/,
     );
+  });
+});
+
+describe("live provider binding before signature validation", () => {
+  it("parses the guarded binding without making an account request", async () => {
+    const binding = readLiveStripeBinding(production());
+    expect(binding).toMatchObject({ environment: "live", accountId: "acct_MerchantA" });
+    expect(retrieve).not.toHaveBeenCalled();
+    await expect(verifyLiveStripeAccount(binding)).resolves.toEqual({
+      accountId: "acct_MerchantA", chargesEnabled: true, payoutsEnabled: false,
+    });
+    expect(retrieve).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the archived receipt account on the canonical parent after admission closes and credentials are removed", () => {
+    const env = {
+      ...production(), CHECKOUT_MODE: undefined, HELIX_STRIPE_LIVE_SECRET_KEY: undefined,
+      HELIX_STRIPE_LIVE_WEBHOOK_SECRET: undefined,
+    };
+    expect(readLiveStripeReceiptAccountId(env)).toBe("acct_MerchantA");
+    expect(() => readLiveStripeReceiptAccountId({ ...env, VERCEL_ENV: "preview" })).toThrow();
+    expect(() => readLiveStripeReceiptAccountId({ ...env, HELIX_STRIPE_LIVE_ACCOUNT_ID: "" })).toThrow();
+    expect(() => readLiveStripeReceiptAccountId({ ...env, NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("development") })).toThrow();
+    expect(client).not.toHaveBeenCalled();
+    expect(retrieve).not.toHaveBeenCalled();
   });
 });

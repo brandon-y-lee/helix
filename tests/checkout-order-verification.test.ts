@@ -109,6 +109,25 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("private verified Order confirmation", () => {
+  it.each([["pending_payment", "pending"], ["paid", "paid"]] as const)(
+    "retains an authorized %s sandbox receipt on a live-configured build using stored facts", async (status, state) => {
+      vi.stubEnv("CHECKOUT_MODE", "live");
+      vi.stubEnv("STRIPE_SECRET_KEY", undefined);
+      vi.stubEnv("HELIX_STRIPE_LIVE_SECRET_KEY", undefined);
+      boundary.from.mockImplementation((table: string) => result(table === "orders" ? { ...order, status } : []));
+      const confirmation = await getOrderConfirmationBySession(sessionId);
+      expect(confirmation).toMatchObject({ state, order: { order_number: order.order_number, total_cents: order.total_cents } });
+      expect(boundary.authorizeReceipt).toHaveBeenCalledTimes(2);
+      expect(boundary.authorizeReceipt).toHaveBeenCalledWith({
+        accountId: "acct_1Tm9WRFEzyaKzdmq", orderId, sessionId, verifiedUserId: accountUserId,
+      });
+      expect(boundary.rpc.mock.calls.some(([name]) => name === "claim_checkout_refresh")).toBe(false);
+      expect(boundary.retrieveSession).not.toHaveBeenCalled();
+      expect(boundary.retrieveBundle).not.toHaveBeenCalled();
+      boundary.authorizeReceipt.mockReset().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      await expect(getOrderConfirmationBySession(sessionId)).resolves.toBeNull();
+    },
+  );
   it("reads manual records only inside receipt ownership checks and keeps failures optional", async () => {
     boundary.manualShipments.mockResolvedValue({ environment: "sandbox", shipments: [] });
     const confirmation = await getOrderConfirmationBySession(sessionId);
