@@ -67,7 +67,7 @@ export async function run(command, env = process.env) {
     throw new Error("Unknown release operation.");
   }
   const selector = releaseSelector(env.RELEASE_SELECTOR);
-  const { readReleaseProfile, buildReleasePacket, verifyReleasePacket, observationsFor } = await import("./packet.mjs");
+  const { readReleaseProfile, buildReleasePacket, verifyReleasePacket, observationsFor, releaseEvidenceExpiry } = await import("./packet.mjs");
   const { verifyReleaseObservations } = await import("./observations.mjs");
   const probe = (phase, origin, deployment, profile, release) => verifyReleaseObservations({
     phase, origin, deploymentId: deployment.id, sha: deployment.sha, ...observationsFor(profile, release, phase),
@@ -106,8 +106,13 @@ export async function run(command, env = process.env) {
     const profile = () => verifyReleasePacket(packet.raw, packet.digest, release);
     // A recovery selector is looked up afresh in the registry in both jobs.
     // Bind the admitted pair and profile too, so the latest row cannot silently change.
-    const receipt = digest(JSON.stringify([env.RELEASE_CONTEXT_SHA256, packet.digest]));
-    if (command === "execute" && receipt !== env.RELEASE_ADMISSION_SHA256) {
+    const receipt = JSON.stringify({
+      version: 1, operation, candidateSha: release.candidateSha,
+      contextSha256: env.RELEASE_CONTEXT_SHA256, packetSha256: packet.digest,
+      expiresAt: releaseEvidenceExpiry(profile(), release),
+    });
+    const receiptDigest = digest(receipt);
+    if (command === "execute" && receiptDigest !== env.RELEASE_ADMISSION_SHA256) {
       throw new Error("Release admission belongs to a different operation or deployment pair.");
     }
     await source.verifyPr(pr, recovery ? "recorded" : "merged", release.candidateSha, repoId);
@@ -134,7 +139,7 @@ export async function run(command, env = process.env) {
       throw new Error("Release transition unavailable for this profile and recorded deployment pair.");
     }
     if (command === "admit") {
-      await appendFile(env.GITHUB_OUTPUT, `admission_sha256=${receipt}\n`);
+      await appendFile(env.GITHUB_OUTPUT, `admission=${receipt}\nadmission_sha256=${receiptDigest}\n`);
       return;
     }
     const { executeRelease } = await import("./workflow.mjs");

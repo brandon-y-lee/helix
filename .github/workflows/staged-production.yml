@@ -85,6 +85,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      admission: ${{ steps.admit.outputs.admission }}
       admission_sha256: ${{ steps.admit.outputs.admission_sha256 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -106,13 +107,15 @@ jobs:
 
   migrate:
     needs: registry
-    if: needs.registry.outputs.admission_sha256 != '' && (inputs.operation == 'verify' || inputs.operation == 'promote')
+    if: needs.registry.outputs.admission != '' && needs.registry.outputs.admission_sha256 != '' && (inputs.operation == 'verify' || inputs.operation == 'promote')
     permissions:
       actions: read
       contents: read
     uses: ./.github/workflows/forward-migrations.yml
     with:
       expected_main_sha: ${{ github.sha }}
+      release_admission: ${{ needs.registry.outputs.admission }}
+      release_admission_sha256: ${{ needs.registry.outputs.admission_sha256 }}
 
   release:
     needs: [admission, resolve, registry, migrate]

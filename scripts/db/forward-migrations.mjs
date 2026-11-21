@@ -29,6 +29,44 @@ function requireCondition(value, message) {
   if (!value) throw new ReleaseError(message);
 }
 
+// The protected admission job hashes these exact UTF-8 bytes after validating
+// the deployment pair and its evidence. Reject alternate encodings or fields.
+export function verifyForwardAdmission(raw, digest, expectedSha, now = Date.now()) {
+  const invalid = "Invalid production migration admission";
+  requireCondition(
+    typeof raw === "string" && raw.length <= 512 && hash(raw) === digest,
+    invalid,
+  );
+  let receipt;
+  try {
+    receipt = JSON.parse(raw);
+  } catch {
+    throw new ReleaseError(invalid);
+  }
+  requireCondition(receipt !== null && typeof receipt === "object", invalid);
+  const { version, operation, candidateSha, contextSha256, packetSha256, expiresAt } = receipt;
+  requireCondition(
+    version === 1 &&
+      (operation === "verify" || operation === "promote") &&
+      typeof candidateSha === "string" &&
+      /^[a-f0-9]{40}$/.test(candidateSha) &&
+      candidateSha === expectedSha &&
+      typeof contextSha256 === "string" && digestPattern.test(contextSha256) &&
+      typeof packetSha256 === "string" && digestPattern.test(packetSha256) &&
+      typeof expiresAt === "string" &&
+      JSON.stringify({ version, operation, candidateSha, contextSha256, packetSha256, expiresAt }) === raw,
+    invalid,
+  );
+  const deadline = Date.parse(expiresAt);
+  requireCondition(
+    Number.isFinite(now) && Number.isFinite(deadline) &&
+      new Date(deadline).toISOString() === expiresAt,
+    invalid,
+  );
+  requireCondition(now < deadline, "Production migration admission expired");
+  return deadline;
+}
+
 // The CLI separately commits transaction-control or pipeline-incompatible
 // statements. These admitted forms keep the DDL and the genuine history insert
 // in the same provider transaction. Complex reviewed SQL goes in one DO block.
@@ -381,7 +419,16 @@ export async function runForward({
   target,
   migrations,
   apply,
+  admission,
+  now = Date.now,
 }) {
+  const deadline = target.environment === "production"
+    ? verifyForwardAdmission(admission?.raw, admission?.digest, admission?.expectedSha, now())
+    : undefined;
+  function checkDeadline() {
+    if (deadline !== undefined)
+      requireCondition(now() < deadline, "Production migration admission expired");
+  }
   activeContracts(migrations);
   const workdir = await mkdtemp(join(tmpdir(), "helix-forward-"));
   const dir = join(workdir, "supabase/migrations");
@@ -442,6 +489,7 @@ export async function runForward({
     );
     await client.query("SELECT pg_advisory_lock(2107275624,561)");
     locked = true;
+    checkDeadline();
     const before = await readState(client, target, migrations);
     const pending = migrations.slice(before.applied);
     const files = pending.map((m) => m.file);
@@ -458,6 +506,7 @@ export async function runForward({
       await writeFile(join(dir, recordedFile(migration)), migration.sql, {
         mode: 0o600,
       });
+    checkDeadline();
     const dry = await invoke([...args, "--dry-run"]);
     const selected = [
       ...(dry.stdout + "\n" + dry.stderr).matchAll(
@@ -478,6 +527,9 @@ export async function runForward({
       await writeFile(staged, migration.sql, {
         mode: 0o600,
       });
+      // Waiting for the writer lock or verifying the previous committed version
+      // can outlast the evidence. Leave remaining versions pending for retry.
+      checkDeadline();
       await invoke(args);
       // Subsequent CLI calls must never replay this version, even if an
       // independent operator changes its ledger row between releases.
@@ -566,6 +618,11 @@ async function main() {
       target,
       migrations,
       apply: mode === "apply",
+      admission: {
+        raw: env.HELIX_RELEASE_ADMISSION,
+        digest: env.HELIX_RELEASE_ADMISSION_SHA256,
+        expectedSha: env.GITHUB_SHA,
+      },
     });
     console.log(
       JSON.stringify({ environment, sha: env.GITHUB_SHA, ...result }),

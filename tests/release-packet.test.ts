@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import profileExample from "../scripts/release/catalog-profile.example.json";
-import { buildReleasePacket, observationsFor, readReleaseProfile, verifyReleasePacket } from "../scripts/release/packet.mjs";
+import { buildReleasePacket, observationsFor, readReleaseProfile, releaseEvidenceExpiry, verifyReleasePacket } from "../scripts/release/packet.mjs";
 import { bindProtectedValues, inspectionProfile } from "./fixtures/inspection-release-profile";
 
 const digest = (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
@@ -12,6 +12,41 @@ const raw = JSON.stringify(profileExample, null, 2) + "\n";
 
 const original = profileExample.legacyPrevious;
 const pinned = { ...release, previousId: original.deploymentId, previousSha: original.sha };
+
+function verifiedExpiry(source: unknown, pair: typeof release) {
+  const packet = buildReleasePacket(JSON.stringify(source), pair, at);
+  const verified = verifyReleasePacket(packet.raw, packet.digest, pair, at);
+  return releaseEvidenceExpiry(verified, pair);
+}
+
+describe("release evidence expiry", () => {
+  it.each(["authRouting", "searchWriters", "emailCallbacks", "checkoutSettlement", "observation", "protectedValues"] as const)(
+    "expires inspection when its %s evidence expires first",
+    kind => {
+      const source = inspectionProfile();
+      const earliest = "2026-11-20T02:02:12.321Z";
+      const evidence = kind === "observation" || kind === "protectedValues" ? source.legacyPrevious[kind] : source.evidence[kind];
+      evidence.expiresAt = earliest;
+      bindProtectedValues(source.legacyPrevious);
+      expect(verifiedExpiry(source, pinned)).toBe(earliest);
+    },
+  );
+
+  it("ignores expired evidence for the original when a normal v1 release serves another previous deployment", () => {
+    const source = makeProfile();
+    source.evidence.emailCallbacks.expiresAt = "2026-11-20T02:07:00.000Z";
+    source.legacyPrevious.observation.expiresAt = "2026-11-20T01:59:59.999Z";
+    expect(verifiedExpiry(source, release)).toBe(source.evidence.emailCallbacks.expiresAt);
+  });
+
+  it("counts original observations only when v1 is actually serving the pinned original", () => {
+    const source = makeProfile();
+    source.evidence.searchWriters.expiresAt = "2026-11-20T02:09:00.000Z";
+    source.legacyPrevious.observation.expiresAt = "2026-11-20T02:03:00.000Z";
+    expect(verifiedExpiry(source, pinned)).toBe(source.legacyPrevious.observation.expiresAt);
+    expect(verifiedExpiry(source, release)).toBe(source.evidence.searchWriters.expiresAt);
+  });
+});
 
 describe("inspection-only release packet", () => {
   it("selects public observations for the pinned original and complete expectations for the staged candidate", () => {
@@ -97,16 +132,31 @@ describe("inspection-only release packet", () => {
     expect(() => buildReleasePacket(JSON.stringify(normal), release, at)).toThrow();
   });
 
-  it("requires the inspected staged candidate to have no search writer or write-key fingerprint", () => {
+  it("refuses a staged search writer even when both configured credentials are individually valid", () => {
     const source = inspectionProfile();
-    source.observations.searchCredentials.writeKeySha256 = profileExample.observations.searchCredentials.writeKeySha256;
-    expect(() => buildReleasePacket(JSON.stringify(source), pinned, at)).toThrow();
     source.observations.features.searchWrite = true;
+    Object.assign(source.observations.searchCredentials, profileExample.observations.searchCredentials);
+    expect(() => buildReleasePacket(JSON.stringify(source), pinned, at)).toThrow();
+  });
+
+  it.each(["webhookSecretSha256", "writeKeySha256"] as const)("rejects an isolated %s on the read-only candidate", name => {
+    const source = inspectionProfile();
+    const noCredentials = { webhookSecretSha256: null, writeKeySha256: null };
+    Object.assign(source.observations.searchCredentials, noCredentials);
+    expect(() => buildReleasePacket(JSON.stringify(source), pinned, at)).not.toThrow();
+    source.observations.searchCredentials[name] = profileExample.observations.searchCredentials[name];
     expect(() => buildReleasePacket(JSON.stringify(source), pinned, at)).toThrow();
   });
 });
 
 describe("protected release profile", () => {
+  it("continues accepting a v1 read-only candidate with a configured webhook verifier", () => {
+    const source = makeProfile();
+    source.observations.features.searchWrite = false;
+    Object.assign(source.observations.searchCredentials, { writeKeySha256: null });
+    expect(() => buildReleasePacket(JSON.stringify(source), release, at)).not.toThrow();
+  });
+
   it("automatically produces a stable single-line packet for the exact profile bytes and deployments", () => {
     const ticket = buildReleasePacket(raw, release, at);
     expect(ticket).toEqual(buildReleasePacket(raw, release, at));

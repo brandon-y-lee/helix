@@ -9,6 +9,14 @@ on:
         description: Reviewed main commit whose Production build has been staged
         required: true
         type: string
+      release_admission:
+        description: Exact registry-admitted release identity and evidence expiry
+        required: true
+        type: string
+      release_admission_sha256:
+        description: Digest from the protected registry admission job
+        required: true
+        type: string
     outputs:
       applied_sha:
         description: Commit whose expected database contracts were verified
@@ -113,6 +121,8 @@ jobs:
         id: apply
         env:
           TARGET: ${{ needs.admit.outputs.target }}
+          HELIX_RELEASE_ADMISSION: ${{ inputs.release_admission }}
+          HELIX_RELEASE_ADMISSION_SHA256: ${{ inputs.release_admission_sha256 }}
           HELIX_MIGRATION_TARGET: ${{ secrets.HELIX_MIGRATION_TARGET }}
           HELIX_MIGRATION_PASSWORD: ${{ secrets.HELIX_MIGRATION_PASSWORD }}
           HELIX_MIGRATION_CA: ${{ secrets.HELIX_MIGRATION_CA }}

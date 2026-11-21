@@ -39,7 +39,7 @@ export function inspectionProfile() {
     observations: {
       ...observations,
       features: { ...observations.features, searchWrite: false },
-      searchCredentials: { ...observations.searchCredentials, writeKeySha256: null as string | null },
+      searchCredentials: { writeKeySha256: null as string | null, webhookSecretSha256: null as string | null },
     },
   };
 }

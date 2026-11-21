@@ -80,8 +80,11 @@ export function readReleaseProfile(raw, now = Date.now()) {
     }
   }
   validateObservations(profile.observations);
-  check(profile.version !== 2 || !profile.observations.features.searchWrite,
-    "inspection candidate must disable application Search writes");
+  if (profile.version === 2) {
+    const { features, searchCredentials } = profile.observations;
+    check(!features.searchWrite && searchCredentials.writeKeySha256 === null && searchCredentials.webhookSecretSha256 === null,
+      "inspection candidate must disable application Search writes and omit both Search credentials");
+  }
   check(exact(profile.evidence, providers), "invalid provider reports");
   for (const provider of providers) attest(profile.evidence[provider], now, true);
   return profile;
@@ -106,6 +109,17 @@ export function observationsFor(profile, release, phase, now = Date.now()) {
     return { expectations:profile.legacyPrevious.observations, legacyPrevious:true };
   }
   return { expectations:profile.previous === "same" ? profile.observations : profile.previous, legacyPrevious:false };
+}
+
+// The packet has already been verified for this pair. Only evidence used to
+// qualify its two deployments sets the deadline for forward migrations.
+export function releaseEvidenceExpiry(profile, release) {
+  const reports = providers.map(name => profile.evidence[name]);
+  if (release.previousId === legacyId && release.previousSha === legacySha) {
+    reports.push(profile.legacyPrevious.observation);
+    if (profile.version === 2) reports.push(profile.legacyPrevious.protectedValues);
+  }
+  return new Date(Math.min(...reports.map(report => Date.parse(report.expiresAt)))).toISOString();
 }
 
 export function buildReleasePacket(rawProfile, release, now = Date.now()) {

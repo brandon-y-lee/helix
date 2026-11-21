@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import example from "../scripts/release/catalog-profile.example.json";
 import { run } from "../scripts/release/command.mjs";
-import { inspectionProfile } from "./fixtures/inspection-release-profile";
+import { bindProtectedValues, inspectionProfile } from "./fixtures/inspection-release-profile";
 
+const sha256 = (raw: string) => createHash("sha256").update(raw, "utf8").digest("hex");
 const candidate = { id: "dpl_candidate", sha: "b".repeat(40), url: "https://candidate.vercel.app" };
 const original = { id: example.legacyPrevious.deploymentId, sha: example.legacyPrevious.sha, url: "https://original.vercel.app" };
 let previous = original;
@@ -68,7 +70,7 @@ async function resolve(operation: string, profile: object) {
 
 async function admit(env: NodeJS.ProcessEnv) {
   const output = await stageCommand("admit", env);
-  expect(output.admission_sha256).toMatch(/^[a-f0-9]{64}$/);
+  expect(output.admission_sha256).toBe(sha256(output.admission));
   return { ...env, RELEASE_ADMISSION_SHA256: output.admission_sha256 };
 }
 
@@ -89,12 +91,67 @@ it("requires protected registry admission before the forward migration and execu
   const migration = jobs.find(job => job.startsWith("migrate:"));
   expect(migration?.match(/^    needs: (.+)$/m)?.[1]).toContain(guard);
   expect(migration).toContain("needs." + guard + ".outputs.admission_sha256 != ''");
+  const reusable = readFileSync(".github/workflows/forward-migrations.yml", "utf8");
+  for (const field of ["admission", "admission_sha256"]) {
+    expect(registry).toContain(field + ": ${{ steps.admit.outputs." + field + " }}");
+    expect(migration).toContain("release_" + field + ": ${{ needs." + guard + ".outputs." + field + " }}");
+    expect(reusable).toContain("HELIX_RELEASE_" + field.toUpperCase() + ": ${{ inputs.release_" + field + " }}");
+  }
   const execution = jobs.find(job => job.startsWith("release:"));
   expect(execution).toContain("needs." + guard + ".outputs.admission_sha256");
   expect(execution).toContain("RELEASE_ADMISSION_SHA256");
 });
 
 describe("protected staged release command", () => {
+  it("binds the earliest verified evidence expiry to the exact protected dispatch and packet", async () => {
+    const profile = inspectionProfile();
+    const deadline = "2026-11-20T02:03:12.340Z";
+    profile.legacyPrevious.protectedValues.expiresAt = deadline;
+    bindProtectedValues(profile.legacyPrevious);
+    const env = await resolve("verify", profile);
+    const { packet } = JSON.parse(Buffer.from(env.RELEASE_CONTEXT, "base64url").toString("utf8"));
+    const output = await stageCommand("admit", env);
+    expect(output.admission_sha256).toBe(sha256(output.admission));
+    expect(JSON.parse(output.admission)).toEqual({
+      version: 1, operation: "verify", candidateSha: candidate.sha,
+      contextSha256: env.RELEASE_CONTEXT_SHA256, packetSha256: sha256(packet.raw), expiresAt: deadline,
+    });
+  });
+
+  it("rejects an extended deadline, a different valid packet receipt, and expiry while queued", async () => {
+    const profile = inspectionProfile();
+    const env = await resolve("verify", profile);
+    const first = await stageCommand("admit", env);
+    const moreTime = "2026-11-20T03:30:00.000Z";
+    const forged = { ...JSON.parse(first.admission), expiresAt: moreTime };
+    await expect(run("execute", { ...env, RELEASE_APPLIED_SHA: candidate.sha,
+      RELEASE_ADMISSION_SHA256: sha256(JSON.stringify(forged)) })).rejects.toThrow();
+
+    profile.legacyPrevious.protectedValues.expiresAt = moreTime;
+    bindProtectedValues(profile.legacyPrevious);
+    const other = await admit(await resolve("verify", profile));
+    await expect(run("execute", { ...env, RELEASE_APPLIED_SHA: candidate.sha,
+      RELEASE_ADMISSION_SHA256: other.RELEASE_ADMISSION_SHA256 })).rejects.toThrow();
+
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse(JSON.parse(first.admission).expiresAt));
+    await expect(run("execute", { ...env, RELEASE_APPLIED_SHA: candidate.sha,
+      RELEASE_ADMISSION_SHA256: first.admission_sha256 })).rejects.toThrow(/expired/);
+    expect(writer.admit).toHaveBeenCalledTimes(2);
+    expect(writer.change).not.toHaveBeenCalled();
+    expect(vercel.promote).not.toHaveBeenCalled();
+  });
+
+  it("stops an inspection candidate carrying a webhook signer before admitting the pair", async () => {
+    const profile = inspectionProfile();
+    const searchCredentials = { ...profile.observations.searchCredentials,
+      webhookSecretSha256: example.observations.searchCredentials.webhookSecretSha256 };
+    await expect(dispatch("verify", { ...profile, observations: { ...profile.observations, searchCredentials } }))
+      .rejects.toThrow(/search|signer|webhook|credential/i);
+    expect(probe).not.toHaveBeenCalled();
+    expect(writer.admit).not.toHaveBeenCalled();
+    expect(migrate).not.toHaveBeenCalled();
+  });
+
   it("checks the serving original before and after migration and the fully observed candidate on its immutable URL", async () => {
     await dispatch("verify", inspectionProfile());
     expect(probe.mock.calls.map(([arg]) => [arg.phase, arg.origin, arg.deploymentId, arg.inspectionOnly])).toEqual([
