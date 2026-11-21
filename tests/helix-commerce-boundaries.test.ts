@@ -86,7 +86,8 @@ it("skips media from the production project when reading the development cart", 
   const query = {
     select: () => query,
     eq: () => query,
-    order: async () => ({ data: rows, error: null }),
+    order: () => query,
+    maybeSingle: async () => ({ data: { checkout_generation: "generation", cart_items: rows }, error: null }),
   };
   boundary.from.mockReturnValue(query);
 

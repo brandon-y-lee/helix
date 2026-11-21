@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { checkAdminCapability } from "@/lib/admin/capabilities";
 import { authRedirectParam } from "@/lib/auth/redirect";
+import { shipmentManagementScope } from "@/lib/shipments/server";
 import { ManualShipmentConsole } from "@/components/admin/ManualShipmentConsole";
 export const metadata = { title: "Shipment records" };
 export default async function ShipmentRecordsPage() {
@@ -20,6 +21,7 @@ export default async function ShipmentRecordsPage() {
     );
   return (
     <ManualShipmentConsole
+      environment={shipmentManagementScope()?.environment ?? "sandbox"}
       enabled={process.env.HELIX_MANUAL_SHIPMENTS_ENABLED === "true"}
     />
   );

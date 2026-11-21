@@ -1,5 +1,6 @@
 "use client";
 
+import type { CheckoutStorefront } from "@/lib/checkout/storefront";
 import Link from "next/link";
 import { isOfferSummary, offerDiscountCents, type OfferSummary } from "@/lib/offers/rules";
 import { useEffect, useMemo, useState } from "react";
@@ -34,15 +35,29 @@ function isRewardTier(value: unknown): value is RewardTierSummary {
   );
 }
 
-export function CheckoutPanel({
-  disabled,
-  subtotal,
-  cartUpdatedAt,
-}: {
+type CheckoutPanelProps = {
   disabled: boolean;
   subtotal: number;
   cartUpdatedAt: number;
-}) {
+};
+
+export function CheckoutPanel({ storefront, ...props }: CheckoutPanelProps & { storefront?: CheckoutStorefront }) {
+  const resumeOnly = storefront?.canResume === true && (storefront.mode === "live" || storefront.mode === "business_sandbox");
+  if (!storefront || !["live", "business_sandbox", "historical_sandbox"].includes(storefront.mode) ||
+      (!storefront.admissionOpen && !resumeOnly)) {
+    return <p className="checkout-panel__notice" role="status">Checkout is currently closed.</p>;
+  }
+  return <OpenCheckoutPanel key={storefront.mode} mode={storefront.mode} resumeOnly={resumeOnly} {...props} />;
+}
+
+function OpenCheckoutPanel({
+  disabled,
+  subtotal,
+  cartUpdatedAt,
+  mode,
+  resumeOnly,
+}: CheckoutPanelProps & { mode: CheckoutStorefront["mode"]; resumeOnly: boolean }) {
+  const rewardsEnabled = mode === "historical_sandbox";
   const [originRecovered, setOriginRecovered] = useState(false);
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
   const [rewardsStatus, setRewardsStatus] = useState<
@@ -64,6 +79,7 @@ export function CheckoutPanel({
   );
 
   useEffect(() => {
+    if (!rewardsEnabled) return;
     let active = true;
     setRewardsStatus("loading");
     fetch("/api/rewards/summary", { cache: "no-store" })
@@ -87,7 +103,7 @@ export function CheckoutPanel({
     return () => {
       active = false;
     };
-  }, [subtotal, cartUpdatedAt]);
+  }, [subtotal, cartUpdatedAt, rewardsEnabled]);
 
   useEffect(() => {
     if (!rewardSummary?.authenticated) { setOffers([]); setSelectedOffer(""); setOffersUnavailable(false); return; }
@@ -109,15 +125,18 @@ export function CheckoutPanel({
     if (pending || disabled) return;
     resetErrors();
     setOriginRecovered(false);
-    const session = await createCheckout(
-      selectedReward === "none" ? null : selectedReward,
-      selectedOffer || undefined,
-    );
+    const session = resumeOnly
+      ? await createCheckout(null, undefined, true)
+      : await createCheckout(
+        rewardsEnabled && selectedReward !== "none" ? selectedReward : null,
+        rewardsEnabled && selectedOffer ? selectedOffer : undefined,
+      );
     if (session) window.location.assign(session.url);
   }
 
   return (
-    <div className="checkout-panel" aria-label="Sandbox checkout">
+    <div className="checkout-panel" aria-label={mode === "live" ? "Checkout" : "Sandbox checkout"}>
+      {mode !== "live" && <p className="checkout-panel__notice">Test checkout. No payment will be taken and no items will ship.</p>}
       {offersUnavailable && <p role="status" className="checkout-panel__hint">Offers are temporarily unavailable. You can still check out without an offer.</p>}
       {offers.length > 0 && <fieldset className="reward-selector">
         <legend>Your offers</legend>
@@ -129,7 +148,7 @@ export function CheckoutPanel({
         </label>)}
         <p className="checkout-panel__hint">One use, for your verified account. Excludes tax and shipping. Offers cannot be combined with points rewards or referral discounts.</p>
       </fieldset>}
-      <div className="checkout-panel__rewards">
+      {rewardsEnabled && <div className="checkout-panel__rewards">
         {rewardsStatus === "loading" ? (
           <p className="checkout-panel__hint">Loading helix rewards.</p>
         ) : rewardsStatus === "unavailable" ? (
@@ -184,7 +203,7 @@ export function CheckoutPanel({
             <Link href="/account/sign-in?next=%2Fcart">Sign in</Link>
           </p>
         )}
-      </div>
+      </div>}
 
       {checkoutError && (
         <p className="form-status form-status--error" role="status">
@@ -195,7 +214,7 @@ export function CheckoutPanel({
         </p>
       )}
 
-      {cartErrorCode(checkoutError) === "CHECKOUT_ORIGIN_CHANGED" && (
+      {rewardsEnabled && cartErrorCode(checkoutError) === "CHECKOUT_ORIGIN_CHANGED" && (
         <CheckoutCancellationCleanup active recoverOriginChange onCancelled={() => {
           setOriginRecovered(true);
           resetErrors();
@@ -210,7 +229,7 @@ export function CheckoutPanel({
         aria-busy={pending || undefined}
         onClick={() => void startCheckout()}
       >
-        {pending ? "Opening checkout" : `Checkout ${formatPrice(checkoutSubtotal)}`}
+        {pending ? "Opening checkout" : resumeOnly ? "Continue checkout" : `Checkout ${formatPrice(checkoutSubtotal)}`}
       </button>
     </div>
   );

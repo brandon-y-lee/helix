@@ -8,9 +8,21 @@ type CancellationState = "idle" | "pending" | "cancelled" | "paid" | "processing
 export function CheckoutCancellationCleanup({ active, recoverOriginChange = false, onCancelled }: {
   active: boolean; recoverOriginChange?: boolean; onCancelled?: () => void;
 }) {
-  const { refresh } = useCart();
+  const { checkout, error, refresh } = useCart();
   const [state, setState] = useState<CancellationState>("idle");
-  if (!active) return null;
+  if (!active || error) return null;
+  if (checkout?.mode === "live" || checkout?.mode === "business_sandbox") {
+    if (recoverOriginChange) return null;
+    return (
+      <p className="checkout-panel__hint">
+        {checkout.mode === "business_sandbox" && "This was a test checkout. "}
+        {checkout.canResume === true
+          ? "Choose Continue checkout in your cart to return to your payment session."
+          : "Review your cart for available checkout options."}
+      </p>
+    );
+  }
+  if (checkout?.mode !== "historical_sandbox") return null;
   const terminal = state === "cancelled" || state === "paid" || state === "unavailable";
 
   async function cancelCheckout() {
@@ -64,7 +76,7 @@ export function CheckoutCancellationCleanup({ active, recoverOriginChange = fals
       </button>
       <p role="status" aria-live="polite">
         {state === "pending" && "Checking pending checkout…"}
-        {state === "cancelled" && "Sandbox checkout was cancelled."}
+        {state === "cancelled" && "Checkout was cancelled."}
         {state === "paid" && "This checkout has already completed."}
         {state === "processing" && (recoverOriginChange
           ? "This checkout still needs verification. Try again shortly; contact support if it remains blocked."

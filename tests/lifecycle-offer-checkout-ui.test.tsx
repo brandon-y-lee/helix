@@ -10,7 +10,7 @@ describe("explicit nonstacking cart offers", () => {
     vi.stubGlobal("fetch", vi.fn((path: string) => Promise.resolve(Response.json(path === "/api/offers"
       ? { offers: [{ id, kind:"welcome", percentOff:15, expiresAt:"2030-01-01T00:00:00Z" }] }
       : {authenticated:true,affordableTiers:[{id:"points_200",points:200,discountCents:500,label:"$5 off"}]}))));
-    render(<CheckoutPanel disabled={false} subtotal={5000} cartUpdatedAt={1}/>);
+    render(<CheckoutPanel storefront={{ mode: "historical_sandbox", admissionOpen: true }} disabled={false} subtotal={5000} cartUpdatedAt={1}/>);
     const offer=await screen.findByLabelText(/15% off merchandise/);
     fireEvent.click(offer);
     fireEvent.click(screen.getByRole("button",{name:"Checkout $42.50"}));

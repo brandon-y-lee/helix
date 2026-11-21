@@ -154,13 +154,10 @@ export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
               <h3 id="site-footer-checkout-heading">
                 {footerStatusModules.checkout.label}
               </h3>
-              <span>{footerStatusModules.checkout.status}</span>
             </div>
-            <ul aria-label="Planned checkout method categories">
-              {footerStatusModules.checkout.methods.map((method) => (
-                <li key={method}>{method}</li>
-              ))}
-            </ul>
+            <Link href={footerStatusModules.checkout.href}>
+              {footerStatusModules.checkout.linkLabel}
+            </Link>
           </section>
         </div>
 

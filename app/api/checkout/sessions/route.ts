@@ -21,6 +21,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       requestOrigin: new URL(request.url).origin,
       rewardTierId: body.rewardTierId,
       ...(body.offerId ? { offerId: body.offerId } : {}),
+      ...(body.resumeOnly ? { resumeOnly: true } : {}),
     });
     return NextResponse.json(result, { headers: checkoutResponseHeaders() });
   } catch (error) {

@@ -61,6 +61,7 @@ function cartProduct(
 
 function cartState(lines: CartLine[]): CartState {
   return {
+    checkout: { mode: "historical_sandbox", admissionOpen: true },
     lines,
     count: lines.reduce((sum, line) => sum + line.quantity, 0),
     subtotal: lines.reduce((sum, line) => sum + line.lineSubtotal, 0),

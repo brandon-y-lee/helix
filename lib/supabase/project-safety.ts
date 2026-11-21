@@ -4,6 +4,8 @@ export const SUPABASE_PROJECT_REFS = {
 } as const;
 export type SupabaseTarget = keyof typeof SUPABASE_PROJECT_REFS;
 export const HELIX_VERCEL_PROJECT_ID = "prj_N9nyPL9SixJHOROIovS8PDQ9aKny";
+export const BUSINESS_SANDBOX_STOREFRONT_ORIGIN =
+  "https://helix-git-codex-558-verified-e87038-brandons-projects-5060bad5.vercel.app";
 
 type Environment = Record<string, string | undefined>;
 
@@ -27,13 +29,24 @@ export function deploymentSupabaseTarget(env: Environment): SupabaseTarget {
   throw new Error("Unrecognized deployment target for Supabase.");
 }
 
+export function isBusinessSandboxDeployment(env: Environment): boolean {
+  return env.VERCEL === "1" && env.VERCEL_PROJECT_ID === HELIX_VERCEL_PROJECT_ID &&
+    env.VERCEL_ENV === "preview" && (env.VERCEL_TARGET_ENV === undefined || env.VERCEL_TARGET_ENV === "preview") &&
+    env.VERCEL_GIT_COMMIT_REF === "codex/558-verified-dev-preview" &&
+    env.NEXT_PUBLIC_HELIX_SUPABASE_TARGET === "development" &&
+    env.NEXT_PUBLIC_SUPABASE_URL === supabaseOriginForTarget("development");
+}
+
 /** Keep new Auth links and Checkout returns within the issuing deployment. */
 export function verifyHostedSiteOrigins(env: Environment, target: SupabaseTarget): void {
   if (env.VERCEL !== "1" || env.VERCEL_ENV === "development") return;
   const developmentOrigin = "https://helixskin.vercel.app";
   const expected = target === "production" ? "https://www.helixskin.us" : developmentOrigin;
+  const businessReturn = env.CHECKOUT_MODE === "business_sandbox" && isBusinessSandboxDeployment(env) &&
+    env.CHECKOUT_ORIGIN === BUSINESS_SANDBOX_STOREFRONT_ORIGIN;
   if ((env.NEXT_PUBLIC_SITE_URL || developmentOrigin) !== expected ||
-      [env.HELIX_EMAIL_SITE_ORIGIN, env.CHECKOUT_ORIGIN].some((origin) => Boolean(origin) && origin !== expected)) {
+      (env.HELIX_EMAIL_SITE_ORIGIN && env.HELIX_EMAIL_SITE_ORIGIN !== expected) ||
+      (env.CHECKOUT_ORIGIN && env.CHECKOUT_ORIGIN !== expected && !businessReturn)) {
     throw new Error("Configured Auth or Checkout origin differs from the deployment target.");
   }
 }
