@@ -85,7 +85,7 @@ BEGIN
     expected_state:='released';
     expected_units:=baseline;
   ELSE
-    IF public.start_business_checkout_send(r.provider_environment,b.account_id,o.id,b.attempt_id,b.binding_nonce)->>'state'
+    IF public.start_business_checkout_send(r.provider_environment,b.account_id,o.id,b.attempt_id,b.binding_nonce,repeat('a',64))->>'state'
        IS DISTINCT FROM 'send' THEN RAISE EXCEPTION 'Could not start a synthetic provider send'; END IF;
     IF public.release_unsent_business_checkout(r.provider_environment,b.account_id,o.id,b.attempt_id,b.binding_nonce)
       OR public.record_business_checkout_unpaid(r.provider_environment,b.account_id,o.id,b.attempt_id,session_id_,'expired') IS DISTINCT FROM 'unmatched'
@@ -183,7 +183,7 @@ BEGIN
     SET LOCAL ROLE service_role;
     retry_order:=(public.reserve_business_checkout(r.provider_environment,b.account_id,o.cart_id,current_generation,NULL,
       encode(sha256(convert_to('guest:'||purpose,'UTF8')),'hex'),
-      encode(sha256(convert_to('retry receipt:'||current_generation::text,'UTF8')),'hex'))->>'orderId')::uuid;
+      encode(sha256(convert_to('retry receipt:'||current_generation::text,'UTF8')),'hex'),true)->>'orderId')::uuid;
     RESET ROLE;
     SELECT * INTO STRICT retry_binding FROM private.live_checkout_bindings WHERE order_id=retry_order;
     IF retry_order=o.id THEN RAISE EXCEPTION 'A new cart generation reused a terminal Order'; END IF;

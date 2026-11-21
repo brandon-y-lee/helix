@@ -23,46 +23,70 @@ async function until(observed, failure) {
   assert.fail(failure);
 }
 
-// Create the two carts before opening either competing transaction. Observing a
-// blocking backend here proves the loser waited for the last unit to be decided.
-async function raceForFinalUnit({ stack, database, ownerSql }, fixture) {
-  ownerSql("UPDATE private.live_checkout_sale_policy SET approved_units=allocated_units+1;");
-  const makeCart = purpose => JSON.parse(ownerSql(fixture + "\nSELECT pg_temp.make_test_first_cart('" + purpose + "',1);"));
-  const winnerCart = makeCart("last_unit_winner");
-  const loserCart = makeCart("last_unit_loser");
-  const prepare = cart => {
-    const json = JSON.stringify(cart).replaceAll("'", "''");
-    return "SELECT pg_temp.prepare_test_first_cart('" + json + "'::jsonb)->>'state';\n";
-  };
+// Keep the first real service call open until PostgreSQL sees the second
+// waiting on that backend, then check both committed outcomes.
+async function contend({ stack, database, ownerSql }, fixture, left, right) {
   const first = openSession(stack, database);
   const second = openSession(stack, database);
   try {
-    first.child.stdin.write(fixture + "\nSET application_name='first_order_stock_winner'; BEGIN; SET LOCAL ROLE service_role;\n" +
-      prepare(winnerCart) + "\\echo first-order-held\n");
+    first.child.stdin.write(fixture + "\nSET application_name='first_order_race_winner'; BEGIN; SET LOCAL ROLE service_role;\n" +
+      left.sql + "\n\\echo first-order-held\n");
     await until(() => first.output.stdout.includes("first-order-held") || !!first.child.exitCode,
-      "First admission did not reserve the last unit");
-    assert.ok(first.output.stdout.split(/\s+/).includes("reserved"), first.output.stderr || first.output.stdout);
-    second.child.stdin.end(fixture + "\nSET application_name='first_order_stock_loser'; SET ROLE service_role;\n" + prepare(loserCart));
-    await until(() => ownerSql(`SELECT EXISTS (SELECT FROM pg_stat_activity a JOIN pg_stat_activity b ON a.datid=b.datid
-      WHERE a.datname=current_database() AND a.application_name='first_order_stock_winner'
-        AND b.application_name='first_order_stock_loser' AND a.pid=ANY(pg_blocking_pids(b.pid)));`) === "t",
-    "The two admission calls did not compete for stock");
+      "First service call did not reach its transaction barrier");
+    assert.ok(first.output.stdout.split(/\s+/).includes(left.state), first.output.stderr || first.output.stdout);
+    second.child.stdin.end(fixture + "\nSET application_name='first_order_race_loser'; SET ROLE service_role;\n" + right.sql);
+    await until(() => {
+      assert.equal(second.child.exitCode, null, second.output.stderr || "Second call finished without competing");
+      return ownerSql(`SELECT EXISTS (SELECT FROM pg_stat_activity a JOIN pg_stat_activity b ON a.datid=b.datid
+        WHERE a.datname=current_database() AND a.application_name='first_order_race_winner'
+          AND b.application_name='first_order_race_loser' AND a.pid=ANY(pg_blocking_pids(b.pid)));`) === "t";
+    }, "The competing service call did not wait for the first transaction");
     first.child.stdin.end("COMMIT;\n");
     for (const session of [first, second]) assert.equal((await session.closed)[0], 0, session.output.stderr);
-    assert.equal(second.output.stdout.trim(), "unavailable", "The losing cart must receive a normal stock decline");
-    for (const id of [winnerCart.cartId, loserCart.cartId]) assert.match(id, /^[0-9a-f-]{36}$/);
-    const allocation = ownerSql(`SELECT jsonb_build_object('soldOut',p.approved_units=p.allocated_units,
-       'winner',(SELECT count(*) FROM private.live_checkout_stock_reservations r JOIN public.orders o ON o.id=r.order_id
-         WHERE o.cart_id='${winnerCart.cartId}' AND r.quantity=1 AND r.state='held'),
-       'loser',(SELECT count(*) FROM public.orders WHERE cart_id='${loserCart.cartId}'))
-       FROM private.live_checkout_sale_policy p;`);
-    assert.deepEqual(JSON.parse(allocation), { soldOut: true, winner: 1, loser: 0 });
+    assert.equal(second.output.stdout.trim(), right.state, "Concurrent service call returned the wrong outcome");
   } finally {
     for (const session of [first, second]) {
       if (!session.child.stdin.destroyed && !session.child.stdin.writableEnded) session.child.stdin.end("ROLLBACK;\n");
     }
     await Promise.all([first.closed, second.closed]);
   }
+}
+
+const asJson = obj => "'" + JSON.stringify(obj).replaceAll("'", "''") + "'::jsonb";
+
+async function raceForRetry(context, fixture) {
+  const claim = JSON.parse(context.ownerSql(fixture +
+    "\nSELECT pg_temp.make_retry_test_order('competing_recovery',interval '1 minute');"));
+  assert.match(claim.requestSha256, /^[0-9a-f]{64}$/);
+  const sql = `SELECT public.start_business_checkout_send(j->>'environment',j->>'accountId',(j->>'orderId')::uuid,
+    (j->>'attemptId')::uuid,(j->>'bindingNonce')::uuid,j->>'requestSha256')->>'state'
+    FROM (SELECT ${asJson(claim)} AS j) input;`;
+  await contend(context, fixture, { sql, state: "recover" }, { sql, state: "send_started" });
+  const unchanged = context.ownerSql(`SELECT count(*)=1 AND bool_and(b.idempotency_key=j->>'idempotencyKey'
+    AND b.terms=j->'terms' AND b.send_request_sha256=j->>'requestSha256' AND r.state='held'
+    AND b.first_send_at=(j->>'firstSendAt')::timestamptz AND b.last_send_attempt_at>b.first_send_at
+    AND b.session_id IS NULL AND b.verified_facts IS NULL)
+    FROM (SELECT ${asJson(claim)} AS j) input JOIN private.live_checkout_bindings b ON b.attempt_id=(j->>'attemptId')::uuid
+    JOIN private.live_checkout_stock_reservations r ON r.order_id=b.order_id AND r.attempt_id=b.attempt_id;`);
+  assert.equal(unchanged, "t", "The competing retry changed the provider request, payment evidence, or its stock");
+}
+
+async function raceForFinalUnit(context, fixture) {
+  const { ownerSql } = context;
+  ownerSql("UPDATE private.live_checkout_sale_policy SET approved_units=allocated_units+1;");
+  const makeCart = purpose => JSON.parse(ownerSql(fixture + "\nSELECT pg_temp.make_test_first_cart('" + purpose + "',1);"));
+  const winnerCart = makeCart("last_unit_winner");
+  const loserCart = makeCart("last_unit_loser");
+  const prepare = cart => "SELECT pg_temp.prepare_test_first_cart(" + asJson(cart) + ")->>'state';";
+  await contend(context, fixture, { sql: prepare(winnerCart), state: "reserved" },
+    { sql: prepare(loserCart), state: "unavailable" });
+  for (const id of [winnerCart.cartId, loserCart.cartId]) assert.match(id, /^[0-9a-f-]{36}$/);
+  const allocation = ownerSql(`SELECT jsonb_build_object('soldOut',p.approved_units=p.allocated_units,
+     'winner',(SELECT count(*) FROM private.live_checkout_stock_reservations r JOIN public.orders o ON o.id=r.order_id
+       WHERE o.cart_id='${winnerCart.cartId}' AND r.quantity=1 AND r.state='held'),
+     'loser',(SELECT count(*) FROM public.orders WHERE cart_id='${loserCart.cartId}'))
+     FROM private.live_checkout_sale_policy p;`);
+  assert.deepEqual(JSON.parse(allocation), { soldOut: true, winner: 1, loser: 0 });
 }
 
 function enrollSyntheticSale(ownerSql, plan) {
@@ -118,5 +142,6 @@ export async function runFirstOrderTests(context) {
   ownerSql(["BEGIN;", fixture, testSql("business_checkout_inventory.integration.sql"),
     testSql("business_fulfillment.integration.sql"), "ROLLBACK;"].join("\n"));
   assert.equal(ownerSql(emptyInventory), "t", "The rolled-back stock and fulfillment proof leaked an allocation");
+  await raceForRetry(context, fixture);
   await raceForFinalUnit(context, fixture);
 }

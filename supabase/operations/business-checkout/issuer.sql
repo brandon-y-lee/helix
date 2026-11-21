@@ -20,6 +20,11 @@ ALTER TABLE private.live_checkout_bindings DROP CONSTRAINT live_checkout_binding
     CASE terms->>'environment'
       WHEN 'live' THEN session_id ~ '^cs_live_[A-Za-z0-9_]{1,200}$'
       WHEN 'business_sandbox' THEN session_id ~ '^cs_test_[A-Za-z0-9_]{1,200}$' ELSE false END));
+-- Existing settled bindings may predate bounded retry tracking.
+ALTER TABLE private.live_checkout_bindings ADD COLUMN last_send_attempt_at timestamptz,
+  ADD COLUMN send_request_sha256 text CHECK (send_request_sha256 IS NULL OR (send_request_sha256 ~ '^[a-f0-9]{64}$' AND first_send_at IS NOT NULL)),
+  ADD CONSTRAINT business_checkout_send_times CHECK (last_send_attempt_at IS NULL OR
+    (first_send_at IS NOT NULL AND last_send_attempt_at>=first_send_at));
 CREATE FUNCTION private.business_checkout_target(p_environment text,p_account_id text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $issuer$
  SELECT p_account_id IS NOT NULL AND p_account_id<>'acct_1Tm9WRFEzyaKzdmq' AND EXISTS (
@@ -54,6 +59,10 @@ BEGIN
     IF (NEW.account_id,NEW.order_id,NEW.attempt_id,NEW.idempotency_key,NEW.terms,NEW.binding_nonce)
        IS DISTINCT FROM (OLD.account_id,OLD.order_id,OLD.attempt_id,OLD.idempotency_key,OLD.terms,OLD.binding_nonce)
        OR (OLD.first_send_at IS NOT NULL AND OLD.first_send_at IS DISTINCT FROM NEW.first_send_at)
+       OR (OLD.last_send_attempt_at IS NOT NULL AND
+          (NEW.last_send_attempt_at IS NULL OR NEW.last_send_attempt_at<OLD.last_send_attempt_at))
+       OR NEW.last_send_attempt_at>clock_timestamp()
+       OR (OLD.first_send_at IS NOT NULL AND NEW.send_request_sha256 IS DISTINCT FROM OLD.send_request_sha256)
        OR (OLD.session_id IS NOT NULL AND OLD.session_id IS DISTINCT FROM NEW.session_id)
        OR (OLD.verified_facts IS NOT NULL AND (OLD.verified_facts,OLD.payment_intent_id) IS DISTINCT FROM (NEW.verified_facts,NEW.payment_intent_id))
        OR (OLD.charge_id IS NOT NULL AND OLD.charge_id IS DISTINCT FROM NEW.charge_id)

@@ -4,7 +4,8 @@ BEGIN
 CREATE FUNCTION private.read_business_checkout_offer(p_environment text,p_account_id text) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
   SELECT jsonb_build_object('admissionOpen',true,'sku',v.sku,'productSlug',p.slug,'variantKey',v.variant_key,
-    'unitPriceCents',v.price_cents,'currency',sp.currency)
+    'unitPriceCents',v.price_cents,'currency',sp.currency,'shippingCents',sp.shipping_cents,
+    'freeShippingThresholdCents',sp.free_shipping_threshold_cents,'dispatchTerms',sp.dispatch_terms,'returnTerms',sp.return_terms)
   FROM private.live_checkout_sale_policy sp JOIN public.product_variants v ON v.id=sp.variant_id
   JOIN public.products p ON p.id=v.product_id
   WHERE sp.singleton AND sp.enabled AND sp.account_id=p_account_id AND sp.provider_environment=p_environment
@@ -16,7 +17,7 @@ $fn$;
 CREATE FUNCTION private.business_checkout_result(p_order_id uuid,p_state text) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $fn$
   SELECT jsonb_build_object('state',p_state,'orderId',o.id,'orderNumber',o.order_number,
-    'attemptId',b.attempt_id,'bindingNonce',b.binding_nonce,'sessionId',b.session_id,
+    'attemptId',b.attempt_id,'bindingNonce',b.binding_nonce,'sessionId',b.session_id,'firstSendAt',b.first_send_at,
     'idempotencyKey',b.idempotency_key,'productName',i.product_name,'productSlug',i.product_slug,
     'variantKey',i.variant_key,'sku',i.product_snapshot->'sku','taxCode',i.product_snapshot->'taxCode',
     'shipper',i.product_snapshot->'shipper','dispatchTerms',i.product_snapshot->'dispatchTerms',
@@ -27,7 +28,7 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $fn$
 $fn$;
 CREATE FUNCTION private.reserve_business_checkout(
   p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid,
-  p_guest_cart_hash text,p_receipt_hash text) RETURNS jsonb
+  p_guest_cart_hash text,p_receipt_hash text,p_allow_new boolean DEFAULT true) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE
   c public.carts; o public.orders; b private.live_checkout_bindings; sp private.live_checkout_sale_policy;
@@ -51,11 +52,17 @@ BEGIN
       THEN RETURN '{"state":"unavailable"}'; END IF;
     SELECT * INTO b FROM private.live_checkout_bindings WHERE order_id=o.id AND account_id=p_account_id;
     IF NOT FOUND OR (p_user_id IS NULL AND (b.receipt_hash IS DISTINCT FROM p_receipt_hash
-      OR b.receipt_expires_at<=clock_timestamp() OR b.receipt_ownership_version<>o.receipt_ownership_version))
+      OR b.receipt_expires_at<=clock_timestamp() OR b.receipt_ownership_version<>o.receipt_ownership_version
+      OR NOT EXISTS (SELECT FROM private.live_checkout_stock_reservations r
+        WHERE r.order_id=o.id AND r.attempt_id=b.attempt_id AND r.account_id=b.account_id
+          AND r.guest_owner_digest=sha256(convert_to(p_guest_cart_hash,'UTF8')))))
       THEN RETURN '{"state":"unauthorized"}'; END IF;
+    IF p_allow_new IS NOT TRUE AND o.status<>'pending_payment'
+      THEN RETURN '{"state":"closed"}'; END IF;
     RETURN private.business_checkout_result(o.id,CASE WHEN o.status<>'pending_payment' THEN 'terminal'
       WHEN b.session_id IS NOT NULL THEN 'bound' WHEN b.first_send_at IS NOT NULL THEN 'send_started' ELSE 'reserved' END);
   END IF;
+  IF p_allow_new IS NOT TRUE THEN RETURN '{"state":"closed"}'; END IF;
   -- Never replace an unresolved earlier cart generation or its first provider send.
   IF EXISTS (SELECT FROM public.orders old WHERE old.cart_id=c.id AND old.status='pending_payment')
     THEN RETURN '{"state":"unavailable"}'; END IF;
@@ -102,12 +109,38 @@ BEGIN
 END;
 $fn$;
 
+-- This ownership check lets a customer return to the original reservation when
+-- its allocation exhausted saleable stock. It never creates or changes a hold.
+CREATE FUNCTION private.read_business_checkout_resume(
+  p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid,
+  p_guest_cart_hash text,p_receipt_hash text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
+  SELECT EXISTS (
+    SELECT FROM public.carts c JOIN public.orders o ON o.cart_id=c.id AND o.checkout_generation=c.checkout_generation
+    JOIN private.live_checkout_bindings b ON b.order_id=o.id AND b.account_id=p_account_id
+    JOIN private.live_checkout_stock_reservations r ON r.order_id=o.id AND r.attempt_id=b.attempt_id
+    JOIN private.live_checkout_sale_policy sp ON sp.singleton AND sp.provider_environment=p_environment AND sp.account_id=b.account_id
+    WHERE (c.id,c.checkout_generation)=(p_cart_id,p_checkout_generation) AND c.status='active' AND c.currency='USD'
+      AND (c.expires_at IS NULL OR c.expires_at>statement_timestamp())
+      AND o.status='pending_payment' AND r.state='held' AND o.checkout_environment::text=p_environment
+      AND private.valid_business_checkout_binding(p_environment,p_account_id,o.id,b.attempt_id)
+      AND ((p_user_id IS NOT NULL AND c.user_id=p_user_id AND o.user_id=p_user_id
+        AND p_guest_cart_hash IS NULL AND p_receipt_hash IS NULL)
+      OR (p_user_id IS NULL AND c.user_id IS NULL AND o.user_id IS NULL AND c.expires_at IS NOT NULL
+        AND c.guest_token_hash=p_guest_cart_hash AND r.guest_owner_digest=sha256(convert_to(p_guest_cart_hash,'UTF8'))
+        AND b.receipt_hash=p_receipt_hash AND b.receipt_expires_at>statement_timestamp()
+        AND b.receipt_ownership_version=o.receipt_ownership_version))
+      AND (b.session_id IS NOT NULL OR (sp.enabled AND
+        (b.first_send_at IS NULL OR b.first_send_at>statement_timestamp()-interval '12 hours'))))
+$fn$;
+
 CREATE FUNCTION private.start_business_checkout_send(
-  p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid) RETURNS jsonb
+  p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid,p_request_sha256 text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE
   c public.carts; o public.orders; b private.live_checkout_bindings; sp private.live_checkout_sale_policy;
   item public.order_items; v public.product_variants; stock private.live_checkout_stock_reservations; shipping integer;
+  observed timestamptz;
 BEGIN
   IF NOT private.valid_business_checkout_binding(p_environment,p_account_id,p_order_id,p_attempt_id)
     THEN RETURN '{"state":"unauthorized"}'; END IF;
@@ -116,7 +149,14 @@ BEGIN
   SELECT * INTO STRICT o FROM public.orders WHERE id=p_order_id FOR UPDATE;
   IF o.status<>'pending_payment' THEN RETURN private.business_checkout_result(o.id,'terminal'); END IF;
   IF b.session_id IS NOT NULL THEN RETURN private.business_checkout_result(o.id,'bound'); END IF;
-  IF b.first_send_at IS NOT NULL THEN RETURN private.business_checkout_result(o.id,'send_started'); END IF;
+  IF p_request_sha256 IS NULL OR p_request_sha256 !~ '^[a-f0-9]{64}$' THEN RETURN '{"state":"unavailable"}'; END IF;
+  IF b.first_send_at IS NOT NULL AND b.send_request_sha256 IS DISTINCT FROM p_request_sha256 THEN
+    RETURN private.business_checkout_result(o.id,'send_started'); END IF;
+  observed:=clock_timestamp();
+  IF b.first_send_at IS NOT NULL AND (observed>=b.first_send_at+interval '12 hours' OR
+    observed<coalesce(b.last_send_attempt_at,b.first_send_at)+interval '10 seconds') THEN
+    RETURN private.business_checkout_result(o.id,'send_started');
+  END IF;
   -- Settlement and unsent release take these locks in the same order.
   SELECT * INTO c FROM public.carts WHERE id=o.cart_id FOR UPDATE;
   IF c.id IS NULL OR c.status<>'active' OR c.checkout_generation IS DISTINCT FROM o.checkout_generation
@@ -145,8 +185,14 @@ BEGIN
       IS DISTINCT FROM (item.product_snapshot->>'shipper',item.product_snapshot->>'dispatchTerms',
         item.product_snapshot->>'returnTerms',item.product_snapshot->>'taxCode',b.terms->>'taxBehavior',
         (b.terms->>'automaticTaxEnabled')::boolean) THEN RETURN '{"state":"stale"}'; END IF;
-  UPDATE private.live_checkout_bindings SET first_send_at=clock_timestamp() WHERE attempt_id=p_attempt_id;
-  RETURN private.business_checkout_result(o.id,'send');
+  -- Recheck after waiting on approval or cart locks. The original Stripe key
+  -- and accepted terms are reused strictly inside its conservative retry window.
+  observed:=clock_timestamp();
+  IF b.first_send_at IS NOT NULL AND observed>=b.first_send_at+interval '12 hours' THEN
+    RETURN private.business_checkout_result(o.id,'send_started'); END IF;
+  UPDATE private.live_checkout_bindings SET first_send_at=coalesce(first_send_at,observed),last_send_attempt_at=observed,send_request_sha256=p_request_sha256
+    WHERE attempt_id=p_attempt_id;
+  RETURN private.business_checkout_result(o.id,CASE WHEN b.first_send_at IS NULL THEN 'send' ELSE 'recover' END);
 END;
 $fn$;
 
@@ -178,20 +224,27 @@ $api$;
 REVOKE ALL ON FUNCTION public.read_business_checkout_offer(text,text) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION private.read_business_checkout_offer(text,text),public.read_business_checkout_offer(text,text) TO service_role;
 REVOKE ALL ON FUNCTION private.business_checkout_result(uuid,text) FROM PUBLIC,anon,authenticated,service_role;
-REVOKE ALL ON FUNCTION private.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
-CREATE FUNCTION public.reserve_business_checkout(p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid, p_guest_cart_hash text,p_receipt_hash text) RETURNS jsonb
+REVOKE ALL ON FUNCTION private.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.reserve_business_checkout(p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid, p_guest_cart_hash text,p_receipt_hash text,p_allow_new boolean DEFAULT true) RETURNS jsonb
 LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$
- SELECT private.reserve_business_checkout(p_environment,p_account_id,p_cart_id,p_checkout_generation,p_user_id,p_guest_cart_hash,p_receipt_hash)
+ SELECT private.reserve_business_checkout(p_environment,p_account_id,p_cart_id,p_checkout_generation,p_user_id,p_guest_cart_hash,p_receipt_hash,p_allow_new)
 $api$;
-REVOKE ALL ON FUNCTION public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION private.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text),public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text) TO service_role;
-REVOKE ALL ON FUNCTION private.start_business_checkout_send(text,text,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
-CREATE FUNCTION public.start_business_checkout_send(p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid) RETURNS jsonb
+REVOKE ALL ON FUNCTION public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION private.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean),public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean) TO service_role;
+REVOKE ALL ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.read_business_checkout_resume(p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid, p_guest_cart_hash text,p_receipt_hash text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$
+ SELECT private.read_business_checkout_resume(p_environment,p_account_id,p_cart_id,p_checkout_generation,p_user_id,p_guest_cart_hash,p_receipt_hash)
+$api$;
+REVOKE ALL ON FUNCTION public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text),public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) TO service_role;
+REVOKE ALL ON FUNCTION private.start_business_checkout_send(text,text,uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.start_business_checkout_send(p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid,p_request_sha256 text) RETURNS jsonb
 LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$
- SELECT private.start_business_checkout_send(p_environment,p_account_id,p_order_id,p_attempt_id,p_binding_nonce)
+ SELECT private.start_business_checkout_send(p_environment,p_account_id,p_order_id,p_attempt_id,p_binding_nonce,p_request_sha256)
 $api$;
-REVOKE ALL ON FUNCTION public.start_business_checkout_send(text,text,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION private.start_business_checkout_send(text,text,uuid,uuid,uuid),public.start_business_checkout_send(text,text,uuid,uuid,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.start_business_checkout_send(text,text,uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION private.start_business_checkout_send(text,text,uuid,uuid,uuid,text),public.start_business_checkout_send(text,text,uuid,uuid,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION private.release_unsent_business_checkout(text,text,uuid,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.release_unsent_business_checkout(p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid) RETURNS boolean
 LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$

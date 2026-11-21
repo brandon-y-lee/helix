@@ -148,8 +148,8 @@ declare
 begin
   if exists (select from (values
     ('private.install_first_order_inventory()'::regprocedure,'a480c3708e19291468240b7d8aafa457f6c5a167bcd0b78d4aabe4585a602549'),
-    ('private.install_first_order_issuer()'::regprocedure,'28f9b4be294c34ffd4ece30a9ca4dc54bfd78f33d9c347bceaf50710b0493768'),
-    ('private.install_first_order_admission()'::regprocedure,'52b691057a7571b3b1b8f20038a7ece5603c929b3576584b0c833d8175dd7d91'),
+    ('private.install_first_order_issuer()'::regprocedure,'0cb8040b9f9a702e05c820dd39bb135f3ce8ff068955250cbbeabcd9cb964f44'),
+    ('private.install_first_order_admission()'::regprocedure,'1a0867dac9144075d62438bf7ffeec6be041f05ee251590bc2968564bfe7049e'),
     ('private.install_first_order_fulfillment()'::regprocedure,'1d0502c757be333f737ef0200db9ccb8319deca9e41025d4b58e6161c4a7e3f5')
   ) expected(routine,sha) join pg_proc p on p.oid=expected.routine
   where p.proowner <> current_user::regrole or p.prosecdef or p.prolang <> (select oid from pg_language where lanname='plpgsql')
@@ -163,7 +163,7 @@ begin
   if exists (
     select from (values
       ('private.extend_business_checkout_environment()'::regprocedure,'15fd48996e7c8fba8b26924abedab3e95ae7794a3418bc1f1850b5204fbd19c5'),
-      ('private.install_first_order_checkout()'::regprocedure,'c775ff9385706462e495166d160a50bb4bb5ef83dc9ec0daefb33867ac41d2e9')
+      ('private.install_first_order_checkout()'::regprocedure,'632ee2febaa424c37cd973bcec120777dc0741d741122757bd9b4ff2b55d93fa')
     ) expected(routine,body_sha) join pg_proc p on p.oid = expected.routine
     where p.proowner <> current_user::regrole or not p.prosecdef or p.prolang <> (select oid from pg_language where lanname = 'plpgsql')
       or p.proconfig is distinct from array['search_path=pg_catalog, pg_temp','lock_timeout=3s']

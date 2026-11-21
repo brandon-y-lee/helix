@@ -26,9 +26,16 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION pg_temp.prepare_test_first_cart(context jsonb) RETURNS jsonb
+CREATE FUNCTION pg_temp.prepare_test_first_cart(context jsonb,allow_new boolean DEFAULT true) RETURNS jsonb
 LANGUAGE sql AS $$
   SELECT public.reserve_business_checkout(context->>'environment',context->>'accountId',
+    (context->>'cartId')::uuid,(context->>'generation')::uuid,(context->>'userId')::uuid,
+    context->>'guestHash',context->>'receiptHash',allow_new);
+$$;
+
+CREATE FUNCTION pg_temp.test_first_resume(context jsonb) RETURNS boolean
+LANGUAGE sql AS $$
+  SELECT public.read_business_checkout_resume(context->>'environment',context->>'accountId',
     (context->>'cartId')::uuid,(context->>'generation')::uuid,(context->>'userId')::uuid,
     context->>'guestHash',context->>'receiptHash');
 $$;
@@ -53,5 +60,27 @@ BEGIN
     RAISE EXCEPTION 'Expected an unsent first Order for %, got %',purpose,result->>'state';
   END IF;
   RETURN (result->>'orderId')::uuid;
+END;
+$$;
+
+CREATE FUNCTION pg_temp.make_retry_test_order(purpose text,age interval) RETURNS jsonb
+LANGUAGE plpgsql AS $$
+DECLARE
+  cart jsonb := pg_temp.make_test_first_cart(purpose,1);
+  admitted jsonb;
+  sent_at timestamptz := statement_timestamp()-age;
+  request_digest constant text := repeat('a',64);
+BEGIN
+  SET LOCAL ROLE service_role;
+  admitted := pg_temp.prepare_test_first_cart(cart);
+  SET LOCAL ROLE postgres;
+  IF admitted->>'state' IS DISTINCT FROM 'reserved' THEN RAISE EXCEPTION 'Expected unsent reservation'; END IF;
+  -- Model a lost response from an earlier first send. Both timestamps and
+  -- the request digest start NULL. The original immutable trigger stays on.
+  UPDATE private.live_checkout_bindings SET first_send_at=sent_at,last_send_attempt_at=sent_at,
+    send_request_sha256=request_digest WHERE order_id=(admitted->>'orderId')::uuid
+    AND first_send_at IS NULL AND last_send_attempt_at IS NULL AND send_request_sha256 IS NULL;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Expected exactly one fresh unsent binding'; END IF;
+  RETURN cart||admitted||jsonb_build_object('firstSendAt',sent_at,'requestSha256',request_digest);
 END;
 $$;

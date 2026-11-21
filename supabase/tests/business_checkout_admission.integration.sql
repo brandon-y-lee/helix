@@ -34,14 +34,14 @@ BEGIN
   SET LOCAL ROLE anon;
   BEGIN
     PERFORM public.reserve_business_checkout(mode_,issuer,(cart->>'cartId')::uuid,
-      (cart->>'generation')::uuid,NULL,cart->>'guestHash',cart->>'receiptHash');
+      (cart->>'generation')::uuid,NULL,cart->>'guestHash',cart->>'receiptHash',true);
     RAISE EXCEPTION 'Anonymous login invoked the checkout admission RPC';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   SET LOCAL ROLE authenticated;
   BEGIN
     PERFORM public.reserve_business_checkout(mode_,issuer,(cart->>'cartId')::uuid,
-      (cart->>'generation')::uuid,NULL,cart->>'guestHash',cart->>'receiptHash');
+      (cart->>'generation')::uuid,NULL,cart->>'guestHash',cart->>'receiptHash',true);
     RAISE EXCEPTION 'Authenticated browser login invoked the checkout admission RPC';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
@@ -49,6 +49,10 @@ BEGIN
   IF public.read_business_checkout_offer(mode_,issuer)->>'sku' IS DISTINCT FROM 'FIXTURE-592'
     OR public.read_business_checkout_offer(other_mode,issuer) IS NOT NULL THEN
     RAISE EXCEPTION 'Only the marker-selected issuer can offer the fixture SKU';
+  END IF;
+  IF NOT (public.read_business_checkout_offer(mode_,issuer) @> jsonb_build_object('shippingCents',500,
+    'freeShippingThresholdCents',5000,'dispatchTerms','Synthetic dispatch terms','returnTerms','Synthetic return terms')) THEN
+    RAISE EXCEPTION 'Offer must disclose the approved shipping price, threshold, dispatch and returns';
   END IF;
   FOR context_row IN SELECT * FROM (VALUES
       (cart||jsonb_build_object('environment',other_mode),'closed'),
@@ -123,20 +127,20 @@ BEGIN
        IS DISTINCT FROM '{"state":"unauthorized"}'::jsonb THEN
     RAISE EXCEPTION 'Admission must snapshot canonical terms and replay only for the original receipt';
   END IF;
-  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,gen_random_uuid())
+  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,gen_random_uuid(),repeat('a',64))
      IS DISTINCT FROM '{"state":"unauthorized"}'::jsonb THEN RAISE EXCEPTION 'Incorrect nonce accepted'; END IF;
   SET LOCAL ROLE postgres;
   UPDATE private.live_checkout_sale_policy SET dispatch_terms='Revised dispatch terms' WHERE singleton;
   SET LOCAL ROLE service_role;
-  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_)
+  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_,repeat('a',64))
       IS DISTINCT FROM '{"state":"stale"}'::jsonb OR pg_temp.prepare_test_first_cart(cart) IS DISTINCT FROM admitted THEN
     RAISE EXCEPTION 'Changed policy must preserve existing terms and stop an unsent attempt';
   END IF;
   SET LOCAL ROLE postgres;
   UPDATE private.live_checkout_sale_policy SET dispatch_terms='Synthetic dispatch terms' WHERE singleton;
   SET LOCAL ROLE service_role;
-  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_)->>'state' IS DISTINCT FROM 'send'
-     OR public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_)->>'state' IS DISTINCT FROM 'send_started' THEN
+  IF public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_,repeat('a',64))->>'state' IS DISTINCT FROM 'send'
+     OR public.start_business_checkout_send(mode_,issuer,order_id_,attempt_id_,nonce_,repeat('a',64))->>'state' IS DISTINCT FROM 'send_started' THEN
     RAISE EXCEPTION 'Only one request may win first send';
   END IF;
   IF NOT public.bind_recovered_business_checkout_session(mode_,issuer,order_id_,attempt_id_,session_,nonce_) THEN
@@ -156,8 +160,12 @@ BEGIN
      OR result->'terms'->>'preTaxTotalCents' IS DISTINCT FROM '5000' THEN
     RAISE EXCEPTION 'Canonical authenticated cart or free shipping threshold failed';
   END IF;
+  IF pg_temp.test_first_resume(member_cart) IS DISTINCT FROM true OR
+    pg_temp.test_first_resume(member_cart||jsonb_build_object('userId',wrong_id)) IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'Only the original authenticated cart owner can resume the existing Order';
+  END IF;
   IF public.start_business_checkout_send(mode_,issuer,(result->>'orderId')::uuid,
-    (result->>'attemptId')::uuid,(result->>'bindingNonce')::uuid)->>'state' IS DISTINCT FROM 'send'
+    (result->>'attemptId')::uuid,(result->>'bindingNonce')::uuid,repeat('a',64))->>'state' IS DISTINCT FROM 'send'
     OR NOT public.bind_recovered_business_checkout_session(mode_,issuer,(result->>'orderId')::uuid,
         (result->>'attemptId')::uuid,session_member,(result->>'bindingNonce')::uuid) THEN
     RAISE EXCEPTION 'Could not bind authenticated synthetic Session';
@@ -182,3 +190,119 @@ BEGIN
   SET LOCAL ROLE postgres;
 END;
 $admission$;
+
+CREATE FUNCTION pg_temp.retry_test_send(context jsonb,request_digest text) RETURNS jsonb LANGUAGE sql AS $$
+  SELECT public.start_business_checkout_send(context->>'environment',context->>'accountId',
+    (context->>'orderId')::uuid,(context->>'attemptId')::uuid,(context->>'bindingNonce')::uuid,request_digest);
+$$;
+
+DO $recovery$
+DECLARE
+  recent jsonb := pg_temp.make_retry_test_order('recover-at-backoff',interval '10 seconds');
+  limit_order jsonb := pg_temp.make_retry_test_order('recover-at-expiry',interval '12 hours');
+  paused_retry jsonb := pg_temp.make_retry_test_order('recover-while-paused',interval '1 minute');
+  fresh jsonb := pg_temp.make_test_first_cart('resume-without-order',1);
+  unsent jsonb := pg_temp.make_test_first_cart('reserve-no-new-unsent',1);
+  mode_ text := recent->>'environment';
+  other_mode text := CASE mode_ WHEN 'live' THEN 'business_sandbox' ELSE 'live' END;
+  digest_ text := recent->>'requestSha256';
+  bound_session text := CASE mode_ WHEN 'live' THEN 'cs_live_592Resume' ELSE 'cs_test_592Resume' END;
+  result jsonb;
+  attempted_at timestamptz;
+  prior_units integer;
+  prior_orders bigint;
+  prior_attempts bigint;
+BEGIN
+  SET LOCAL ROLE service_role;
+  IF pg_temp.prepare_test_first_cart(unsent)->>'state' IS DISTINCT FROM 'reserved' THEN
+    RAISE EXCEPTION 'Expected an actual reservation with an unstarted provider send';
+  END IF;
+  SET LOCAL ROLE postgres;
+  SELECT allocated_units INTO STRICT prior_units FROM private.live_checkout_sale_policy;
+  SELECT count(*) INTO prior_orders FROM public.orders;
+  SELECT count(*) INTO prior_attempts FROM public.payment_attempts;
+  IF has_function_privilege('anon','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE')
+    OR has_function_privilege('authenticated','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE')
+    OR NOT has_function_privilege('service_role','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE') THEN
+    RAISE EXCEPTION 'The scoped resume read must remain service-only';
+  END IF;
+  UPDATE public.carts SET guest_token_hash=repeat('c',64) WHERE id=(recent->>'cartId')::uuid;
+  SET LOCAL ROLE service_role;
+  IF pg_temp.test_first_resume(recent||jsonb_build_object('guestHash',repeat('c',64))) IS DISTINCT FROM false
+    OR pg_temp.prepare_test_first_cart(recent||jsonb_build_object('guestHash',repeat('c',64)),false)
+       IS DISTINCT FROM '{"state":"unauthorized"}'::jsonb
+    OR pg_temp.prepare_test_first_cart(recent||jsonb_build_object('guestHash',repeat('c',64)),true)
+       IS DISTINCT FROM '{"state":"unauthorized"}'::jsonb THEN
+    RAISE EXCEPTION 'Reassigned guest cart matched the original reservation owner';
+  END IF;
+  SET LOCAL ROLE postgres;
+  UPDATE public.carts SET guest_token_hash=recent->>'guestHash' WHERE id=(recent->>'cartId')::uuid;
+  -- A returning buyer can own the last unit. Availability alone cannot decide resume.
+  UPDATE private.live_checkout_sale_policy SET approved_units=allocated_units WHERE singleton;
+  SET LOCAL ROLE service_role;
+  IF public.read_business_checkout_offer(mode_,recent->>'accountId') IS NOT NULL
+    OR pg_temp.test_first_resume(recent) IS DISTINCT FROM true
+    OR pg_temp.test_first_resume(fresh) IS DISTINCT FROM false
+    OR pg_temp.test_first_resume(recent||jsonb_build_object('environment',other_mode))
+    OR pg_temp.test_first_resume(recent||jsonb_build_object('accountId','acct_OtherIssuer'))
+    OR pg_temp.test_first_resume(recent||jsonb_build_object('generation',gen_random_uuid()))
+    OR pg_temp.test_first_resume(recent||jsonb_build_object('guestHash',fresh->>'guestHash'))
+    OR pg_temp.test_first_resume(recent||jsonb_build_object('receiptHash',fresh->>'receiptHash')) THEN
+    RAISE EXCEPTION 'Sold-out resume must identify only the original issuer, cart generation, owner and receipt';
+  END IF;
+  IF pg_temp.prepare_test_first_cart(fresh,false) IS DISTINCT FROM '{"state":"closed"}'::jsonb
+    OR pg_temp.prepare_test_first_cart(unsent,false)->>'state' IS DISTINCT FROM 'reserved'
+    OR pg_temp.prepare_test_first_cart(recent,false)->>'state' IS DISTINCT FROM 'send_started' THEN
+    RAISE EXCEPTION 'Recovery-only admission must exclude new Orders and preserve existing reserved or uncertain attempts';
+  END IF;
+  IF pg_temp.retry_test_send(recent,repeat('b',64))->>'state' IS DISTINCT FROM 'send_started' THEN
+    RAISE EXCEPTION 'A changed Stripe request body acquired the recovery send';
+  END IF;
+  result := pg_temp.retry_test_send(recent,digest_);
+  IF result->>'state' IS DISTINCT FROM 'recover'
+    OR result->'terms' IS DISTINCT FROM recent->'terms'
+    OR (result->>'orderId',result->>'attemptId',result->>'bindingNonce',result->>'idempotencyKey',result->>'firstSendAt')
+       IS DISTINCT FROM (recent->>'orderId',recent->>'attemptId',recent->>'bindingNonce',recent->>'idempotencyKey',recent->>'firstSendAt')
+    OR pg_temp.test_first_resume(recent) IS DISTINCT FROM true
+    OR pg_temp.retry_test_send(recent,digest_)->>'state' IS DISTINCT FROM 'send_started' THEN
+    RAISE EXCEPTION 'Lost response must recover the identical accepted request only once per backoff';
+  END IF;
+  IF pg_temp.test_first_resume(limit_order) IS DISTINCT FROM false
+    OR pg_temp.retry_test_send(limit_order,digest_)->>'state' IS DISTINCT FROM 'send_started' THEN
+    RAISE EXCEPTION 'The original 12-hour window ended; retain the uncertain reservation';
+  END IF;
+  SET LOCAL ROLE postgres;
+  SELECT last_send_attempt_at INTO STRICT attempted_at FROM private.live_checkout_bindings
+    WHERE order_id=(recent->>'orderId')::uuid AND send_request_sha256=digest_
+      AND first_send_at=(recent->>'firstSendAt')::timestamptz;
+  IF attempted_at <= (recent->>'firstSendAt')::timestamptz OR NOT EXISTS (
+    SELECT FROM private.live_checkout_bindings WHERE order_id=(limit_order->>'orderId')::uuid
+      AND first_send_at=(limit_order->>'firstSendAt')::timestamptz AND last_send_attempt_at=first_send_at) THEN
+    RAISE EXCEPTION 'Only a successful recovery may advance its retry timestamp';
+  END IF;
+  UPDATE private.live_checkout_sale_policy SET enabled=false WHERE singleton;
+  SET LOCAL ROLE service_role;
+  IF pg_temp.test_first_resume(recent) IS DISTINCT FROM false
+    OR pg_temp.retry_test_send(paused_retry,digest_)->>'state' IS DISTINCT FROM 'closed' THEN
+    RAISE EXCEPTION 'Paused issuer allowed an unbound retry';
+  END IF;
+  IF NOT public.bind_recovered_business_checkout_session(mode_,recent->>'accountId',(recent->>'orderId')::uuid,
+    (recent->>'attemptId')::uuid,bound_session,(recent->>'bindingNonce')::uuid) THEN
+    RAISE EXCEPTION 'Could not attach the authenticated original Session after admission closed';
+  END IF;
+  result := pg_temp.prepare_test_first_cart(recent,false);
+  IF pg_temp.test_first_resume(recent) IS DISTINCT FROM true OR result->>'state' IS DISTINCT FROM 'bound'
+    OR result->>'sessionId' IS DISTINCT FROM bound_session OR result->>'orderId' IS DISTINCT FROM recent->>'orderId'
+    OR pg_temp.retry_test_send(recent,digest_)->>'state' IS DISTINCT FROM 'bound'
+    OR pg_temp.prepare_test_first_cart(recent||jsonb_build_object('receiptHash',fresh->>'receiptHash'),false) ? 'sessionId' THEN
+    RAISE EXCEPTION 'Paused issuer must expose the bound Session only to its proven owner';
+  END IF;
+  SET LOCAL ROLE postgres;
+  IF (SELECT allocated_units FROM private.live_checkout_sale_policy)<>prior_units
+    OR (SELECT count(*) FROM public.orders)<>prior_orders OR (SELECT count(*) FROM public.payment_attempts)<>prior_attempts
+    OR (SELECT count(*) FROM private.live_checkout_stock_reservations WHERE
+       order_id IN ((recent->>'orderId')::uuid,(limit_order->>'orderId')::uuid) AND state='held' AND quantity=1)<>2 THEN
+    RAISE EXCEPTION 'Retries must retain exactly the original Orders, Attempts and units';
+  END IF;
+END;
+$recovery$;
