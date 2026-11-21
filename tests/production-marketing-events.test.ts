@@ -1,15 +1,15 @@
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
 import { receiveProductionMarketingEvent } from "@/lib/production-marketing/events";
+import { createProductionMarketingEventStorage } from "@/lib/production-marketing/event-storage";
 import { handleProductionMarketingStatus } from "@/lib/production-marketing/operator-status";
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-p3-signing-secret-only").toString("base64");
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
-  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-p3-db",
-  HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,
-  HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co"};
+const env={...productionMarketingTestTarget,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",
+  HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true"};
 const event=()=>({type:"email.complained",created_at:new Date().toISOString(),data:{email_id:"11111111-1111-4111-8111-111111111111",from:"news@helixskin.us",to:["visitor@example.invalid"],
   tags:{environment:"production",helix_message_id:"22222222-2222-4222-8222-222222222222",helix_purpose:"welcome",helix_contract:"production_welcome_delivery_v1"}}});
 function signed(value:unknown=event(),options:{timestamp?:string;alter?:boolean;id?:string}={}){
@@ -78,6 +78,24 @@ describe("production-bound Operator visibility",()=>{
     expect((await handleProductionMarketingStatus(request(),{env,getUser,read})).status).toBe(401);expect(read).not.toHaveBeenCalled();
     getUser.mockResolvedValue(user);expect((await handleProductionMarketingStatus(request(),{env,getUser,read})).status).toBe(403);
     expect(read).toHaveBeenCalledWith(user.id);
+  });
+  it("requires the authenticated direct target to report unresolved preference holds even with zero uncertain mail",async()=>{
+    const admin = createProductionMarketingEventStorage(env);
+    const expected = {...counts,uncertainMessages:0,unresolvedPreferenceHolds:2};
+    let reply: unknown = expected;
+    const endpoint = productionMarketingTestTarget.NEXT_PUBLIC_SUPABASE_URL+"/rest/v1/rpc/read_direct_production_marketing_status";
+    const fetch = vi.fn(async (url:string, options:RequestInit) => {
+      expect(url).toBe(endpoint); expect(JSON.parse(String(options.body))).toEqual({p_actor_id:user.id});
+      return Response.json(reply);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const get = () => handleProductionMarketingStatus(request(),{env,getUser:async()=>user,read:admin.directStatus});
+    expect(await (await get()).json()).toEqual(expected);
+    for (reply of [counts,{...expected,unresolvedPreferenceHolds:-1},{...expected,unresolvedPreferenceHolds:null},
+      {...expected,unresolvedPreferenceHolds:0.5},{...expected,email:"PRIVATE@example.invalid"}]) {
+      const response = await get(); expect(response.status).toBe(503); expect(await response.json()).toEqual({ok:false});
+    }
+    expect(fetch).toHaveBeenCalledTimes(6);
   });
   it("returns only finite private counts and generic errors without actor, provider or subscriber data",async()=>{
     const getUser=vi.fn().mockResolvedValue(user),read=vi.fn().mockResolvedValue(counts);

@@ -1,8 +1,8 @@
 import "server-only";
 import { readBoundedBody } from "@/lib/email/provider";
 import { isEmailAddress } from "@/lib/email/config";
-import { readProductionMarketingConfiguration } from "./config";
-import { productionMarketingUuid } from "./delivery-config";
+import { productionMarketingRpcHeaders, readProductionMarketingConfiguration } from "./config";
+import { directProductionMarketingContract, productionMarketingUuid, productionSignupQualification, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingHeldEnvelope } from "./capabilities";
 import type { PreparedMarketingMessage, ProductionMarketingDeliveryStorage, ProductionMarketingIntent } from "./delivery-types";
@@ -14,9 +14,9 @@ function prepared(value:unknown,id:string):PreparedMarketingMessage|null {
     ||!["firstPreparedAt","admittedAt","payloadExpiresAt","leaseUntil"].every(k=>typeof value[k]==="string"&&Number.isFinite(Date.parse(value[k] as string))))throw invalid();
   return value as PreparedMarketingMessage;
 }
-function intent(value:unknown):ProductionMarketingIntent|null {
+function intent(value:unknown, direct:boolean):ProductionMarketingIntent|null {
   if(value===null)return null;
-  if(!record(value)||!["id","subscriberId","requestId"].every(k=>typeof value[k]==="string"&&(value[k] as string).length===36&&productionMarketingUuid.test(value[k] as string))
+  if(!record(value)||(direct ? value.direct !== true : value.direct !== undefined)||!["id","subscriberId","requestId"].every(k=>typeof value[k]==="string"&&(value[k] as string).length===36&&productionMarketingUuid.test(value[k] as string))
     ||typeof value.email!=="string"||!isEmailAddress(value.email)||value.email!==value.email.trim().toLowerCase()||value.email.length>254
     ||!["confirmation","welcome"].includes(String(value.purpose))
     ||!["generation","revision"].every(k=>typeof value[k]==="number"&&Number.isSafeInteger(value[k])&&(value[k] as number)>0)
@@ -25,14 +25,14 @@ function intent(value:unknown):ProductionMarketingIntent|null {
     ||(value.envelope!==null&&!record(value.envelope)))throw invalid();
   return {...value,prepared:prepared(value.prepared,value.id as string),envelope:value.envelope as ProductionMarketingHeldEnvelope|null} as ProductionMarketingIntent;
 }
-export function createProductionMarketingDeliveryStorage(env:ProductionMarketingEnvironment):ProductionMarketingDeliveryStorage {
+export function createProductionMarketingDeliveryStorage(env:ProductionMarketingEnvironment): ProductionMarketingDeliveryStorage {
   async function rpc(name:string,args:Record<string,unknown>,limit=150000):Promise<unknown> {
     const config=readProductionMarketingConfiguration(env),controller=new AbortController();
     let timer:ReturnType<typeof setTimeout>|undefined;
     try {
       const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(invalid());},3000);});
       return await Promise.race([(async()=>{
-        const response=await fetch(`${config.supabaseUrl}/rest/v1/rpc/${name}`,{method:"POST",headers:{apikey:config.serviceKey,Authorization:`Bearer ${config.serviceKey}`,"Content-Type":"application/json"},
+        const response=await fetch(`${config.supabaseUrl}/rest/v1/rpc/${name}`,{method:"POST",headers:productionMarketingRpcHeaders(config.serviceKey),
           body:JSON.stringify(args),cache:"no-store",redirect:"error",signal:controller.signal});
         if(!response.ok){await response.body?.cancel();throw invalid();}
         return JSON.parse(await readBoundedBody(response,limit)) as unknown;
@@ -40,11 +40,32 @@ export function createProductionMarketingDeliveryStorage(env:ProductionMarketing
     }catch{throw invalid();}finally{clearTimeout(timer);controller.abort();}
   }
   async function boolean(name:string,args:Record<string,unknown>) {const value=await rpc(name,args,128);if(typeof value!=="boolean")throw invalid();return value;}
+  // The original RPCs can only see retained generations. The direct RPCs
+  // recheck this credential binding under the same locks as durable admission.
+  function directBinding() {
+    const config = readProductionMarketingDeliveryConfiguration(env);
+    if (!directProductionMarketingContract(config.contract)) return null;
+    if (env.HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED !== "true") throw invalid();
+    return productionSignupQualification(env);
+  }
+
+  async function admit(operation: "prepare" | "retry", id: string, args: Record<string, unknown>) {
+    const binding = directBinding();
+    if (binding && binding.p_contract_hash !== args.p_contract_hash) throw invalid();
+    const name = binding ? operation + "_direct_production_marketing_message" : operation + "_production_marketing_message";
+    return prepared(await rpc(name, { p_id: id, ...args, ...binding }), id);
+  }
   return {
     cleanup:async()=>{const value=await rpc("cleanup_production_marketing_delivery",{},128);if(typeof value!=="number"||!Number.isSafeInteger(value)||value<0)throw invalid();return value;},
-    claim:async lease=>intent(await rpc("claim_production_marketing_message",{p_lease:lease})),
-    prepare:async(id,lease,body,preferenceHash,contractHash)=>prepared(await rpc("prepare_production_marketing_message",{p_id:id,p_lease:lease,p_body:body,p_preference_hash:preferenceHash,p_contract_hash:contractHash}),id),
-    admitRetry:async(id,lease,contractHash)=>prepared(await rpc("retry_production_marketing_message",{p_id:id,p_lease:lease,p_contract_hash:contractHash}),id),
+    async claim(lease) {
+      const binding = directBinding();
+      const name = binding ? "claim_direct_production_marketing_message" : "claim_production_marketing_message";
+      return intent(await rpc(name, { p_lease: lease, ...binding }), binding !== null);
+    },
+    prepare: (id, lease, body, preferenceHash, contractHash) => admit("prepare", id, {
+      p_lease: lease, p_body: body, p_preference_hash: preferenceHash, p_contract_hash: contractHash,
+    }),
+    admitRetry: (id, lease, contractHash) => admit("retry", id, { p_lease: lease, p_contract_hash: contractHash }),
     finish:(id,lease,outcome)=>boolean("finish_production_marketing_message",{p_id:id,p_lease:lease,p_kind:outcome.kind,p_provider_id:outcome.kind==="accepted"?outcome.id:null}),
     defer:(id,lease)=>boolean("defer_production_marketing_message",{p_id:id,p_lease:lease}),
   };

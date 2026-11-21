@@ -1,9 +1,9 @@
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { afterEach, expect, it, vi } from "vitest";
 import { productionMarketingProvider } from "@/lib/production-marketing/delivery-provider";
 import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:"11111111-1111-4111-8111-111111111111",postalAddress:"Synthetic test only",templateHash:productionMarketingTemplateHash};
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
-  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:"https://www.helixskin.us",HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db",
+const env={...productionMarketingTestTarget,
   HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send",HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-read",
   HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract)};
 afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});

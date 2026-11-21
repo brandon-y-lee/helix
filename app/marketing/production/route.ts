@@ -1,12 +1,12 @@
 import { productionMarketingLanding } from "@/components/marketing/production-marketing-document";
-import { productionMarketingEnrollmentEnabled } from "@/lib/production-marketing/config";
+import { productionMarketingSignupStatus } from "@/lib/production-marketing/storage";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return productionMarketingLanding("enrollment", await productionMarketingEnrollmentEnabled(process.env));
+export async function GET(request: Request) {
+  return productionMarketingLanding("enrollment", (await productionMarketingSignupStatus(request, process.env)).enabled);
 }
 
-export async function HEAD() {
-  return productionMarketingLanding("enrollment", await productionMarketingEnrollmentEnabled(process.env), "HEAD");
+export async function HEAD(request: Request) {
+  return productionMarketingLanding("enrollment", (await productionMarketingSignupStatus(request, process.env)).enabled, "HEAD");
 }

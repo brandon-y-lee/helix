@@ -109,7 +109,8 @@ validate_ticket_sync_reasons() {
   sync_repository=$1
   sync_base=$2
   sync_target=$3
-  merge_commits=$(git -C "$sync_repository" rev-list --merges "$sync_base"..HEAD)
+  # Only the Ticket's own merges synchronize it. The recorded Spec can already contain accepted upstream merges.
+  merge_commits=$(git -C "$sync_repository" rev-list --first-parent --merges "$sync_base"..HEAD)
   for merge_commit in $merge_commits; do
     sync_reasons=$(
       git -C "$sync_repository" show -s --format=%B "$merge_commit" |
@@ -532,16 +533,18 @@ prepare_task() {
   fi
 
   if [ "$task_kind" = ticket ] || [ "$task_kind" = urgent ]; then
-    commit_messages=$(git -C "$task_repository" log --format=%B "$comparison_base"..HEAD)
+    if [ "$snapshot_target" -eq 1 ]; then
+      commit_messages=$(git -C "$task_repository" log --first-parent --format=%B "$comparison_base"..HEAD)
+    else
+      commit_messages=$(git -C "$task_repository" log --format=%B "$comparison_base"..HEAD)
+    fi
     printf '%s\n' "$commit_messages" | grep -Eq "^Refs #${ticket_number}[[:space:]]*$" ||
       fail "ticket commits must include a 'Refs #$ticket_number' footer"
     if [ "$task_kind" = urgent ]; then
       printf 'Urgent fast path: Refs #%s; no parent spec\n' "$ticket_number"
     elif [ "$snapshot_target" -eq 1 ]; then
-      spec_number=$(printf '%s\n' "$commit_messages" |
-        sed -n 's/^Spec #\([0-9][0-9]*\)[[:space:]]*$/\1/p' |
-        tail -n 1)
-      [ -n "$spec_number" ] || fail "ticket commits must include a 'Spec #<number>' footer"
+      printf '%s\n' "$commit_messages" | grep -Eq "^Spec #${spec_number}[[:space:]]*$" ||
+        fail "ticket commits must include a 'Spec #$spec_number' footer"
       printf 'Traceability: Refs #%s; Spec #%s\n' "$ticket_number" "$spec_number"
     else
       printf 'Standalone Ticket: Refs #%s; no parent spec\n' "$ticket_number"

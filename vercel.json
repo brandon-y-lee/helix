@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "schedules": {
+    "confirmed-welcome": {
+      "schedule": "* * * * *",
+      "path": "/api/internal/marketing/production/maintenance",
+      "requestMethod": "POST"
+    }
+  }
+}

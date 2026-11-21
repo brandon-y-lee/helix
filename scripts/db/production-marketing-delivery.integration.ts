@@ -1,3 +1,4 @@
+import { productionMarketingTestTarget } from "../../tests/helpers/production-marketing-target";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -7,7 +8,8 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { dispatchProductionMarketing } from "../../lib/production-marketing/worker";
 import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
-import { createProductionMarketingStorage } from "../../lib/production-marketing/storage";
+import { retainedMarketingSignup } from "./retained-marketing-signup";
+import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
 import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
 import { productionMarketingTemplateHash } from "../../lib/production-marketing/templates";
 import { sealProductionMarketingCapabilities } from "../../lib/production-marketing/capabilities";
@@ -19,19 +21,19 @@ function sql(input:string){try{return docker(["exec","-i",container,"psql","-X",
 const literal=(v:unknown)=>v===null?"NULL":typeof v==="boolean"?String(v):typeof v==="number"?String(v):`'${(typeof v==="string"?v:JSON.stringify(v)).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",topic="11111111-1111-4111-8111-111111111111";
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:topic,postalAddress:"Synthetic test only",templateHash:productionMarketingTemplateHash};
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic-project",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
-  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic-project",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
+const env={...productionMarketingTestTarget,
   HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"a".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",
+  HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:"whsec_"+Buffer.from("local-only-confirmation-webhook").toString("base64"),
   HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send-only",
   HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-separate-read",HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract)};
-const permitted=new Set(["request_production_marketing_subscription","confirm_production_marketing_subscription","withdraw_production_marketing_subscription",
+const permitted=new Set(["production_marketing_enrollment_ready","request_qualified_production_marketing_subscription","confirm_production_marketing_subscription","withdraw_production_marketing_subscription",
   "cleanup_production_marketing_delivery","claim_production_marketing_message","prepare_production_marketing_message","retry_production_marketing_message","finish_production_marketing_message","defer_production_marketing_message"]);
 const sends:{body:string;key:string}[]=[];let rpcCalls=0,faultAfterRpc="",sendUncertain=false,nativeAllowed=true;
 const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit):Promise<Response>=>{
   const url=String(input),headers=init?.headers as Record<string,string>;
   if(url.startsWith(`${env.HELIX_PRODUCTION_MARKETING_SUPABASE_URL}/rest/v1/rpc/`)){
     const name=url.split("/").at(-1)!;
-    if(!permitted.has(name)||init?.method!=="POST"||headers.apikey!==env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY||headers.Authorization!==`Bearer ${env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY}`)throw new Error("Synthetic RPC contract mismatch.");
+    if(!permitted.has(name)||init?.method!=="POST"||headers.apikey!==env.SUPABASE_SERVICE_ROLE_KEY||headers.Authorization!==undefined)throw new Error("Synthetic RPC contract mismatch.");
     rpcCalls++;
     const args=JSON.parse(String(init.body)) as Record<string,unknown>;
     if(Object.keys(args).some(k=>!/^p_[a-z_]+$/.test(k)))throw new Error("Synthetic RPC argument mismatch.");
@@ -51,14 +53,14 @@ const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit):Promise<
   }
   throw new Error("External network is forbidden in this proof.");
 });
-const storage=createProductionMarketingDeliveryStorage(env),requests=createProductionMarketingStorage(env);
+const storage=createProductionMarketingDeliveryStorage(env),requests=retainedMarketingSignup(env, sql);
 const workerRequest=()=>new Request(`${origin}/api/internal/marketing/production/dispatch`,{method:"POST",headers:{authorization:`Bearer ${env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN}`}});
 const worker=()=>dispatchProductionMarketing(workerRequest(),{env,storage,provider:productionMarketingProvider});
 const human=(action:string,body:unknown)=>new Request(`${origin}/api/marketing/production/${action}`,{method:"POST",headers:{origin,"content-type":"application/json","x-vercel-forwarded-for":"192.0.2.1"},body:JSON.stringify(body)});
 async function enroll(label:string){expect((await handleProductionMarketingRequest(human("subscription",{email:`${label}@example.invalid`,consent:true}),"subscription",{env,storage:requests})).status).toBe(202);}
 const message=(label:string,purpose="confirmation")=>JSON.parse(sql(`SELECT jsonb_build_object('id',m.id,'state',m.state,'body',m.body_text,'hash',m.body_hash,'providerId',m.provider_id,'reconciliation',m.reconciliation_required)
   FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id WHERE s.normalized_email=${literal(label+"@example.invalid")} AND m.purpose=${literal(purpose)};`)) as {id:string;state:string;body:string|null;hash:string|null;providerId:string|null;reconciliation:boolean};
-beforeEach(()=>{sends.length=0;rpcCalls=0;faultAfterRpc="";sendUncertain=false;nativeAllowed=true;vi.stubGlobal("fetch",transport);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))};`);});
+beforeEach(()=>{sends.length=0;rpcCalls=0;faultAfterRpc="";sendUncertain=false;nativeAllowed=true;vi.stubGlobal("fetch",transport);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${literal(confirmationWorkerQualification(env).p_worker_binding_hash)};`);});
 afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
 function seedAgedRequest(label:string) {
   const now=Date.now();
