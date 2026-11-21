@@ -1,0 +1,80 @@
+name: Development preview
+
+on:
+  push:
+    branches: [dev]
+  repository_dispatch:
+    types: [vercel.deployment.success, vercel.deployment.error, vercel.deployment.failed, vercel.deployment.canceled, vercel.deployment.ignored, vercel.deployment.skipped]
+
+permissions: {}
+
+jobs:
+  sync:
+    name: Request development preview
+    if: github.event_name == 'push' && github.repository == 'brandon-y-lee/helix' && github.ref == 'refs/heads/dev' && github.ref_protected && !github.event.deleted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: write
+    steps:
+      - name: Fast-forward the isolated Vercel preview branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git_api="repos/$GITHUB_REPOSITORY/git"
+          preview_ref="heads/codex/558-verified-dev-preview"
+          dev_sha="$(gh api "$git_api/ref/heads/dev" --jq '.object.sha')"
+          if [[ "$dev_sha" != "$GITHUB_SHA" ]]; then
+            echo "A newer dev push owns the preview."
+            exit 0
+          fi
+          preview_sha="$(gh api "$git_api/ref/$preview_ref" --jq '.object.sha')"
+          if [[ "$preview_sha" != "$dev_sha" ]]; then
+            updated="$(gh api --method PATCH "$git_api/refs/$preview_ref" -f sha="$dev_sha" -F force=false --jq '.object.sha')"
+            [[ "$updated" == "$dev_sha" ]] || exit 1
+          fi
+          printf 'Preview requested for `%s`. Check the **Isolated development preview** commit status for its deployed URL.\n' "$dev_sha" >> "$GITHUB_STEP_SUMMARY"
+
+  report:
+    name: Report Vercel development deployment
+    if: >-
+      github.event_name == 'repository_dispatch' && github.repository == 'brandon-y-lee/helix' &&
+      github.event.sender.id == 35613825 && github.event.client_payload.project.id == 'prj_N9nyPL9SixJHOROIovS8PDQ9aKny' &&
+      github.event.client_payload.git.ref == 'codex/558-verified-dev-preview' && github.event.client_payload.environment == 'preview'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - name: Publish the result for the current mirror commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="repos/$GITHUB_REPOSITORY"
+          mirror="codex/558-verified-dev-preview"
+          stable="helix-git-codex-558-verified-e87038-brandons-projects-5060bad5.vercel.app"
+          sha="$(jq -er '.client_payload.git.sha | select(test("^[0-9a-f]{40}$"))' "$GITHUB_EVENT_PATH")"
+          dev_sha="$(gh api "$repo/git/ref/heads/dev" --jq '.object.sha')"
+          mirror_sha="$(gh api "$repo/git/ref/heads/$mirror" --jq '.object.sha')"
+          if [[ "$dev_sha" != "$sha" || "$mirror_sha" != "$sha" ]]; then
+            echo 'A newer dev push owns the preview.'
+            exit 0
+          fi
+          event="$(jq -er '.action' "$GITHUB_EVENT_PATH")"
+          result="$(jq -er '.client_payload.state.type' "$GITHUB_EVENT_PATH")"
+          [[ "$event" == "vercel.deployment.$result" ]] || exit 1
+          context="Isolated development preview"
+          if [[ "$result" != success ]]; then
+            gh api --method POST "$repo/statuses/$sha" -f context="$context" -f state=failure -f description="Vercel reported $result." --silent
+            exit 1
+          fi
+          url="$(jq -er '.client_payload.url' "$GITHUB_EVENT_PATH")"
+          [[ "$url" =~ ^https://helix-[a-z0-9]+-brandons-projects-5060bad5\.vercel\.app$ ]] || exit 1
+          jq -e --arg stable "$stable" '.client_payload.alias == null or (.client_payload.alias | type == "array" and index($stable) != null)' "$GITHUB_EVENT_PATH" >/dev/null
+          gh api --method POST "$repo/statuses/$sha" -f context="$context" -f state=success -f target_url="$url/collections/shop" -f description="Vercel built the isolated preview." --silent
+          printf '[Preview of commit %s](%s/collections/shop) · [Development branch](https://%s/collections/shop)\n' "$sha" "$url" "$stable" >> "$GITHUB_STEP_SUMMARY"

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -95,22 +95,13 @@ const forwardWorkflow = readFileSync(".github/workflows/forward-migrations.yml",
 const writerJob = workflowBlock(forwardWorkflow, "  migrate:");
 const applyStep = workflowBlock(writerJob, "      - name: Apply and verify the selected forward migrations");
 
-it("passes exactly the named environment credentials to the reusable writer and preserves direct dev pushes", () => {
-  const staged = readFileSync(".github/workflows/staged-production.yml", "utf8");
-  const caller = workflowBlock(staged, "  migrate:");
-  expect(caller).toContain("uses: ./.github/workflows/forward-migrations.yml");
+it("keeps the target's database credentials on the protected writer step", () => {
   const bindings = writerCredentials.map(name => name + ": ${{ secrets." + name + " }}");
-  expect(workflowBlock(caller, "    secrets:").split("\n").map(line => line.trim()).sort()).toEqual([...bindings].sort());
-  const call = workflowBlock(forwardWorkflow, "  workflow_call:");
-  const declarations = workflowBlock(call, "    secrets:");
-  expect(declarations.match(/^      \S+:$/gm)?.map(line => line.trim().slice(0, -1)).sort()).toEqual([...writerCredentials].sort());
-  for (const name of writerCredentials) {
-    expect(workflowBlock(declarations, "      " + name + ":").trim()).toBe("required: true");
-  }
   const stepEnv = workflowBlock(applyStep, "        env:").split("\n").map(line => line.trim());
   expect(stepEnv).toEqual(expect.arrayContaining(bindings));
   expect(writerJob).toContain("environment: ${{ needs.admit.outputs.environment }}");
-  expect(workflowBlock(forwardWorkflow, "  push:").trim()).toBe("branches: [dev]");
+  const admissionJob = workflowBlock(forwardWorkflow, "  admit:");
+  for (const name of writerCredentials) expect(admissionJob).not.toContain(name);
 });
 
 it("stops before launching the writer when any protected credential is empty", () => {
@@ -133,26 +124,12 @@ it("stops before launching the writer when any protected credential is empty", (
   expect(ready.stdout.trim()).toBe("writer-invoked");
 });
 
-it("requires protected registry admission before the forward migration and execution", () => {
-  const workflow = readFileSync(".github/workflows/staged-production.yml", "utf8");
-  const jobs = workflow.split(/^  (?=[\w-]+:$)/m);
-  const registry = jobs.find(job => job.includes("node scripts/release/command.mjs admit"));
-  expect(registry).toBeDefined();
-  const guard = registry!.split(":")[0];
-  expect(registry).toContain("environment: helix-release-control");
-  expect(registry).not.toContain("HELIX_RELEASE_VERCEL_CONTROL_TOKEN");
-  const migration = jobs.find(job => job.startsWith("migrate:"));
-  expect(migration?.match(/^    needs: (.+)$/m)?.[1]).toContain(guard);
-  expect(migration).toContain("needs." + guard + ".outputs.admission_sha256 != ''");
-  const reusable = readFileSync(".github/workflows/forward-migrations.yml", "utf8");
-  for (const field of ["admission", "admission_sha256"]) {
-    expect(registry).toContain(field + ": ${{ steps.admit.outputs." + field + " }}");
-    expect(migration).toContain("release_" + field + ": ${{ needs." + guard + ".outputs." + field + " }}");
-    expect(reusable).toContain("HELIX_RELEASE_" + field.toUpperCase() + ": ${{ inputs.release_" + field + " }}");
+it("leaves domain promotion and rollback to Vercel", () => {
+  const directory = ".github/workflows";
+  for (const file of readdirSync(directory).filter(name => /\.ya?ml$/.test(name))) {
+    const workflow = readFileSync(join(directory, file), "utf8");
+    expect(workflow).not.toMatch(/HELIX_RELEASE_VERCEL_CONTROL_TOKEN|scripts\/release\/command\.mjs (?:admit|execute)/);
   }
-  const execution = jobs.find(job => job.startsWith("release:"));
-  expect(execution).toContain("needs." + guard + ".outputs.admission_sha256");
-  expect(execution).toContain("RELEASE_ADMISSION_SHA256");
 });
 
 describe("protected staged release command", () => {

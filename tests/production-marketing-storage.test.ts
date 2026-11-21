@@ -43,13 +43,13 @@ it("composes the public production route with dedicated hashed and encrypted sev
     HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_publishable_synthetic").digest("hex"),
     HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"b".repeat(64)})) vi.stubEnv(key,value);
-  const network = vi.fn().mockResolvedValueOnce(Response.json(true)).mockResolvedValueOnce(Response.json(true));
+  const network = vi.fn().mockResolvedValueOnce(Response.json(true));
   vi.stubGlobal("fetch",network);
   try {
     const result = await POST(new Request("https://www.helixskin.us/api/marketing/production/subscription", {method:"POST",headers:{origin:"https://www.helixskin.us","content-type":"application/json","x-vercel-forwarded-for":"192.0.2.1"},body:JSON.stringify({email:"synthetic@example.invalid",consent:true})}));
     expect([result.status,await result.text()]).toEqual([202,'{"ok":true}']);
-    expect(network.mock.calls[0][0]).toMatch(/\/read_helix_release_authorization$/);
-    const [url,request] = network.mock.calls[1];
+    expect(network).toHaveBeenCalledTimes(1);
+    const [url,request] = network.mock.calls[0];
     expect(url).toBe("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/request_production_marketing_subscription");
     const body=JSON.parse(request.body);
     expect(Object.keys(body).sort()).toEqual(["p_confirmation_hash","p_delivery_payload","p_email","p_explicit_consent","p_preference_hash","p_requester_hash","p_wording_version"]);
