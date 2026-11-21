@@ -1044,9 +1044,10 @@ describe("Codex workflow task helper", () => {
   });
 
   it.each([
-    { source: "dev", allowed: false },
-    { source: "codex/spec-45-checkout", allowed: true },
-  ])("checks the Ticket's direct merge from $source after its recorded Spec incorporated dev", ({ source, allowed }) => {
+    { source: "dev", ticketSpec: 45, failure: "source is not on the recorded Spec Branch first-parent history" },
+    { source: "codex/spec-45-checkout", ticketSpec: 45, failure: "" },
+    { source: "codex/spec-45-checkout", ticketSpec: 99, failure: "ticket commits must include a 'Spec #45' footer" },
+  ])("checks the Ticket's direct merge from $source and parent footer #$ticketSpec", ({ source, ticketSpec, failure }) => {
     const { root, tempRoot } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "push", "origin", "dev"));
@@ -1061,14 +1062,14 @@ describe("Codex workflow task helper", () => {
       );
       expectSuccess(started);
       const worktree = started.stdout.match(/^Task worktree: (.+)$/m)?.[1];
-      commitTicket(worktree!, 123, 45);
+      commitTicket(worktree!, 123, ticketSpec);
 
       expectSuccess(git(root, "switch", "dev"));
       writeFileSync(join(root, "unrelated.txt"), "not in the Spec Branch\n");
       expectSuccess(git(root, "add", "unrelated.txt"));
-      expectSuccess(git(root, "commit", "-m", "Advance dev outside the Spec"));
+      expectSuccess(git(root, "commit", "-m", "Advance dev outside the Spec", "-m", "Spec #527"));
       expectSuccess(git(root, "switch", "codex/spec-45-checkout"));
-      expectSuccess(git(root, "merge", "--no-ff", "dev", "-m", "Incorporate dev into Spec"));
+      expectSuccess(git(root, "merge", "--no-ff", "dev", "-m", "Incorporate dev into Spec", "-m", "Spec #45"));
       expectSuccess(git(root, "push", "origin", "codex/spec-45-checkout"));
       expectSuccess(
         git(
@@ -1084,13 +1085,12 @@ describe("Codex workflow task helper", () => {
       );
 
       const prepared = run(taskHelper, ["prepare", worktree!], root);
-      if (allowed) {
-        expectSuccess(prepared);
-      } else {
+      if (failure) {
         expect(prepared.status).not.toBe(0);
-        expect(prepared.stderr).toContain(
-          "Ticket synchronization source is not on the recorded Spec Branch first-parent history",
-        );
+        expect(prepared.stderr).toContain(failure);
+      } else {
+        expectSuccess(prepared);
+        expect(prepared.stdout).toContain("Traceability: Refs #123; Spec #45");
       }
     } finally {
       cleanupFixture(tempRoot);

@@ -533,16 +533,18 @@ prepare_task() {
   fi
 
   if [ "$task_kind" = ticket ] || [ "$task_kind" = urgent ]; then
-    commit_messages=$(git -C "$task_repository" log --format=%B "$comparison_base"..HEAD)
+    if [ "$snapshot_target" -eq 1 ]; then
+      commit_messages=$(git -C "$task_repository" log --first-parent --format=%B "$comparison_base"..HEAD)
+    else
+      commit_messages=$(git -C "$task_repository" log --format=%B "$comparison_base"..HEAD)
+    fi
     printf '%s\n' "$commit_messages" | grep -Eq "^Refs #${ticket_number}[[:space:]]*$" ||
       fail "ticket commits must include a 'Refs #$ticket_number' footer"
     if [ "$task_kind" = urgent ]; then
       printf 'Urgent fast path: Refs #%s; no parent spec\n' "$ticket_number"
     elif [ "$snapshot_target" -eq 1 ]; then
-      spec_number=$(printf '%s\n' "$commit_messages" |
-        sed -n 's/^Spec #\([0-9][0-9]*\)[[:space:]]*$/\1/p' |
-        tail -n 1)
-      [ -n "$spec_number" ] || fail "ticket commits must include a 'Spec #<number>' footer"
+      printf '%s\n' "$commit_messages" | grep -Eq "^Spec #${spec_number}[[:space:]]*$" ||
+        fail "ticket commits must include a 'Spec #$spec_number' footer"
       printf 'Traceability: Refs #%s; Spec #%s\n' "$ticket_number" "$spec_number"
     else
       printf 'Standalone Ticket: Refs #%s; no parent spec\n' "$ticket_number"
