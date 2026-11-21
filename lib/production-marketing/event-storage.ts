@@ -4,6 +4,7 @@ import { readProductionMarketingConfiguration } from "./config";
 import { parseProductionMarketingStatus } from "./status-contract";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingEvent,ProductionMarketingEventResult } from "./events";
+import type { NativeRestriction, NativeRestrictionResult } from "./native-restrictions";
 export function createProductionMarketingEventStorage(env:ProductionMarketingEnvironment) {
   async function rpc(name:string,args:Record<string,unknown>):Promise<unknown> {
     const config=readProductionMarketingConfiguration(env),controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
@@ -18,6 +19,13 @@ export function createProductionMarketingEventStorage(env:ProductionMarketingEnv
     }catch{throw new Error("Production marketing is unavailable.");}finally{clearTimeout(timer);controller.abort();}
   }
   return {
+    restrict: async (observation: NativeRestriction): Promise<NativeRestrictionResult> => {
+      const value = await rpc("record_native_welcome_restriction", observation);
+      if (value !== "applied" && value !== "held" && value !== "ignored" && value !== "duplicate") {
+        throw new Error("Production marketing is unavailable.");
+      }
+      return value;
+    },
     record:async(event:ProductionMarketingEvent):Promise<ProductionMarketingEventResult>=>{
       const value=await rpc("record_production_marketing_event",{p_event_id:event.eventId,p_message_id:event.messageId,p_provider_id:event.providerId,p_event_type:event.eventType,
         p_occurred_at:event.occurredAt,p_sender:event.sender,p_recipient:event.recipient,p_purpose:event.purpose,p_contract_version:event.contractVersion,p_environment:event.environment});

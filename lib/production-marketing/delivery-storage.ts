@@ -25,7 +25,7 @@ function intent(value:unknown):ProductionMarketingIntent|null {
     ||(value.envelope!==null&&!record(value.envelope)))throw invalid();
   return {...value,prepared:prepared(value.prepared,value.id as string),envelope:value.envelope as ProductionMarketingHeldEnvelope|null} as ProductionMarketingIntent;
 }
-export function createProductionMarketingDeliveryStorage(env:ProductionMarketingEnvironment):ProductionMarketingDeliveryStorage {
+export function createProductionMarketingDeliveryStorage(env:ProductionMarketingEnvironment): ProductionMarketingDeliveryStorage & { nativeAlerts(): Promise<{ uncertainAttempts: number; unresolvedHolds: number }> } {
   async function rpc(name:string,args:Record<string,unknown>,limit=150000):Promise<unknown> {
     const config=readProductionMarketingConfiguration(env),controller=new AbortController();
     let timer:ReturnType<typeof setTimeout>|undefined;
@@ -41,6 +41,14 @@ export function createProductionMarketingDeliveryStorage(env:ProductionMarketing
   }
   async function boolean(name:string,args:Record<string,unknown>) {const value=await rpc(name,args,128);if(typeof value!=="boolean")throw invalid();return value;}
   return {
+    async nativeAlerts() {
+      const value = await rpc("production_marketing_native_alerts", {}, 256);
+      if (!record(value) || Object.keys(value).length !== 2) throw invalid();
+      const { uncertainAttempts, unresolvedHolds } = value;
+      if (typeof uncertainAttempts !== "number" || !Number.isSafeInteger(uncertainAttempts) || uncertainAttempts < 0 ||
+          typeof unresolvedHolds !== "number" || !Number.isSafeInteger(unresolvedHolds) || unresolvedHolds < 0) throw invalid();
+      return { uncertainAttempts, unresolvedHolds };
+    },
     cleanup:async()=>{const value=await rpc("cleanup_production_marketing_delivery",{},128);if(typeof value!=="number"||!Number.isSafeInteger(value)||value<0)throw invalid();return value;},
     claim:async lease=>intent(await rpc("claim_production_marketing_message",{p_lease:lease})),
     prepare:async(id,lease,body,preferenceHash,contractHash)=>prepared(await rpc("prepare_production_marketing_message",{p_id:id,p_lease:lease,p_body:body,p_preference_hash:preferenceHash,p_contract_hash:contractHash}),id),

@@ -1,10 +1,25 @@
 import "server-only";
+import { createHmac } from "node:crypto";
+import { marketingSigningKey } from "./callback-config";
+import { nativeCallbackIdentity } from "./native-restrictions";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { readBoundedBody } from "@/lib/email/provider";
 import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "./config";
 import { confirmationWorkerQualification } from "./delivery-config";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingRequestStorage } from "./requests";
+
+/** A changed callback destination, signer or native contract pauses new admission until verified again. */
+export function productionSignupQualification(env: ProductionMarketingEnvironment) {
+  const worker = confirmationWorkerQualification(env);
+  const identity = nativeCallbackIdentity(env);
+  const signer = marketingSigningKey(env, true);
+  if (!identity) throw new Error("Production marketing is unavailable.");
+  const binding = createHmac("sha256", Buffer.from(worker.p_worker_binding_hash, "hex")).update(JSON.stringify([
+    "helix:production-marketing:signup:v2", identity.digest, identity.sender, identity.template, signer,
+  ])).digest("hex");
+  return { p_contract_hash: worker.p_contract_hash, p_worker_binding_hash: binding };
+}
 
 // Dedicated bounded RPC-only transport. Never constructs the sandbox admin client,
 // accepts a caller-selected URL, logs failures, or retries an ambiguous write.
@@ -34,7 +49,7 @@ export function createProductionMarketingStorage(env: ProductionMarketingEnviron
     if (!await productionMarketingEnrollmentEnabled(env)) {
       throw new Error("Production marketing is unavailable.");
     }
-    return confirmationWorkerQualification(env);
+    return productionSignupQualification(env);
   }
 
   async function enrollmentReady(): Promise<boolean> {

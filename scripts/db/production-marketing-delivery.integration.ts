@@ -7,8 +7,7 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { dispatchProductionMarketing } from "../../lib/production-marketing/worker";
 import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
-import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
-import { createProductionMarketingStorage } from "../../lib/production-marketing/storage";
+import { createProductionMarketingStorage, productionSignupQualification } from "../../lib/production-marketing/storage";
 import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
 import { productionMarketingTemplateHash } from "../../lib/production-marketing/templates";
 import { sealProductionMarketingCapabilities } from "../../lib/production-marketing/capabilities";
@@ -23,6 +22,8 @@ const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us
 const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic-project",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
   HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic-project",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
   HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"a".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",
+  HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:"whsec_"+Buffer.from("local-only-confirmation-webhook").toString("base64"),
+  HELIX_PRODUCTION_MARKETING_NATIVE_SENDER:"welcome@helixskin.us",HELIX_PRODUCTION_MARKETING_NATIVE_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222",HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256:"e".repeat(64),
   HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send-only",
   HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-separate-read",HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract)};
 const permitted=new Set(["production_marketing_enrollment_ready","request_qualified_production_marketing_subscription","confirm_production_marketing_subscription","withdraw_production_marketing_subscription",
@@ -59,7 +60,7 @@ const human=(action:string,body:unknown)=>new Request(`${origin}/api/marketing/p
 async function enroll(label:string){expect((await handleProductionMarketingRequest(human("subscription",{email:`${label}@example.invalid`,consent:true}),"subscription",{env,storage:requests})).status).toBe(202);}
 const message=(label:string,purpose="confirmation")=>JSON.parse(sql(`SELECT jsonb_build_object('id',m.id,'state',m.state,'body',m.body_text,'hash',m.body_hash,'providerId',m.provider_id,'reconciliation',m.reconciliation_required)
   FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id WHERE s.normalized_email=${literal(label+"@example.invalid")} AND m.purpose=${literal(purpose)};`)) as {id:string;state:string;body:string|null;hash:string|null;providerId:string|null;reconciliation:boolean};
-beforeEach(()=>{sends.length=0;rpcCalls=0;faultAfterRpc="";sendUncertain=false;nativeAllowed=true;vi.stubGlobal("fetch",transport);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${literal(confirmationWorkerQualification(env).p_worker_binding_hash)};`);});
+beforeEach(()=>{sends.length=0;rpcCalls=0;faultAfterRpc="";sendUncertain=false;nativeAllowed=true;vi.stubGlobal("fetch",transport);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${literal(productionSignupQualification(env).p_worker_binding_hash)};`);});
 afterEach(()=>{vi.useRealTimers();vi.unstubAllGlobals();});
 function seedAgedRequest(label:string) {
   const now=Date.now();
