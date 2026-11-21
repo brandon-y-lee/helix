@@ -25,6 +25,42 @@ CREATE FUNCTION public.test_prepare(p_id uuid,p_lease uuid) RETURNS jsonb LANGUA
   SELECT public.prepare_production_marketing_message(p_id,p_lease,public.test_delivery_body(p_id),encode(sha256(convert_to(public.test_delivery_token(p_id),'UTF8')),'hex'),
     (SELECT encode(sha256(convert_to(delivery_contract_text,'UTF8')),'hex') FROM private.production_marketing_controls));
 $$;
+CREATE FUNCTION public.test_reconfirm(p_id uuid,p_label text) RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE v_subscriber uuid; v_email text; v_preference text; v_result uuid; BEGIN
+  SELECT s.id,s.normalized_email,g.preference_hash INTO v_subscriber,v_email,v_preference
+    FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id
+    JOIN private.production_marketing_generations g ON g.subscriber_id=s.id AND g.generation=s.generation WHERE m.id=p_id;
+  PERFORM public.test_assert(public.withdraw_production_marketing_subscription(v_preference),'withdraw before fresh explicit consent');
+  PERFORM public.test_assert(public.request_production_marketing_subscription(' '||upper(v_email)||' ',md5(p_label||'c')||md5(p_label||'c'),
+    md5(p_label||'p')||md5(p_label||'p'),md5(p_label||'r')||md5(p_label||'r'),true,'production_welcome_v1',public.test_envelope()),'fresh explicit request');
+  PERFORM public.test_assert(public.confirm_production_marketing_subscription(md5(p_label||'c')||md5(p_label||'c')),'fresh explicit confirmation');
+  SELECT m.id INTO v_result FROM private.production_marketing_messages m JOIN private.production_marketing_subscribers s
+    ON s.id=m.subscriber_id AND s.generation=m.generation WHERE s.id=v_subscriber AND m.purpose='welcome';
+  RETURN v_result;
+END $$;
+-- Historical synthetic admissions are seeded directly because the real request
+-- API deliberately refuses backdating. The new generation still uses real RPCs.
+CREATE FUNCTION public.test_frequency_history(p_label text,p_latest_ages interval[],p_first_ages interval[] DEFAULT NULL) RETURNS uuid LANGUAGE plpgsql AS $$
+DECLARE v_subscriber uuid:=gen_random_uuid(); v_id uuid; v_result uuid; v_count integer:=cardinality(p_latest_ages);
+  v_first timestamptz; v_latest timestamptz; v_now timestamptz:=clock_timestamp(); BEGIN
+  INSERT INTO private.production_marketing_subscribers(id,normalized_email,generation,revision,state)
+    VALUES(v_subscriber,p_label||'@example.invalid',v_count,v_count*2+1,'withdrawn');
+  FOR i IN 1..v_count LOOP
+    v_id:=gen_random_uuid();v_latest:=v_now-p_latest_ages[i];v_first:=v_now-coalesce(p_first_ages[i],p_latest_ages[i]);
+    INSERT INTO private.production_marketing_generations(subscriber_id,generation,request_revision,wording_version,requested_at,expires_at,confirmation_hash,preference_hash)
+      VALUES(v_subscriber,i,i*2-1,'production_welcome_v1',v_first-interval '1 minute',v_first+interval '24 hours',
+        md5(p_label||i||'c')||md5(p_label||i||'c'),md5(p_label||i||'p')||md5(p_label||i||'p'));
+    INSERT INTO private.production_marketing_messages(id,subscriber_id,generation,revision,purpose,state,created_at,first_prepared_at,last_admitted_at,
+      payload_expires_at,body_hash,contract_hash,sender,recipient,idempotency_key)
+      VALUES(v_id,v_subscriber,i,i*2,'welcome',CASE i WHEN 1 THEN 'accepted' WHEN 2 THEN 'uncertain' ELSE 'cancelled' END,
+        v_first,v_first,v_latest,v_first+interval '24 hours',repeat('a',64),repeat('b',64),'news@helixskin.us',p_label||'@example.invalid','production-marketing/'||v_id);
+  END LOOP;
+  PERFORM public.test_assert(public.request_production_marketing_subscription(p_label||'@example.invalid',md5(p_label||'newc')||md5(p_label||'newc'),
+    md5(p_label||'newp')||md5(p_label||'newp'),md5(p_label||'newr')||md5(p_label||'newr'),true,'production_welcome_v1',public.test_envelope()),'fresh request after historical consent');
+  PERFORM public.test_assert(public.confirm_production_marketing_subscription(md5(p_label||'newc')||md5(p_label||'newc')),'explicit confirmation after historical consent');
+  SELECT id INTO v_result FROM private.production_marketing_messages WHERE subscriber_id=v_subscriber AND generation=v_count+1 AND purpose='welcome';
+  RETURN v_result;
+END $$;
 DO $$
 #variable_conflict use_variable
 DECLARE id uuid:=public.test_delivery('single'); lease uuid:=gen_random_uuid(); old_lease uuid; prepared jsonb; again jsonb; BEGIN
@@ -49,6 +85,50 @@ DECLARE id uuid:=public.test_delivery('single'); lease uuid:=gen_random_uuid(); 
   PERFORM public.test_assert(NOT public.finish_production_marketing_message(id,old_lease,'accepted',gen_random_uuid()),'stale worker cannot finish');
   PERFORM public.test_assert(public.finish_production_marketing_message(id,lease,'accepted',gen_random_uuid()),'acceptance recorded separately');
   PERFORM public.test_assert(public.claim_production_marketing_message(gen_random_uuid()) IS NULL,'accepted work never automatically repeats');
+END $$;
+DO $$
+#variable_conflict use_variable
+DECLARE first_id uuid:=public.test_delivery('frequency-day'); next_id uuid; lease uuid:=gen_random_uuid(); BEGIN
+  UPDATE private.production_marketing_messages SET lease_token=lease,lease_until=clock_timestamp()+interval '60 seconds' WHERE id=first_id;
+  PERFORM public.test_assert(public.test_prepare(first_id,lease) IS NOT NULL,'first promotion takes a frequency slot');
+  PERFORM public.test_assert(public.finish_production_marketing_message(first_id,lease,'uncertain',NULL),'uncertain outcome retains admission');
+  next_id:=public.test_reconfirm(first_id,'frequency-day-new');
+  UPDATE private.production_marketing_messages SET lease_token=lease,lease_until=clock_timestamp()+interval '60 seconds' WHERE id=next_id;
+  PERFORM public.test_assert(public.test_prepare(next_id,lease) IS NULL,'fresh consent generation cannot bypass rolling daily promotion cap');
+  PERFORM public.test_assert((SELECT state='held' AND body_text IS NULL AND first_prepared_at IS NULL FROM private.production_marketing_messages WHERE id=next_id),'capped welcome remains unfrozen and held');
+  PERFORM public.test_assert(NOT EXISTS(SELECT 1 FROM private.production_marketing_quota_reservations WHERE message_id=next_id),'frequency refusal does not consume budget');
+  UPDATE private.production_marketing_messages SET state='cancelled' WHERE id IN (first_id,next_id);
+END $$;
+DO $$
+#variable_conflict use_variable
+DECLARE blocked uuid:=public.test_frequency_history('frequency-week',ARRAY[interval '2 days',interval '4 days',interval '6 days']);
+  allowed uuid:=public.test_frequency_history('frequency-aged',ARRAY[interval '2 days',interval '4 days',interval '8 days']);
+  lease uuid:=gen_random_uuid(); confirmation uuid; body text; BEGIN
+  UPDATE private.production_marketing_messages SET lease_token=lease,lease_until=clock_timestamp()+interval '60 seconds' WHERE id IN (blocked,allowed);
+  PERFORM public.test_assert(public.test_prepare(blocked,lease) IS NULL,'three distinct promotions block the week even outside the daily window');
+  PERFORM public.test_assert(NOT EXISTS(SELECT 1 FROM private.production_marketing_quota_reservations WHERE message_id=blocked),'weekly refusal does not consume budget');
+  PERFORM public.test_assert(public.test_prepare(allowed,lease) IS NOT NULL,'erased history beyond seven days releases a slot without double-counting identities');
+  -- Confirmations neither consume nor wait for a promotional frequency slot.
+  PERFORM public.test_assert(public.withdraw_production_marketing_subscription(md5('frequency-weeknewp')||md5('frequency-weeknewp')),'withdraw capped generation');
+  PERFORM public.test_assert(public.request_production_marketing_subscription('frequency-week@example.invalid',md5('frequency-confirmc')||md5('frequency-confirmc'),
+    md5('frequency-confirmp')||md5('frequency-confirmp'),md5('frequency-confirmr')||md5('frequency-confirmr'),true,'production_welcome_v1',public.test_envelope()),'request confirmation while promotion capped');
+  UPDATE private.production_marketing_messages SET state='cancelled' WHERE purpose='welcome' AND first_prepared_at IS NULL;
+  confirmation:=(public.claim_production_marketing_message(lease)->>'id')::uuid;
+  body:=jsonb_set(public.test_delivery_body(confirmation)::jsonb,'{headers}','{}'::jsonb)::text;
+  PERFORM public.test_assert(public.prepare_production_marketing_message(confirmation,lease,body,NULL,
+    (SELECT encode(sha256(convert_to(delivery_contract_text,'UTF8')),'hex') FROM private.production_marketing_controls)) IS NOT NULL,'confirmation preparation ignores promotional cap');
+  UPDATE private.production_marketing_messages SET state='cancelled' WHERE id IN (blocked,allowed,confirmation);
+END $$;
+DO $$
+#variable_conflict use_variable
+DECLARE id uuid:=public.test_frequency_history('frequency-retry',ARRAY[interval '3 hours'],ARRAY[interval '25 hours']);
+  lease uuid:=gen_random_uuid(); BEGIN
+  UPDATE private.production_marketing_messages SET lease_token=lease,lease_until=clock_timestamp()+interval '60 seconds' WHERE private.production_marketing_messages.id=id;
+  PERFORM public.test_assert(public.test_prepare(id,lease) IS NULL,'a later retry handoff postpones a distinct promotion beyond its original 24-hour preparation window');
+  PERFORM public.test_assert((SELECT count(*)=1 FROM private.production_marketing_messages m
+    WHERE m.subscriber_id=(SELECT subscriber_id FROM private.production_marketing_messages WHERE private.production_marketing_messages.id=id)
+      AND m.first_prepared_at IS NOT NULL),'retry occupies one distinct promotion slot');
+  UPDATE private.production_marketing_messages SET state='cancelled' WHERE private.production_marketing_messages.id=id;
 END $$;
 DO $$
 #variable_conflict use_variable
