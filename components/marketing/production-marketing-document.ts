@@ -82,7 +82,7 @@ function script(view: LandingView, enabled: boolean): string {
       } else if (view === "confirm") {
         inform("Your welcome email consent is confirmed. Existing email opt-outs still apply. No email delivery is promised.", false, true);
       } else {
-        inform("If this link is valid, your marketing withdrawal has been recorded. Email already prepared for delivery may still arrive. Order, account, and support emails are unaffected.", false, true);
+        inform("If this link is valid, your marketing withdrawal has been recorded. A welcome email already in progress may still arrive. Order, account, and support emails are unaffected.", false, true);
       }
     } catch {
       if (current === generation) inform("Email preferences are temporarily unavailable. Please try again.", true, true);
@@ -104,7 +104,7 @@ export function productionMarketingLanding(view: LandingView, enabled = false, m
     ? "Choose whether to receive Helix welcome emails. Marketing permission is separate from an account or purchase."
     : confirmation
       ? "Opening this page does not confirm anything. Choose Confirm subscription to confirm welcome-only email consent."
-      : "You can withdraw marketing consent without signing in, even while new enrollment is paused. Order, account, and support emails are unaffected.";
+      : "You can withdraw marketing consent without signing in, even while new enrollment is paused. A welcome email already in progress may still arrive. Order, account, and support emails are unaffected.";
   const paused = !enabled && view !== "preferences" ? `<p>New email enrollment is paused. ${confirmation ? "Confirmation is also paused." : "No confirmation request can be submitted here."}</p>` : "";
   const fields = enrollment ? `<fieldset ${enabled ? "" : "disabled"}><label for="email">Email address</label><input id="email" name="email" type="email" autocomplete="email" maxlength="254" required><label class="choice" for="consent"><input id="consent" name="consent" type="checkbox" required><span>${PRODUCTION_MARKETING_WORDING}</span></label><p class="detail">Consent wording: ${PRODUCTION_MARKETING_WORDING_VERSION}</p></fieldset>` : "";
   const js = script(view, enabled);
