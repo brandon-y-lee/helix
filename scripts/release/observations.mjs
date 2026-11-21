@@ -92,6 +92,40 @@ async function boundedBytes(response, max) {
   }
 }
 
+/** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
+ *  expectedSettlementConfigured?: boolean, bypassToken?: string, fetchImpl?: typeof fetch }} options */
+export async function verifyClosedLiveCheckout({
+  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, bypassToken = "", fetchImpl = fetch,
+}) {
+  requireValue((origin === canonical || immutable.test(origin)) && /^dpl_[A-Za-z0-9]{1,96}$/.test(deploymentId) &&
+    /^[a-f0-9]{40}$/.test(sha) && typeof statusToken === "string" && allowedToken.test(statusToken) &&
+    (expectedSettlementConfigured === undefined || typeof expectedSettlementConfigured === "boolean"),
+    "untrusted Checkout diagnostic target");
+  const headers = { authorization: "Bearer " + statusToken };
+  if (origin !== canonical && bypassToken) headers["x-vercel-protection-bypass"] = bypassToken;
+  const response = await fetchImpl(origin + "/api/internal/release-status?checkout=1", {
+    method: "GET", headers, redirect: "manual", cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(10000),
+  });
+  try {
+    requireValue(response.status === 200 && response.headers.get("content-type")?.includes("application/json"),
+      "Checkout diagnostic unavailable");
+    const bytes = await boundedBytes(response, 4096);
+    let status;
+    try { status = JSON.parse(bytes.toString("utf8")); }
+    catch { throw new Error("Malformed Checkout diagnostic"); }
+    const checkout = status?.checkout;
+    requireValue(typeof checkout?.chargesEnabled === "boolean" && typeof checkout.payoutsEnabled === "boolean" &&
+      typeof checkout.settlementConfigured === "boolean", "invalid Checkout readiness observation");
+    const expected = { version: 2, deploymentId, sha, checkout: {
+      providerMode: "live", merchantVerified: true,
+      chargesEnabled: checkout.chargesEnabled, payoutsEnabled: checkout.payoutsEnabled,
+      settlementConfigured: expectedSettlementConfigured ?? checkout.settlementConfigured, admissionOpen: false,
+    } };
+    requireValue(isDeepStrictEqual(status, expected), "Checkout diagnostic differs from the closed live contract");
+    return expected;
+  } finally { if (!response.bodyUsed) await response.body?.cancel(); }
+}
+
 export async function verifyCanonicalRedirect({ fetchImpl = fetch } = {}) {
   const path = "/collections/shop?release_check=1";
   const resp = await fetchImpl(apex + path, { method: "HEAD", cache: "no-store", redirect: "manual",
