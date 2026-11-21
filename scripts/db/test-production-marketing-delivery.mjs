@@ -137,5 +137,49 @@ try {
     const eventOutput=execFileSync('pnpm',['exec','vitest','run','--config','scripts/db/production-marketing-events.config.ts'],{cwd:new URL('../../',import.meta.url),encoding:'utf8',stdio:['ignore','pipe','pipe'],env:{...process.env,HELIX_SYNTHETIC_MARKETING_EVENTS_CONTAINER:name}});
     assert.equal(/Tests\s+(\d+) passed/.exec(eventOutput)?.[1],'3','all three signed event/database adapter cases execute');
   }
-  console.log(JSON.stringify({readinessBrowser:readiness,viewports:readiness?['390x844','1440x1000']:[],eventsPackage:events,status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
+  // Check the actual request transaction in both lock orders, after the retained
+  // worker suites have finished. These identities belong only to this container.
+  sql("DELETE FROM private.production_marketing_request_limits WHERE kind='global';");
+  const contractDigest = "encode(sha256(convert_to(delivery_contract_text,'UTF8')),'hex')";
+  const qualifyEntry = `UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,
+    daily_limit=100,monthly_limit=1000,confirmation_worker_contract_hash=${contractDigest} WHERE singleton;`;
+  const pauseEntry = "UPDATE private.production_marketing_controls SET dispatch_enabled=false WHERE singleton;";
+  const oldDigest = sql(qualifyEntry + 'SELECT confirmation_worker_contract_hash FROM private.production_marketing_controls WHERE singleton;');
+  assert.match(oldDigest, /^[a-f0-9]{64}$/);
+  function entryRequest(label, digest) {
+    const args = `p_email=>'${label}@example.invalid',p_confirmation_hash=>repeat(md5('${label}-confirm'),2),
+      p_preference_hash=>repeat(md5('${label}-preference'),2),p_requester_hash=>repeat(md5('${label}-requester'),2),
+      p_explicit_consent=>true,p_wording_version=>'production_welcome_v1',p_delivery_payload=>public.test_envelope()`;
+    return digest === undefined ? `public.request_production_marketing_subscription(${args})`
+      : `public.request_qualified_production_marketing_subscription(p_contract_hash=>'${digest}',${args})`;
+  }
+  function expectEntryHeld(call) {
+    return `DO $$ BEGIN PERFORM ${call}; RAISE EXCEPTION 'Unqualified request returned normally';
+      EXCEPTION WHEN SQLSTATE '55000' THEN NULL; END $$;`;
+  }
+  const subscriberCount = label => sql(`SELECT count(*) FROM private.production_marketing_subscribers
+    WHERE normalized_email='${label}@example.invalid';`);
+  const pausedLabel = 'entry596-pause-first';
+  await race(pauseEntry, 'SET LOCAL ROLE service_role;' + expectEntryHeld(entryRequest(pausedLabel, oldDigest)));
+  assert.equal(subscriberCount(pausedLabel), '0', 'pause winner refuses enrollment after the lock clears');
+
+  sql(qualifyEntry);
+  const acceptedLabel = 'entry596-request-first';
+  const accepted = entryRequest(acceptedLabel, oldDigest);
+  await race(`SET LOCAL ROLE service_role; SELECT public.test_assert(${accepted},'qualified request entered');`, pauseEntry);
+  assert.equal(subscriberCount(acceptedLabel), '1', 'request winner commits exactly once before pause');
+  assert.equal(sql('SELECT dispatch_enabled FROM private.production_marketing_controls WHERE singleton;'), 'f');
+  sql(qualifyEntry);
+  sql(`SET ROLE service_role; SELECT ${accepted};`);
+  assert.equal(sql(`SELECT count(*) FROM private.production_marketing_confirmation_intents i
+    JOIN private.production_marketing_subscribers s ON s.id=i.subscriber_id
+    WHERE s.normalized_email='${acceptedLabel}@example.invalid';`), '1', 'ordinary duplicate creates no second intent');
+
+  sql("UPDATE private.production_marketing_controls SET delivery_contract_text=delivery_contract_text || ' ' WHERE singleton;");
+  sql(qualifyEntry);
+  const driftLabel = 'entry596-drift';
+  sql('SET ROLE service_role;' + expectEntryHeld(entryRequest(driftLabel, oldDigest)));
+  assert.equal(subscriberCount(driftLabel), '0', 'the former digest cannot enroll against a newly qualified contract');
+  assert.equal(sql(`SET ROLE service_role; SELECT ${entryRequest(driftLabel)};`), 't', 'the retained P1 caller remains compatible');
+  console.log(JSON.stringify({readinessBrowser:readiness,viewports:readiness?['390x844','1440x1000']:[],eventsPackage:events,status:'passed',postgresMajor:17,actualWorkerThroughPostgres:true,workerCases:Number(workerCases),rlsAndGrants:true,competingClaims:true,controlPauseOrdering:true,qualifiedEnrollmentBothOrders:true,staleEnrollmentContractRefused:true,withdrawalBothOrders:true,atomicQuota:true,utcRollover:true,payloadErasure:true,unknownDurableResultHold:true,externalProviderCalls:0}));
 }finally{if(owned){assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',name]).trim(),`production-marketing-${ticket}-synthetic`);docker(['rm','--force','--volumes',name]);}}

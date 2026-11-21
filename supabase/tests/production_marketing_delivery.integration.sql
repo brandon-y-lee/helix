@@ -2,6 +2,64 @@
 SELECT public.test_assert((SELECT count(*)=0 FROM private.production_marketing_messages),'P2 never backfills old confirmed subscribers');
 SELECT public.test_assert((SELECT NOT dispatch_enabled AND daily_limit=0 AND monthly_limit=0 AND delivery_contract_text IS NULL FROM private.production_marketing_controls),'new delivery configuration empty/off');
 SELECT public.test_assert(public.claim_production_marketing_message(gen_random_uuid()) IS NULL,'default-off claim');
+
+BEGIN READ ONLY;
+SET LOCAL ROLE service_role;
+SELECT public.test_assert(public.production_marketing_enrollment_ready(repeat('a',64)) IS FALSE,
+  'fresh delivery controls hold enrollment and permit a read-only service observation');
+COMMIT;
+
+BEGIN;
+DO $$
+DECLARE
+  contract text := '{"from":"synthetic@example.invalid"}';
+  digest text := encode(sha256(convert_to(contract,'UTF8')),'hex');
+  rpc regprocedure;
+BEGIN
+  FOREACH rpc IN ARRAY ARRAY[
+    'public.production_marketing_enrollment_ready(text)'::regprocedure,
+    'public.request_qualified_production_marketing_subscription(text,text,text,text,text,boolean,text,jsonb)'::regprocedure
+  ] LOOP
+    PERFORM public.test_assert(has_function_privilege('service_role',rpc,'EXECUTE')
+      AND NOT has_function_privilege('anon',rpc,'EXECUTE') AND NOT has_function_privilege('authenticated',rpc,'EXECUTE')
+      AND NOT EXISTS (SELECT FROM pg_proc p, LATERAL aclexplode(p.proacl) acl
+        WHERE p.oid=rpc AND acl.grantee NOT IN (p.proowner,'service_role'::regrole::oid)),
+      'qualified entry and readiness require the service role');
+  END LOOP;
+  PERFORM public.test_assert(NOT has_column_privilege('service_role','private.production_marketing_controls',
+    'confirmation_worker_contract_hash','UPDATE'), 'the runtime cannot qualify its own worker');
+
+  UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,
+    daily_limit=1,monthly_limit=2,delivery_contract_text=contract;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,
+    'enabled flags, quotas and the right contract are insufficient without operator qualification');
+  UPDATE private.production_marketing_controls SET confirmation_worker_contract_hash=repeat('a',64);
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(repeat('a',64)) IS FALSE,
+    'agreement between caller and operator cannot substitute for the actual stored contract bytes');
+  UPDATE private.production_marketing_controls SET confirmation_worker_contract_hash=digest;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS TRUE
+    AND public.production_marketing_enrollment_ready(repeat('a',64)) IS FALSE
+    AND public.production_marketing_enrollment_ready(NULL) IS FALSE,
+    'only the explicitly qualified contract is ready');
+
+  UPDATE private.production_marketing_controls SET delivery_contract_text=contract || ' ';
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE
+    AND public.production_marketing_enrollment_ready(encode(sha256(convert_to(contract || ' ','UTF8')),'hex')) IS FALSE,
+    'even equivalent JSON with different bytes requires qualification');
+  UPDATE private.production_marketing_controls SET delivery_contract_text=contract;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,
+    'returning to an earlier contract does not restore its previous qualification');
+  UPDATE private.production_marketing_controls SET confirmation_worker_contract_hash=digest,enrollment_enabled=false;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,'stored enrollment pause holds entry');
+  UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=false;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,'stored dispatch pause holds entry');
+  UPDATE private.production_marketing_controls SET dispatch_enabled=true,daily_limit=0;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,'zero daily allocation holds entry');
+  UPDATE private.production_marketing_controls SET daily_limit=1,monthly_limit=0;
+  PERFORM public.test_assert(public.production_marketing_enrollment_ready(digest) IS FALSE,'zero monthly allocation holds entry');
+END $$;
+ROLLBACK;
+
 UPDATE private.production_marketing_confirmation_intents SET state='cancelled',delivery_payload=NULL;
 DELETE FROM private.production_marketing_request_limits;
 UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,daily_limit=100,monthly_limit=1000,
