@@ -1,0 +1,23 @@
+# Production welcome frequency safeguard — candidate 2
+
+Goal source: Brandon's 2026-11-19 request to implement and activate each feature in separate threads; marketing delegation from parent thread 6afc553e-1ad0-8191-8470-c2d0b89fb033. Parent coordinates shared production release, approvals, provider routing and recipient sends. Source base fc0b76d44ab7eee653de47e1c0fac484d9256393.
+
+## Concrete release increment
+
+Before first production welcome activation, repair the default-off production delivery package so later fresh double-opt-in generations cannot bypass the existing selected promotional limits: one promotion per rolling 24 hours and three per rolling seven days per normalized address. This is a narrow consent/frequency safeguard for the welcome-only production source from Spec #538. It grants no lifecycle scope and changes no customer-facing wording or timing.
+
+At the existing public prepare RPC, under its existing address-before-message-before-quota locking boundary and before budget reservation or payload freezing, deny a first welcome preparation if any prior promotional message for that subscriber has a latest handoff admission in the last 24 hours, or three distinct logical promotions have latest handoff admissions in the last seven days. Use coalesce(last_admitted_at, first_prepared_at), matching the existing lifecycle handoff rule; the existing retry RPC refreshes last_admitted_at. Count prepared, accepted, uncertain and cancelled-after-preparation identities conservatively; retention erasure and reconfirmation never refund frequency. Subscriber identity is stable and unique by canonical normalized email. Confirmation messages do not consume or wait for a promotional slot. An already prepared logical retry keeps the same identity and does not consume another promotional slot, but its latest admission delays the next distinct promotion. A cap refusal leaves the message held for the existing defer/expiry behavior; never extend its expiry or bypass consent/native permission/suppression. All controls remain off by default. No new schema table or historical import.
+
+Add only an index supporting the bounded existing-message query if needed. This changes the uninstalled fresh manual delivery source package; it is not a hosted upgrade procedure. Verify actual installation state with the parent before any later production apply.
+
+## Test seam
+
+Extend the retained disposable PostgreSQL17 public request/confirm/prepare RPC seam from Spec #538 rather than mock database invariants. Prove fresh reconfirmation blocked by a recent prepared welcome, seven-day cap independent of daily cap, uncertain/cancelled prepared records count, retry identity not double charged and its latest admission delaying the next distinct promotion, aged slots reopen, confirmations remain possible, and preparation contention cannot exceed one slot. The contention case holds a first preparation open while a competing transaction attempts withdrawal, fresh enrollment, confirmation and preparation. Use only synthetic participants and the owned networkless database harness. Existing RLS, withdrawal ordering, provider uncertainty, quotas and erasure tests remain.
+
+Run focused database proof first, then lint/typecheck/complete unit suite once. Existing actual-worker readiness harness composes renderer/provider/events with synthetic HTTP; no provider call or hosted write. Required remote Ticket/Integration gates and independent committed-code review still apply before integration.
+
+## Delivery boundary
+
+One normal standalone narrow Ticket and direct-to-dev branch under the repository's standalone path; no urgent exception or multi-Ticket lifecycle Spec. Independent committed-code review and integration-gate are required; ticket-gate is for Spec Branch delivery. Necessary issue/PR publication and development branch delivery are within the user-requested implementation goal, subject to tool approval. Parent owns dev-to-main release and activation. No production source promotion, migration installation, flags, credentials, scheduler, provider change, data retention policy change, real recipient action, discount or payment activation in this increment. Exact sender/reply/postal/Topic, marketing quota and cleanup/scheduler cadence remain parent-coordinated decisions, never fabricated here.
+
+Next independent milestone after this safeguard: new reviewed default-off production lifecycle consent and authenticated no-offer browse admission, preserving old welcome generations. Cart/review and offers await separately qualified redemption and authoritative delivery/payment evidence.
