@@ -84,8 +84,8 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("canonical live Stripe webhook", () => {
-  it("settles a signed live Session under the same merchant and lease, without exposing its identifiers", async () => {
-    const response = await POST(request());
+  it.each(["2026-06-24.dahlia", "2026-08-26.dahlia"])("settles a signed %s live Session under the same merchant and lease", async (version) => {
+    const response = await POST(request({ ...snapshot(), api_version: version }));
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.text()).not.toContain("cs_live");
@@ -101,13 +101,24 @@ describe("canonical live Stripe webhook", () => {
       p_lease_id: claim[1].p_lease_id, p_outcome: "processed", p_code: null }]);
   });
 
-  it.each(["host", "deployment", "signer", "changed body", "test mode", "foreign account", "api version", "test object"] as const)(
+  it("acknowledges the same live event across destination versions with a single settlement", async () => {
+    expect((await POST(request())).status).toBe(200);
+    mocks.rpc.mockResolvedValueOnce({ data: "processed", error: null });
+    expect((await POST(request({ ...snapshot(), api_version: "2026-08-26.dahlia" }))).status).toBe(200);
+    const claims = mocks.rpc.mock.calls.filter(([name]) => name === "claim_business_stripe_event");
+    expect(claims).toHaveLength(2);
+    for (const [, claim] of claims) {
+      expect(claim).toMatchObject({ p_account_id: accountId, p_environment: "live", p_event_id: "evt_OrderEvent" });
+    }
+    expect(mocks.session).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["host", "deployment", "signer", "changed body", "test mode", "foreign account", "test object"] as const)(
     "refuses %s before provider or storage effects", async (failure) => {
-      const event = snapshot();
+      const event = { ...snapshot(), api_version: "2026-08-26.dahlia" };
       if (failure === "deployment") mocks.deployment.mockResolvedValue(false);
       if (failure === "test mode") event.livemode = false;
       if (failure === "foreign account") Object.assign(event, { account: "acct_Other" });
-      if (failure === "api version") event.api_version = "2020-01-01";
       if (failure === "test object") event.data.object.id = "cs_test_WrongMode";
       const response = await POST(request(event, {
         origin: failure === "host" ? "https://helixskin.vercel.app" : canonical,
@@ -117,6 +128,15 @@ describe("canonical live Stripe webhook", () => {
       expect(mocks.merchant).not.toHaveBeenCalled();
       expect(mocks.rpc).not.toHaveBeenCalled();
       expect(mocks.sandbox).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, "2020-01-01", "2026-07-29.dahlia", "2026-08-26.dahlia.preview"])(
+    "rejects an unrecognized live snapshot version %s before reconciling", async (api_version) => {
+      const event = Object.assign(snapshot(), { api_version });
+      expect((await POST(request(event))).status).toBeGreaterThanOrEqual(400);
+      expect(mocks.merchant).not.toHaveBeenCalled();
+      expect(mocks.rpc).not.toHaveBeenCalled();
     },
   );
 
@@ -278,9 +298,10 @@ describe("business sandbox receiver on the development child", () => {
     expect(mocks.rpc.mock.calls[0][1]).toMatchObject({ p_account_id: businessSandboxAccount, p_environment: "business_sandbox" });
     expect(mocks.sandbox).not.toHaveBeenCalled();
   });
-  it.each(["live signer", "legacy signer", "wrong branch", "storefront", "live object", "different issuer"])(
+  it.each(["live signer", "legacy signer", "wrong branch", "storefront", "live object", "different issuer", "live-only API version"])(
     "rejects %s before Stripe or DB access", async failure => {
       const event = sandboxEvent("checkout.session.completed");
+      if (failure === "live-only API version") event.api_version = "2026-08-26.dahlia";
       if (failure === "live object") event.data.object.id = "cs_live_Session";
       if (failure === "different issuer") Object.assign(event, { account: accountId });
       if (failure === "wrong branch") mocks.sandboxDeployment.mockReturnValue(false);

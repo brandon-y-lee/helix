@@ -16,7 +16,8 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 
 function objectReference(event: Stripe.Event, { accountId, environment }: BusinessStripeBinding) {
   const live = environment === "live";
-  if (event.object !== "event" || event.livemode !== live || event.api_version !== STRIPE_API_VERSION ||
+  const supportedVersion = event.api_version === STRIPE_API_VERSION || (live && event.api_version === "2026-08-26.dahlia");
+  if (event.object !== "event" || event.livemode !== live || !supportedVersion ||
       !/^evt_[A-Za-z0-9_]{1,200}$/.test(event.id) ||
       (event.account != null && event.account !== accountId) || (event.context != null && event.context !== accountId)) {
     throw new Error("Unsupported Stripe event.");

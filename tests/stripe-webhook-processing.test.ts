@@ -92,6 +92,7 @@ describe("synchronous webhook completion", () => {
     storage();
     await expect(processStripeWebhookEvent({ ...event, livemode: true })).rejects.toThrow();
     await expect(processStripeWebhookEvent({ ...event, api_version: "2020-01-01" } as Stripe.Event)).rejects.toThrow();
+    await expect(processStripeWebhookEvent({ ...event, api_version: "2026-08-26.dahlia" } as Stripe.Event)).rejects.toThrow();
     expect(boundary.from).not.toHaveBeenCalled();
   });
 });
