@@ -2,40 +2,12 @@ name: Forward database migrations
 
 on:
   push:
-    branches: [dev]
-  workflow_call:
-    secrets:
-      HELIX_MIGRATION_TARGET:
-        required: true
-      HELIX_MIGRATION_PASSWORD:
-        required: true
-      HELIX_MIGRATION_CA:
-        required: true
-    inputs:
-      expected_main_sha:
-        description: Reviewed main commit whose Production build has been staged
-        required: true
-        type: string
-      release_admission:
-        description: Exact registry-admitted release identity and evidence expiry
-        required: true
-        type: string
-      release_admission_sha256:
-        description: Digest from the protected registry admission job
-        required: true
-        type: string
-    outputs:
-      applied_sha:
-        description: Commit whose expected database contracts were verified
-        value: ${{ jobs.migrate.outputs.applied_sha }}
+    branches: [dev, main]
 
 permissions: {}
 
 jobs:
   admit:
-    # Dev starts automatically after the environment has been qualified. Production
-    # is called by the staged release workflow and must fail if it is unqualified.
-    if: github.repository == 'brandon-y-lee/helix' && (inputs.expected_main_sha != '' || (github.ref == 'refs/heads/dev' && vars.HELIX_DEV_MIGRATIONS_ENABLED == 'true'))
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -48,22 +20,24 @@ jobs:
         name: Verify ref and environment restrictions before requesting credentials
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          PUSH_SHA: ${{ github.event.after }}
+          DEVELOPMENT_ENABLED: ${{ vars.HELIX_DEV_MIGRATIONS_ENABLED }}
           PRODUCTION_ENABLED: ${{ vars.HELIX_PRODUCTION_MIGRATIONS_ENABLED }}
         shell: bash
         run: |
           set -euo pipefail
           reject() { echo "::error::$1"; exit 1; }
-          [[ "$GITHUB_REF_PROTECTED" == true ]] || reject 'The release ref must be protected.'
-          if [[ -n "$EXPECTED_MAIN_SHA" ]]; then
-            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]] || reject 'Production requires the staged release workflow.'
-            [[ "$GITHUB_REF" == refs/heads/main && "$EXPECTED_MAIN_SHA" == "$GITHUB_SHA" ]] || reject 'The requested main commit does not match this run.'
-            [[ "$PRODUCTION_ENABLED" == true ]] || reject 'The production database writer has not been enabled.'
-            target=production
-          else
-            [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/dev ]] || reject 'Development requires a push to dev.'
-            target=development
-          fi
+          [[ "$GITHUB_REPOSITORY" == brandon-y-lee/helix && "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_PROTECTED" == true ]] || reject 'A protected push to the Helix repository is required.'
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ && "$PUSH_SHA" == "$GITHUB_SHA" && "$GITHUB_REF" == "refs/heads/$GITHUB_REF_NAME" ]] || reject 'The selected source does not match this push.'
+          case "$GITHUB_REF_NAME" in
+            main)
+              [[ "$PRODUCTION_ENABLED" == true ]] || reject 'The production database writer has not been enabled.'
+              target=production ;;
+            dev)
+              [[ "$DEVELOPMENT_ENABLED" == true ]] || reject 'The development database writer has not been enabled.'
+              target=development ;;
+            *) reject 'Unsupported database release branch.' ;;
+          esac
           environment="helix-db-$target"
           path="repos/$GITHUB_REPOSITORY/environments/$environment"
           gh api "$path" | jq -e --arg name "$environment" '
@@ -128,8 +102,8 @@ jobs:
         id: apply
         env:
           TARGET: ${{ needs.admit.outputs.target }}
-          HELIX_RELEASE_ADMISSION: ${{ inputs.release_admission }}
-          HELIX_RELEASE_ADMISSION_SHA256: ${{ inputs.release_admission_sha256 }}
+          GH_TOKEN: ${{ github.token }}
+          PUSH_SHA: ${{ github.event.after }}
           HELIX_MIGRATION_TARGET: ${{ secrets.HELIX_MIGRATION_TARGET }}
           HELIX_MIGRATION_PASSWORD: ${{ secrets.HELIX_MIGRATION_PASSWORD }}
           HELIX_MIGRATION_CA: ${{ secrets.HELIX_MIGRATION_CA }}

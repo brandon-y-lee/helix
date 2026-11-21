@@ -421,18 +421,19 @@ $migration$`,
     CREATE SEQUENCE public.admission_attempts;
     GRANT USAGE ON SEQUENCE public.admission_attempts TO ${writerRole}`);
   const production = { ...target, environment: 'production' };
-  const expiry = Date.parse('2031-01-01T00:01:00.000Z');
-  function receipt(deadline) {
-    const expectedSha = 'a'.repeat(40);
-    const raw = JSON.stringify({ version: 1, operation: 'verify', candidateSha: expectedSha,
-      contextSha256: 'b'.repeat(64), packetSha256: 'c'.repeat(64), expiresAt: new Date(deadline).toISOString() });
-    return { raw, digest: createHash('sha256').update(raw).digest('hex'), expectedSha };
+  const originalPush = 'a'.repeat(40);
+  const nextPush = 'b'.repeat(40);
+  function sourceCheck(pushSha, readHead) {
+    return async () => assert.equal(await readHead(), pushSha, 'Protected main advanced');
   }
-  const admission = receipt(expiry);
-  const beforeExpiryChecks = (await control.query(historyQuery)).rows[0];
-  let clock = expiry - 1;
+  const beforeHeadChange = (await control.query(historyQuery)).rows[0];
+  await assert.rejects(apply(completeRelease, { target: production }), /Production requires current push verification/);
+  let branchHead = originalPush;
+  const originalSource = sourceCheck(originalPush, () => branchHead);
   await control.query('SELECT pg_advisory_lock(2107275624,561)');
-  const waiting = apply(completeRelease, { target: production, client: secondClient, admission, now: () => clock });
+  const waiting = apply(completeRelease, {
+    target: production, client: secondClient, assertCurrentSource: originalSource,
+  });
   try {
     await Promise.race([
       until(async () => (await control.query(
@@ -441,31 +442,41 @@ $migration$`,
       )).rows[0].waiting, 'Production writer never waited for the release lock'),
       waiting.then(() => assert.fail('Production writer finished while the lock was held')),
     ]);
-    clock = expiry;
+    branchHead = nextPush;
   } finally {
     await control.query('SELECT pg_advisory_unlock(2107275624,561)');
   }
-  await assert.rejects(waiting, /expired/i);
-  assert.deepEqual((await control.query(historyQuery)).rows[0], beforeExpiryChecks);
+  await assert.rejects(waiting, /Protected main advanced/);
+  assert.deepEqual((await control.query(historyQuery)).rows[0], beforeHeadChange);
   assert.equal((await control.query('SELECT is_called FROM public.admission_attempts')).rows[0].is_called, false);
 
-  // Drive time from an independent reader of the real CLI ledger. The receipt
-  // expires precisely when the first forward transaction becomes durable.
-  const afterFirstCommit = () => docker(['exec', containerId, 'psql', '-XAtq', '-U', 'postgres', '-c',
-    "SELECT EXISTS(SELECT FROM supabase_migrations.schema_migrations WHERE version='20300101000005')",
-  ]) === 't' ? expiry : expiry - 1;
-  await assert.rejects(apply(completeRelease, { target: production, admission, now: afterFirstCommit }), /expired/i);
+  // Advance the simulated protected branch only when an independent connection
+  // can see the CLI's first commit. The old push must leave the next version pending.
+  const afterFirstCommit = sourceCheck(originalPush, async () => {
+    const result = await control.query(
+      "SELECT EXISTS(SELECT FROM supabase_migrations.schema_migrations WHERE version='20300101000005') AS committed",
+    );
+    return result.rows[0].committed ? nextPush : originalPush;
+  });
+  await assert.rejects(
+    apply(completeRelease, { target: production, assertCurrentSource: afterFirstCommit }), /Protected main advanced/,
+  );
   const committed = (await control.query(historyQuery)).rows[0];
-  assert.deepEqual(committed.forward.slice(0, -1), beforeExpiryChecks.forward);
+  assert.deepEqual(committed.forward.slice(0, -1), beforeHeadChange.forward);
   assert.equal(committed.forward.at(-1).version, '20300101000005');
-  assert.equal(committed.legacy_digest, beforeExpiryChecks.legacy_digest);
+  assert.equal(committed.legacy_digest, beforeHeadChange.legacy_digest);
   assert.deepEqual((await control.query(`SELECT last_value::int AS attempts, is_called,
     to_regclass('public.first_admitted') IS NOT NULL AS first, to_regclass('public.second_admitted') IS NULL AS second_pending
     FROM public.admission_attempts`)).rows, [{ attempts: 1, is_called: true, first: true, second_pending: true }]);
-  const renewed = { target: production, admission: receipt(expiry + 60_000), now: () => expiry };
-  assert.deepEqual((await apply(completeRelease, { ...renewed, apply: false })).pending, [stepTwo.file]);
-  assert.deepEqual((await apply(completeRelease, renewed)).applied, [stepTwo.file]);
-  assert.deepEqual((await apply(completeRelease, renewed)).applied, []);
+  const currentPush = { target: production, assertCurrentSource: sourceCheck(nextPush, () => branchHead) };
+  assert.deepEqual((await apply(completeRelease, { ...currentPush, apply: false })).pending, [stepTwo.file]);
+  assert.deepEqual((await apply(completeRelease, currentPush)).applied, [stepTwo.file]);
+  assert.deepEqual(await apply(completeRelease, currentPush), { pending: [], applied: [] });
+  await assert.rejects(
+    apply(completeRelease, { target: production, assertCurrentSource: originalSource }), /Protected main advanced/,
+  );
+  const attempts = await control.query('SELECT last_value::int AS attempts FROM public.admission_attempts');
+  assert.deepEqual(attempts.rows, [{ attempts: 2 }]);
   await control.query("UPDATE private.helix_environment SET environment='development'");
 
   await control.query('DROP INDEX public.catalog_order');
@@ -476,7 +487,7 @@ $migration$`,
   );
   await assert.rejects(apply(completeRelease), /Applied migration content drift/);
   console.log(
-    'Forward migration PostgreSQL/CLI checks passed (apply, dry run, retry, wrong target, history drift, partial failure, interrupted DDL, DO ledger, concurrency, separated writer/app permissions, successor preflight, source and verifier immutability, replay).',
+    'Forward migration PostgreSQL/CLI checks passed (apply, dry run, retry, wrong target, history drift, partial failure, interrupted DDL, DO ledger, concurrency, separated writer/app permissions, successor preflight, source and verifier immutability, stale protected push, replay).',
   );
 } finally {
   await Promise.allSettled(clients.map((client) => client.end()));
