@@ -103,8 +103,8 @@ export const footerStatusModules = {
   },
   checkout: {
     label: "Checkout methods",
-    status: "Stripe sandbox only — no live payments",
-    methods: ["Card", "Wallet", "Bank"],
+    linkLabel: "Payment options and availability",
+    href: "/checkout",
   },
   locale: "EN · USD display only",
 };

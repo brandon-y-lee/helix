@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { validateObservations, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
-import { searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
+import { validateObservations, verifyClosedLiveCheckout, verifyLiveCheckout, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
+import { observeProduction, searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
 import example from "../scripts/release/catalog-observations.example.json";
 
 describe("Catalog release observations", () => {
@@ -21,6 +21,17 @@ describe("Catalog release observations", () => {
       { HELIX_RELEASE_STATUS_TOKEN: "a".repeat(48) }, observe);
     expect(result.status).toBe(404);
     expect(observe).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["CHECKOUT_MODE", "live"],
+    ["HELIX_STRIPE_LIVE_SECRET_KEY", "incomplete"],
+    ["HELIX_STRIPE_LIVE_ACCOUNT_ID", "incomplete"],
+    ["HELIX_STRIPE_LIVE_WEBHOOK_SECRET", "incomplete"],
+  ])("rejects a live %s in the historical sandbox observation", async (key, value) => {
+    vi.stubEnv(key, value);
+    try { await expect(observeProduction("super-serum")).rejects.toThrow("Invalid payment mode for Catalog observation"); }
+    finally { vi.unstubAllEnvs(); }
   });
 
   it("refuses to send private release credentials to another origin", async () => {
@@ -42,6 +53,151 @@ const catalogEnv: NodeJS.ProcessEnv = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: publicKey,
   HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update(publicKey).digest("hex"),
 };
+const closedCheckout = {
+  providerMode: "live", merchantVerified: true, chargesEnabled: false, payoutsEnabled: false,
+  settlementConfigured: true, admissionOpen: false,
+} as const;
+
+describe("authenticated closed live Checkout observation", () => {
+  const env = {
+    ...catalogEnv, VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_N9nyPL9SixJHOROIovS8PDQ9aKny",
+    VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_COMMIT_SHA: candidate.sha, VERCEL_DEPLOYMENT_ID: candidate.id,
+    VERCEL_URL: new URL(candidate.url).hostname, CHECKOUT_MODE: "live",
+    NEXT_PUBLIC_SITE_URL: canonical, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+    HELIX_RELEASE_STATUS_TOKEN: statusToken,
+  };
+  const request = (url: string, token = statusToken) =>
+    new Request(url, { headers: { authorization: "Bearer " + token } });
+  const path = "/api/internal/release-status?checkout=1";
+  const vercelToken = "synthetic-provider-lookup";
+  const args = { origin: candidate.url, deploymentId: candidate.id, sha: candidate.sha, statusToken, bypassToken, vercelToken };
+  const deployment = {
+    id: candidate.id, url: new URL(candidate.url).hostname, projectId: env.VERCEL_PROJECT_ID,
+    ownerId: "team_uriJjJWNwpZnZHnIp5AiXuv0", target: "production", source: "git", readyState: "READY",
+    gitSource: { type: "github", repoId: "1280166759", ref: "main", sha: candidate.sha },
+  };
+  const metadata = vi.fn<typeof fetch>();
+  beforeEach(() => {
+    metadata.mockReset().mockImplementation(async () => Response.json(deployment));
+    vi.stubGlobal("fetch", metadata);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    { target: "preview" },
+    { url: "helix-otherbuild-brandons-projects-5060bad5.vercel.app" },
+    { id: "dpl_other" },
+    { gitSource: { ...deployment.gitSource, sha: "b".repeat(40) } },
+    { gitSource: { ...deployment.gitSource, ref: "dev" } },
+    { projectId: "prj_other" },
+    { ownerId: "team_other" },
+  ])("withholds application credentials when immutable Vercel metadata differs %j", async mismatch => {
+    metadata.mockResolvedValueOnce(Response.json({ ...deployment, ...mismatch }));
+    const appFetch = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout: closedCheckout,
+    }));
+    await expect(verifyClosedLiveCheckout({ ...args, fetchImpl: appFetch })).rejects.toThrow();
+    expect(appFetch).not.toHaveBeenCalled();
+  });
+
+  it("withholds application credentials if the independent lookup is unavailable", async () => {
+    const appFetch = vi.fn<typeof fetch>();
+    await expect(verifyClosedLiveCheckout({ ...args, vercelToken: "", fetchImpl: appFetch })).rejects.toThrow();
+    expect(metadata).not.toHaveBeenCalled();
+    metadata.mockResolvedValueOnce(new Response(null, { status: 401 }));
+    await expect(verifyClosedLiveCheckout({ ...args, fetchImpl: appFetch })).rejects.toThrow();
+    expect(appFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])("binds the verified merchant, settlementConfigured=%s and closed admission to the build", async settlementConfigured => {
+    const catalog = vi.fn();
+    const checkout = { ...closedCheckout, settlementConfigured, chargesEnabled: settlementConfigured, payoutsEnabled: !settlementConfigured };
+    const provider = vi.fn().mockResolvedValue({ ...checkout, privateDetail: "hidden" });
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      serveReleaseStatus(new Request(url, init), env, catalog, provider));
+    const result = await verifyClosedLiveCheckout({ ...args, fetchImpl });
+    expect(result).toEqual({ version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout });
+    expect(catalog).not.toHaveBeenCalled();
+    expect(provider).toHaveBeenCalledOnce();
+    expect(metadata).toHaveBeenCalledOnce();
+    const [lookup, lookupInit] = metadata.mock.calls[0];
+    expect(String(lookup)).toBe("https://api.vercel.com/v13/deployments/dpl_candidate?withGitRepoInfo=true&teamId=team_uriJjJWNwpZnZHnIp5AiXuv0");
+    expect(lookupInit).toMatchObject({ method: "GET", redirect: "error" });
+    expect(new Headers(lookupInit?.headers).get("authorization")).toBe("Bearer " + vercelToken);
+    expect(new Headers(lookupInit?.headers).has("x-vercel-protection-bypass")).toBe(false);
+    expect(fetchImpl.mock.calls[0][0]).toBe(candidate.url + path);
+    const init = fetchImpl.mock.calls[0][1];
+    expect(new Headers(init?.headers).get("x-vercel-protection-bypass")).toBe(bypassToken);
+    expect(init).toMatchObject({ method: "GET", redirect: "manual", credentials: "omit" });
+  });
+
+  it("rejects the wrong token, origin or query before any observer runs", async () => {
+    const observer = vi.fn();
+    for (const invalid of [
+      request(canonical + path, "wrong"), request("https://untrusted.example" + path),
+      request(canonical + path + "&product=super-serum"), request(canonical + path + "&checkout=1"),
+      request(canonical + "/api/internal/release-status?checkout=2"),
+    ]) {
+      expect((await serveReleaseStatus(invalid, env, observer, observer)).status).toBe(404);
+    }
+    expect(observer).not.toHaveBeenCalled();
+  });
+
+  it("sends only the release reader credential to the canonical application", async () => {
+    const provider = vi.fn().mockResolvedValue(closedCheckout);
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) =>
+      serveReleaseStatus(new Request(url, init), env, vi.fn(), provider));
+    await verifyClosedLiveCheckout({ ...args, origin: canonical, expectedSettlementConfigured: true, fetchImpl });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(canonical + path);
+    expect(metadata).not.toHaveBeenCalled();
+    expect(Object.fromEntries(new Headers(init?.headers))).toEqual({ authorization: "Bearer " + statusToken });
+  });
+
+  it("qualifies open admission only with the expected merchant capabilities and enrolled signer", async () => {
+    const checkout = { ...closedCheckout, chargesEnabled: true, payoutsEnabled: true, admissionOpen: true };
+    const status = { version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout };
+    const fetchImpl = vi.fn().mockResolvedValueOnce(Response.json(status));
+    await expect(verifyLiveCheckout({ ...args, origin: canonical, expectedAdmissionOpen: true, fetchImpl })).resolves.toEqual(status);
+    for (const field of ["chargesEnabled", "payoutsEnabled", "settlementConfigured"]) {
+      fetchImpl.mockResolvedValueOnce(Response.json({ ...status, checkout: { ...checkout, [field]: false } }));
+      await expect(verifyLiveCheckout({ ...args, origin: canonical, expectedAdmissionOpen: true, fetchImpl })).rejects.toThrow();
+    }
+  });
+
+  it("returns an empty failure on the wrong deployment or failed merchant qualification", async () => {
+    const provider = vi.fn().mockRejectedValue(new Error("private provider error"));
+    const invalidEnv = { ...env, VERCEL_ENV: "preview" };
+    const req = request(canonical + path);
+    expect((await serveReleaseStatus(req, invalidEnv, vi.fn(), provider)).status).toBe(503);
+    expect(provider).not.toHaveBeenCalled();
+    const result = await serveReleaseStatus(req, env, vi.fn(), provider);
+    expect(result.status).toBe(503);
+    expect(await result.text()).toBe("");
+    expect(result.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("refuses unrelated hosts and rejects a changed build, open admission, extra fields or oversized data", async () => {
+    const observations = { version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout: closedCheckout };
+    const fetchImpl = vi.fn();
+    await expect(verifyClosedLiveCheckout({ ...args, origin: "https://untrusted.example", fetchImpl })).rejects.toThrow();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    for (const invalid of [
+      { ...observations, sha: "b".repeat(40) },
+      { ...observations, checkout: { ...closedCheckout, admissionOpen: true } },
+      { ...observations, checkout: { ...closedCheckout, settlementConfigured: "false" } },
+      { ...observations, checkout: { ...closedCheckout, chargesEnabled: null } },
+      { ...observations, checkout: { ...closedCheckout, payoutsEnabled: "false" } },
+      { ...observations, checkout: { ...closedCheckout, extra: "undisclosed" } },
+      { ...observations, extra: "x".repeat(9000) },
+    ]) {
+      fetchImpl.mockResolvedValueOnce(Response.json(invalid));
+      await expect(verifyClosedLiveCheckout({ ...args, fetchImpl })).rejects.toThrow();
+    }
+    fetchImpl.mockResolvedValueOnce(Response.json({ ...observations, checkout: { ...closedCheckout, settlementConfigured: false } }));
+    await expect(verifyClosedLiveCheckout({ ...args, fetchImpl, expectedSettlementConfigured: true })).rejects.toThrow();
+  });
+});
 const publicRows = [
   {slug:"peptide-eye-cream",sort_order:2,product_family_memberships:[]},
   {slug:"super-serum",sort_order:2,product_family_memberships:[{is_entry:true}]},

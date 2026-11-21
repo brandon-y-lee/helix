@@ -29,7 +29,6 @@ import { usePhoneLayout } from "@/components/overlays/usePhoneLayout";
 import { useProductPurchase } from "@/components/cart/useProductPurchase";
 import { routineDisplayLabelForProduct } from "@/lib/catalog/product-routine";
 import { cartMediaSnapshot } from "@/lib/cart/media";
-import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
 import type {
   OfferAvailability,
   ProductCard as ProductCardModel,
@@ -590,9 +589,6 @@ export function ProductCard({
       )}
 
       <div className="product-card__quick-footer">
-        {canBuy && (
-          <p className="checkout-panel__notice">{SANDBOX_CHECKOUT_NOTICE}</p>
-        )}
         {addError && (
           <p className="product-card__quick-error" role="alert">{addError}</p>
         )}

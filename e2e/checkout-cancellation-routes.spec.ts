@@ -42,7 +42,7 @@ test("the Cart return refreshes Points only after verified cancellation", async 
   // A generic GET/query parameter must never authorize a payment mutation.
   await page.waitForLoadState("networkidle");
   expect(cancellationRequests).toEqual([]);
-  await expect(page.getByText("Sandbox checkout was cancelled.")).toHaveCount(0);
+  await expect(page.getByText("Checkout was cancelled.")).toHaveCount(0);
   const pointsBalance = page.locator("#content .summary-row").filter({ hasText: "Available Points Balance" });
   await expect(pointsBalance).toHaveText("Available Points Balance0");
   await expect(page.getByRole("button", { name: `Checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
@@ -57,12 +57,12 @@ test("the Cart return refreshes Points only after verified cancellation", async 
 
   await cancelButton.click();
   await expect(page).toHaveURL(/\/cart\?checkout=cancelled$/);
-  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Checkout was cancelled." })).toBeVisible();
   await expect(cancelButton).toBeDisabled();
   await expect(pointsBalance).toHaveText(`Available Points Balance${tier.points}`);
   await expect(page.getByRole("radio", { name: `${tier.label} (${tier.points} Points)` })).toBeVisible();
   await expect(page.getByRole("button", { name: `Checkout ${formatPrice(cart.subtotal)}` })).toBeEnabled();
-  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Checkout was cancelled." })).toBeVisible();
   expect(cancellationRequests).toEqual(["POST", "POST", "POST"]);
   await expect(page).toHaveTitle("Cart | helix");
 });

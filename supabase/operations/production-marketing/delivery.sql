@@ -2,8 +2,48 @@ BEGIN;
 -- Manual package for the new production store. No hosted installation or scheduler.
 ALTER TABLE private.production_marketing_controls
   ADD COLUMN delivery_contract_text text CHECK(octet_length(delivery_contract_text)<=4096),
+  ADD COLUMN confirmation_worker_binding_hash text CHECK(confirmation_worker_binding_hash ~ '^[a-f0-9]{64}$'),
   ADD COLUMN daily_limit integer NOT NULL DEFAULT 0 CHECK(daily_limit BETWEEN 0 AND 100000),
   ADD COLUMN monthly_limit integer NOT NULL DEFAULT 0 CHECK(monthly_limit BETWEEN 0 AND 1000000);
+
+-- The operator records the HMAC of the qualified worker's credentials, target and content contract.
+-- A contract edit must not carry that qualification forward, even on rollback.
+CREATE FUNCTION private.production_marketing_clear_worker_qualification() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+  NEW.confirmation_worker_binding_hash := NULL;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER production_marketing_contract_changed BEFORE UPDATE OF delivery_contract_text
+  ON private.production_marketing_controls FOR EACH ROW
+  WHEN (OLD.delivery_contract_text IS DISTINCT FROM NEW.delivery_contract_text
+    AND OLD.confirmation_worker_binding_hash IS NOT DISTINCT FROM NEW.confirmation_worker_binding_hash)
+  EXECUTE FUNCTION private.production_marketing_clear_worker_qualification();
+
+CREATE FUNCTION public.production_marketing_enrollment_ready(p_contract_hash text,p_worker_binding_hash text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
+RETURN EXISTS (
+  SELECT FROM private.production_marketing_controls AS c
+  WHERE c.singleton AND c.enrollment_enabled AND c.dispatch_enabled AND c.daily_limit>0 AND c.monthly_limit>0
+    AND c.confirmation_worker_binding_hash=p_worker_binding_hash
+    AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(c.delivery_contract_text,'UTF8')),'hex')=p_contract_hash
+);
+
+CREATE FUNCTION public.request_qualified_production_marketing_subscription(
+  p_contract_hash text,p_worker_binding_hash text,p_email text,p_confirmation_hash text,p_preference_hash text,p_requester_hash text,
+  p_explicit_consent boolean,p_wording_version text,p_delivery_payload jsonb
+) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+  -- Keep the verified controls fixed until the original consent transaction completes.
+  PERFORM 1 FROM private.production_marketing_controls WHERE singleton FOR SHARE;
+  IF NOT FOUND OR NOT public.production_marketing_enrollment_ready(p_contract_hash,p_worker_binding_hash) THEN
+    RAISE EXCEPTION 'Enrollment unavailable' USING ERRCODE='55000';
+  END IF;
+  RETURN public.request_production_marketing_subscription(
+    p_email,p_confirmation_hash,p_preference_hash,p_requester_hash,p_explicit_consent,p_wording_version,p_delivery_payload
+  );
+END $$;
+
 CREATE TABLE private.production_marketing_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subscriber_id uuid NOT NULL,
@@ -34,6 +74,8 @@ CREATE UNIQUE INDEX production_marketing_provider_identity ON private.production
 CREATE INDEX production_marketing_claim_candidates ON private.production_marketing_messages(next_attempt_at,created_at) WHERE state IN ('held','uncertain') AND NOT reconciliation_required;
 CREATE INDEX production_marketing_body_cleanup ON private.production_marketing_messages(payload_expires_at,id) WHERE body_text IS NOT NULL;
 CREATE INDEX production_marketing_confirmation_cleanup ON private.production_marketing_confirmation_intents(expires_at,id) WHERE delivery_payload IS NOT NULL;
+CREATE INDEX production_marketing_promotional_frequency ON private.production_marketing_messages(subscriber_id,(coalesce(last_admitted_at,first_prepared_at)))
+  WHERE first_prepared_at IS NOT NULL AND purpose<>'confirmation';
 CREATE TABLE private.production_marketing_withdrawal_capabilities (
   hash text PRIMARY KEY CHECK(hash ~ '^[a-f0-9]{64}$'),
   subscriber_id uuid NOT NULL REFERENCES private.production_marketing_subscribers(id),
@@ -205,6 +247,15 @@ BEGIN
     OR b->'tags' IS DISTINCT FROM jsonb_build_array(jsonb_build_object('name','environment','value','production'),jsonb_build_object('name','helix_message_id','value',m.id),
       jsonb_build_object('name','helix_purpose','value',m.purpose),jsonb_build_object('name','helix_contract','value','production_welcome_delivery_v1')) THEN RETURN NULL; END IF;
   IF m.purpose='welcome' THEN
+    -- The address lock serializes this check with preparation and retry across
+    -- every consent generation. Uncertainty, cancellation and erasure never
+    -- refund a logical promotion; retries refresh its latest handoff admission.
+    IF EXISTS(SELECT 1 FROM private.production_marketing_messages prior
+      WHERE prior.subscriber_id=m.subscriber_id AND prior.purpose<>'confirmation' AND prior.first_prepared_at IS NOT NULL
+        AND coalesce(prior.last_admitted_at,prior.first_prepared_at)>v_now-interval '24 hours')
+      OR (SELECT count(*) FROM private.production_marketing_messages prior
+        WHERE prior.subscriber_id=m.subscriber_id AND prior.purpose<>'confirmation' AND prior.first_prepared_at IS NOT NULL
+          AND coalesce(prior.last_admitted_at,prior.first_prepared_at)>v_now-interval '7 days')>=3 THEN RETURN NULL; END IF;
     v_token:=substring(b->'headers'->>'List-Unsubscribe' FROM '^<https://www\.helixskin\.us/api/marketing/production/unsubscribe\?token=([A-Za-z0-9_-]{43})>$');
     IF v_token IS NULL OR p_preference_hash IS NULL OR encode(sha256(convert_to(v_token,'UTF8')),'hex')<>p_preference_hash
       OR b->'headers' IS DISTINCT FROM jsonb_build_object('List-Unsubscribe','<https://www.helixskin.us/api/marketing/production/unsubscribe?token='||v_token||'>','List-Unsubscribe-Post','List-Unsubscribe=One-Click') THEN RETURN NULL; END IF;
@@ -281,9 +332,16 @@ END $$;
 DO $$ DECLARE f record; BEGIN
   FOR f IN SELECT p.oid::regprocedure AS signature FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE (n.nspname='private' AND p.proname LIKE 'production_marketing_%') OR (n.nspname='public' AND p.proname IN (
+      'production_marketing_enrollment_ready','request_qualified_production_marketing_subscription',
       'cleanup_production_marketing_delivery','claim_production_marketing_message','prepare_production_marketing_message','retry_production_marketing_message','finish_production_marketing_message','defer_production_marketing_message')) LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,anon,authenticated,service_role',f.signature);
     IF f.signature::text NOT LIKE 'private.%' THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',f.signature); END IF;
   END LOOP;
+  IF EXISTS (
+    SELECT FROM pg_catalog.pg_proc p, LATERAL pg_catalog.aclexplode(p.proacl) acl
+    WHERE p.oid IN ('public.production_marketing_enrollment_ready(text,text)'::regprocedure,
+      'public.request_qualified_production_marketing_subscription(text,text,text,text,text,text,boolean,text,jsonb)'::regprocedure)
+      AND acl.grantee NOT IN (p.proowner,'service_role'::regrole::oid)
+  ) THEN RAISE EXCEPTION 'unexpected production enrollment function grant'; END IF;
 END $$;
 COMMIT;

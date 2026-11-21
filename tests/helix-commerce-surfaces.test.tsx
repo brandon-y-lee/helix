@@ -7,10 +7,17 @@ import { metadata as forgotPasswordMetadata } from "@/app/account/forgot-passwor
 import { metadata as resetPasswordMetadata } from "@/app/account/reset-password/page";
 import { metadata as unavailableMetadata } from "@/app/account/service-unavailable/page";
 import { metadata as cartMetadata } from "@/app/cart/page";
-import { metadata as checkoutMetadata } from "@/app/checkout/page";
+import CheckoutPage, { metadata as checkoutMetadata } from "@/app/checkout/page";
+import { readCheckoutStorefrontForOrigin } from "@/lib/checkout/storefront";
 import { metadata as successMetadata } from "@/app/checkout/success/page";
 import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
 import { FORMER_BRAND_PATTERN } from "@/tests/helpers/former-identifiers";
+
+vi.mock("next/headers", async importOriginal => ({
+  ...await importOriginal<typeof import("next/headers")>(),
+  headers: async () => new Headers({ host: "www.helixskin.us", "x-forwarded-proto": "https" }),
+}));
+vi.mock("@/lib/checkout/storefront", () => ({ readCheckoutStorefrontForOrigin: vi.fn() }));
 
 describe("helix Account, Cart, Checkout, and privacy surfaces", () => {
   it("uses the approved brand casing in route metadata", () => {
@@ -56,5 +63,24 @@ describe("helix Account, Cart, Checkout, and privacy surfaces", () => {
       expect(cookies).not.toHaveBeenCalled();
       expect(storage).not.toHaveBeenCalled();
     } finally { cookies.mockRestore(); storage.mockRestore(); }
+  });
+
+  it("shows the current offer’s terms on the open checkout page and withdraws them when sales close", async () => {
+    const offer = {
+      productSlug: "super-serum", variantId: "30ml", unitPriceCents: 2500, shippingCents: 0,
+      freeShippingThresholdCents: null, dispatchTerms: "Dispatches on Mondays.", returnTerms: "Return within 14 days.",
+    };
+    const read = vi.mocked(readCheckoutStorefrontForOrigin);
+    read.mockResolvedValue({ mode: "live", admissionOpen: true, offer });
+    const view = render(await CheckoutPage());
+    expect(read).toHaveBeenCalledWith("https://www.helixskin.us");
+    expect(screen.getByText("Free US shipping.")).toBeVisible();
+    expect(screen.getByText("Dispatches on Mondays.")).toBeVisible();
+    expect(screen.getByText("Return within 14 days.")).toBeVisible();
+
+    read.mockResolvedValue({ mode: "live", admissionOpen: false });
+    view.rerender(await CheckoutPage());
+    expect(screen.getByText("Checkout is currently closed.")).toBeVisible();
+    expect(screen.queryByText("Free US shipping.")).not.toBeInTheDocument();
   });
 });

@@ -99,7 +99,7 @@ function activeContracts(migrations) {
 
 // The provider records the staged basename. Bind the reviewed bytes and
 // verifier to that genuine record without ever writing history ourselves.
-function recordedFile({ file, sql, verify, supersedes }) {
+export function recordedFile({ file, sql, verify, supersedes }) {
   const digest = hash(JSON.stringify([hash(sql), verify, supersedes ?? []]));
   const staged = file.slice(0, -4) + "_" + digest + ".sql";
   requireCondition(staged.length <= 255, "Migration filename is too long");

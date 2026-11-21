@@ -31,6 +31,27 @@ describe("Checkout helix rewards state", () => {
     });
   });
 
+  it("keeps a held cart visible without offering a payment or loading rewards", () => {
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    render(<CheckoutPanel storefront={{ mode: "closed", admissionOpen: false }} disabled={false} subtotal={2500} cartUpdatedAt={1} />);
+    expect(screen.getByText("Checkout is currently closed.")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /checkout/i })).not.toBeInTheDocument();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each(["business_sandbox", "live"] as const)("submits %s checkout without legacy offers or points", async (mode) => {
+    const startCheckout = vi.fn().mockResolvedValue(null);
+    const fetcher = vi.fn();
+    vi.stubGlobal("fetch", fetcher);
+    cart.useCartMutations.mockReturnValue({ resetErrors: vi.fn(), startCheckout });
+    render(<CheckoutPanel storefront={{ mode, admissionOpen: true }} disabled={false} subtotal={2500} cartUpdatedAt={1} />);
+    expect(Boolean(screen.queryByText(/test checkout/i))).toBe(mode === "business_sandbox");
+    await userEvent.click(screen.getByRole("button", { name: "Checkout $25.00" }));
+    expect(startCheckout).toHaveBeenCalledExactlyOnceWith(null, undefined);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("does not misrepresent a rewards outage as a signed-out customer", async () => {
     vi.stubGlobal("fetch", vi.fn(() => response({
       error: {
@@ -40,7 +61,7 @@ describe("Checkout helix rewards state", () => {
       },
     }, 503)));
 
-    render(<CheckoutPanel disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
+    render(<CheckoutPanel storefront={{ mode: "historical_sandbox", admissionOpen: true }} disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
 
     expect(screen.getByLabelText("Sandbox checkout")).toBeVisible();
     expect(screen.queryByText("Sandbox")).not.toBeInTheDocument();
@@ -57,7 +78,7 @@ describe("Checkout helix rewards state", () => {
       affordableTiers: [],
     })));
 
-    render(<CheckoutPanel disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
+    render(<CheckoutPanel storefront={{ mode: "historical_sandbox", admissionOpen: true }} disabled={false} subtotal={5_000} cartUpdatedAt={1} />);
 
     expect(await screen.findByText(/an account is required/i)).toBeVisible();
     expect(screen.queryByText(/temporarily unavailable/i)).not.toBeInTheDocument();
@@ -65,6 +86,7 @@ describe("Checkout helix rewards state", () => {
 });
 
 it("shows explicit local recovery only for the structured origin error, then requires a separate checkout click", async () => {
+  cart.useCart.mockReturnValue({ refresh: vi.fn(), checkout: { mode: "historical_sandbox", admissionOpen: true } });
   const fetchRequest = vi.fn().mockResolvedValueOnce(Response.json({ error: { code: "CHECKOUT_ORIGIN_CHANGED", message: "This pending checkout was opened on another Helix site." } }, { status: 409 }));
   vi.stubGlobal("fetch", fetchRequest);
   const error = await createCheckoutSession(null).catch((value: unknown) => value);
@@ -75,7 +97,7 @@ it("shows explicit local recovery only for the structured origin error, then req
   fetchRequest.mockImplementation((url) => url === "/cart/checkout-cancel"
     ? response({ status: "cancelled" }) : response({ authenticated: false, affordableTiers: [] }));
   const user = userEvent.setup();
-  const view = render(<CheckoutPanel disabled={false} subtotal={5500} cartUpdatedAt={1} />);
+  const view = render(<CheckoutPanel storefront={{ mode: "historical_sandbox", admissionOpen: true }} disabled={false} subtotal={5500} cartUpdatedAt={1} />);
   expect(screen.getByText("This pending checkout was opened on another Helix site.")).toBeVisible();
   expect(fetchRequest.mock.calls.filter(([url]) => url === "/cart/checkout-cancel")).toHaveLength(0);
   expect(startCheckout).not.toHaveBeenCalled();
@@ -84,7 +106,7 @@ it("shows explicit local recovery only for the structured origin error, then req
   expect(resetErrors).toHaveBeenCalledOnce();
   expect(startCheckout).not.toHaveBeenCalled();
   cart.useCartMutations.mockReturnValue({ ...mutationState, checkoutError: null });
-  view.rerender(<CheckoutPanel disabled={false} subtotal={5500} cartUpdatedAt={1} />);
+  view.rerender(<CheckoutPanel storefront={{ mode: "historical_sandbox", admissionOpen: true }} disabled={false} subtotal={5500} cartUpdatedAt={1} />);
   expect(screen.queryByRole("button", { name: "Cancel pending checkout" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Checkout $55.00" }));
   expect(startCheckout).toHaveBeenCalledExactlyOnceWith(null, undefined);

@@ -1,3 +1,4 @@
+import type { CheckoutStorefront } from "@/lib/checkout/storefront";
 import type { PlaceholderPalette } from "@/lib/products";
 
 type CartPlaceholderMedia = {
@@ -39,6 +40,7 @@ export type CartAddInput = Pick<
 >;
 
 export type CartState = {
+  checkout?: CheckoutStorefront;
   lines: CartLine[];
   count: number;
   subtotal: number;

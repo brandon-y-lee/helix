@@ -1,4 +1,6 @@
 import "server-only";
+import type { CheckoutEnvironment } from "@/lib/checkout/payment-verification";
+import { configuredBusinessStripeReceiptScope, hasBusinessSandboxPaymentConfiguration, hasLivePaymentConfiguration, type BusinessStripeScope } from "@/lib/stripe/live-provider";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   isShipmentState,
@@ -25,16 +27,16 @@ async function rpc(name: string, args: Record<string, unknown>) {
   if (result.error) throw shipmentUnavailable();
   return result.data as unknown;
 }
-export function parseShipmentView(v: unknown): ManualShipments {
+export function parseShipmentView(v: unknown, environment: CheckoutEnvironment = "sandbox"): ManualShipments {
   if (
     !object(v) ||
-    v.environment !== "sandbox" ||
+    v.environment !== environment ||
     !Array.isArray(v.shipments) ||
     v.shipments.length > 100
   )
     throw shipmentUnavailable();
   return {
-    environment: "sandbox",
+    environment,
     shipments: v.shipments.map((s) => {
       if (
         !object(s) ||
@@ -66,7 +68,16 @@ export function parseShipmentView(v: unknown): ManualShipments {
     }),
   };
 }
-export function parseShipmentOrder(v: unknown): ShipmentOrder | null {
+function parseDelivery(value: unknown): NonNullable<ShipmentOrder["delivery"]> {
+  if (!object(value) || !text(value.name, 200) || !value.name.trim() || !object(value.address)) throw shipmentUnavailable();
+  const a = value.address;
+  if (!text(a.line1, 200) || !a.line1.trim() || (a.line2 !== null && !text(a.line2, 200)) ||
+      !text(a.city, 100) || !a.city.trim() || !text(a.state, 100) || !a.state.trim() ||
+      !text(a.postal_code, 20) || !a.postal_code.trim() || a.country !== "US") throw shipmentUnavailable();
+  return { name: value.name, address: { line1: a.line1, line2: a.line2, city: a.city, state: a.state, postal_code: a.postal_code, country: a.country } };
+}
+
+export function parseShipmentOrder(v: unknown, environment: CheckoutEnvironment = "sandbox"): ShipmentOrder | null {
   if (v === null) return null;
   if (
     !object(v) ||
@@ -78,7 +89,8 @@ export function parseShipmentOrder(v: unknown): ShipmentOrder | null {
   )
     throw shipmentUnavailable();
   return {
-    ...parseShipmentView(v),
+    ...parseShipmentView(v, environment),
+    ...(environment !== "sandbox" ? { delivery: parseDelivery(v.delivery) } : {}),
     orderId: v.orderId,
     orderNumber: v.orderNumber,
     eligible: v.eligible,
@@ -100,22 +112,26 @@ export function parseShipmentOrder(v: unknown): ShipmentOrder | null {
     }),
   };
 }
-export async function lookupShipmentOrder(
-  orderNumber: string,
-  actorId: string,
-) {
-  return parseShipmentOrder(
-    await rpc("read_manual_shipment_order", {
-      p_order_number: orderNumber,
-      p_actor_id: actorId,
-    }),
-  );
+export function shipmentManagementScope(): BusinessStripeScope | null {
+  const scope = configuredBusinessStripeReceiptScope();
+  if (!scope && (hasBusinessSandboxPaymentConfiguration(process.env) || hasLivePaymentConfiguration(process.env))) {
+    throw shipmentUnavailable();
+  }
+  return scope;
 }
-export async function applyShipment(command: ShipmentCommand, actorId: string) {
-  const v = await rpc("apply_manual_shipment", {
-    p_actor_id: actorId,
-    p_command: command,
-  });
+
+export async function lookupShipmentOrder(orderNumber: string, actorId: string, scope = shipmentManagementScope()) {
+  const data = scope
+    ? await rpc("read_business_shipment_order", { p_environment: scope.environment, p_account_id: scope.accountId,
+        p_order_number: orderNumber, p_actor_id: actorId })
+    : await rpc("read_manual_shipment_order", { p_order_number: orderNumber, p_actor_id: actorId });
+  return parseShipmentOrder(data, scope?.environment ?? "sandbox");
+}
+
+export async function applyShipment(command: ShipmentCommand, actorId: string, scope = shipmentManagementScope()) {
+  const v = scope
+    ? await rpc("apply_business_shipment", { p_environment: scope.environment, p_account_id: scope.accountId, p_actor_id: actorId, p_command: command })
+    : await rpc("apply_manual_shipment", { p_actor_id: actorId, p_command: command });
   if (
     !object(v) ||
     ![
@@ -141,4 +157,16 @@ export async function readManualShipments(
   if (error?.code === "PGRST202" || error?.code === "42883") return null;
   if (error) throw shipmentUnavailable();
   return data === null ? null : parseShipmentView(data);
+}
+
+export async function readBusinessOrderShipments(scope: BusinessStripeScope, orderId: string, sessionId: string,
+  userId: string | null, receiptHash: string | null): Promise<ManualShipments | null> {
+  const value = await rpc("read_business_order_shipments", {
+    p_environment: scope.environment, p_account_id: scope.accountId, p_order_id: orderId, p_session_id: sessionId,
+    p_user_id: userId, p_receipt_token_hash: receiptHash,
+  });
+  if (value === null) return null;
+  const records = parseShipmentView(value, scope.environment);
+  if (records.shipments.some(record => !record.dispatchedAt || record.state === "preparing")) throw shipmentUnavailable();
+  return records;
 }

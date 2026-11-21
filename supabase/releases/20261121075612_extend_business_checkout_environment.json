@@ -1,0 +1,8 @@
+{
+  "sourceSha256": "3c4aa6f5e214d1c9b1b5ac062241aa3c1eef6de312a77fd7e9582ff79f7fc248",
+  "supersedes": [
+    "20261121073052_extend_checkout_environment.sql",
+    "20261121073053_install_live_checkout_contract.sql"
+  ],
+  "verify": "SELECT CASE WHEN NOT EXISTS (\n    SELECT FROM (VALUES\n      ('private.live_checkout_contract_installed()', '7572f1b1b11e8212bb8db9417de87dc2370328b0aa4ea33b12094e24021d6ac4'),\n      ('private.first_order_predecessor_installed()', '9bd6bfc2fdaeb7aed316f6935d5160f0893365064e0b9a53b176ed97e50ed62f')\n    ) expected(signature,digest) LEFT JOIN pg_catalog.pg_proc p ON p.oid=pg_catalog.to_regprocedure(expected.signature)\n    WHERE (p.proowner=(SELECT relowner FROM pg_catalog.pg_class WHERE oid='private.helix_environment'::pg_catalog.regclass)\n      AND p.proowner<>current_user::pg_catalog.regrole AND NOT p.prosecdef AND NOT p.proretset\n      AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='sql')\n      AND p.prokind='f' AND p.provolatile='s' AND p.prorettype='boolean'::pg_catalog.regtype\n      AND p.proconfig=ARRAY['search_path=pg_catalog, pg_temp']\n      AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')=expected.digest\n      AND EXISTS (SELECT FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee=current_user::pg_catalog.regrole\n        AND a.privilege_type='EXECUTE' AND a.grantor=p.proowner AND NOT a.is_grantable)\n      AND NOT EXISTS (SELECT FROM pg_catalog.aclexplode(p.proacl) a WHERE a.grantee<>p.proowner\n        AND (a.grantee<>current_user::pg_catalog.regrole OR a.grantor<>p.proowner OR a.is_grantable))) IS NOT TRUE\n  ) THEN private.first_order_predecessor_installed() ELSE false END AS applied"
+}

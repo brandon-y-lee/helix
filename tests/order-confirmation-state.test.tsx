@@ -25,6 +25,51 @@ function receipt(state: OrderConfirmationState): OrderConfirmationDisplay {
 }
 
 describe("truthful private Order confirmation", () => {
+  it("leaves the payment mode and outcome undisclosed when a receipt is unavailable", () => {
+    render(<OrderConfirmationView confirmation={null} />);
+    expect(screen.getByRole("heading", { name: "Order status" })).toBeVisible();
+    expect(screen.queryByText(/sandbox|payment verified/i)).not.toBeInTheDocument();
+  });
+
+  it("shows a stored live payment without a sandbox warning or a shipment promise", () => {
+    render(<OrderConfirmationView confirmation={{ ...receipt("paid"), providerMode: "live" }} />);
+    expect(screen.getByRole("heading", { name: "Payment verified" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent("Your payment was received.");
+    expect(screen.queryByText(/sandbox|fulfillment|shipped/i)).not.toBeInTheDocument();
+  });
+
+  it("shows dispatch only when recorded in the receipt environment and never projects business shipping address or points", () => {
+    const shipment = { id: "00000000-0000-4000-8000-000000000001", version: 2, state: "dispatched" as const,
+      carrier: "USPS", trackingReference: "REF", dispatchedAt: "2026-11-21T10:00:00Z", deliveredAt: null,
+      items: [{ name: "Serum", quantity: 1 }] };
+    const value = { ...receipt("paid"), providerMode: "live" as const, manualShipments: { environment: "live" as const, shipments: [shipment] } };
+    const view = render(<OrderConfirmationView confirmation={value} />);
+    expect(screen.getByRole("region", { name: "Manual shipment records" })).toHaveTextContent("REF");
+    expect(screen.queryByText(/demo|points|no goods/i)).not.toBeInTheDocument();
+    view.rerender(<OrderConfirmationView confirmation={{ ...value, providerMode: "business_sandbox" }} />);
+    expect(screen.queryByRole("region", { name: "Manual shipment records" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sandbox payment verified" })).toBeVisible();
+    expect(screen.queryByText(/points earned|points redeemed/i)).not.toBeInTheDocument();
+    view.rerender(<OrderConfirmationView confirmation={{ ...value, manualShipments: {
+      environment: "live", shipments: [{ ...shipment, dispatchedAt: null, state: "preparing" }],
+    } }} />);
+    expect(screen.queryByRole("region", { name: "Manual shipment records" })).not.toBeInTheDocument();
+  });
+
+  it("shows the original total and recorded live refund without sandbox or fulfillment claims", () => {
+    const confirmation: OrderConfirmationDisplay = {
+      ...receipt("partially_refunded"), providerMode: "live",
+      order: { ...receipt("partially_refunded").order, refunded_cents: 1250 },
+      trackingUnavailable: true, manualShipmentsUnavailable: true,
+    };
+    render(<OrderConfirmationView confirmation={confirmation} />);
+    expect(screen.getByRole("heading", { name: "Payment partially refunded" })).toBeVisible();
+    const totals = screen.getByRole("region", { name: "Order totals" });
+    expect(within(totals).getByText("$32.40")).toBeVisible();
+    expect(within(totals).getByText("$12.50")).toBeVisible();
+    expect(screen.getByText("Shipment records are temporarily unavailable.")).toBeVisible();
+    expect(screen.queryByText(/sandbox|pts|points|tracking|shipped|fulfillment/i)).not.toBeInTheDocument();
+  });
   it("preserves the paid receipt when tracking history is temporarily unavailable", () => {
     render(<OrderConfirmationView confirmation={{ ...receipt("paid"), trackingUnavailable: true }} />);
     expect(screen.getByRole("heading", { name: "Sandbox payment verified" })).toBeVisible();

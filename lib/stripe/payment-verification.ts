@@ -2,6 +2,8 @@ import "server-only";
 
 import type Stripe from "stripe";
 import { STRIPE_API_VERSION, STRIPE_SANDBOX_ACCOUNT_ID } from "@/lib/checkout/config";
+import { isBusinessStripeEnvironment, matchesBusinessCheckoutSessionId, type CheckoutEnvironment } from "@/lib/checkout/payment-verification";
+import { verifyBusinessStripeAccount, type BusinessStripeBinding } from "@/lib/stripe/live-provider";
 import { getStripeClient } from "@/lib/stripe/server";
 
 export type StripeAccountProvenance = {
@@ -10,6 +12,7 @@ export type StripeAccountProvenance = {
 };
 
 export type CheckoutPaymentProviderBundle = StripeAccountProvenance & {
+  environment: CheckoutEnvironment;
   session: Stripe.Checkout.Session;
   lineItems: Stripe.LineItem[];
   lineItemsComplete: true;
@@ -20,6 +23,7 @@ const readErrorMessages = {
   account_unverified: "Payment provider account could not be verified.",
   incomplete_line_items: "Complete payment line items could not be retrieved.",
   invalid_session: "Sandbox checkout reference could not be verified.",
+  invalid_live_session: "Live checkout reference could not be verified.",
   provider_unavailable: "Payment provider could not be reached.",
 } as const;
 
@@ -64,15 +68,20 @@ export async function verifyStripeAccount(
   return proof;
 }
 
-export async function retrieveCheckoutPaymentProviderBundle(input: {
-  sessionId: string;
-  stripe?: Stripe;
-}): Promise<CheckoutPaymentProviderBundle> {
-  if (typeof input.sessionId !== "string" || !/^cs_test_[A-Za-z0-9_]+$/.test(input.sessionId)) {
-    throw new StripePaymentVerificationReadError("invalid_session");
+export async function retrieveCheckoutPaymentProviderBundle(
+  input: { sessionId: string } & ({ stripe?: Stripe; binding?: never } | { stripe?: never; binding: BusinessStripeBinding }),
+): Promise<CheckoutPaymentProviderBundle> {
+  const { binding, sessionId } = input;
+  const environment = binding ? binding.environment : "sandbox";
+  const live = environment === "live";
+  const invalidSession = live ? "invalid_live_session" : "invalid_session";
+  const validId = binding ? isBusinessStripeEnvironment(binding.environment) && matchesBusinessCheckoutSessionId(sessionId, binding.environment) :
+    typeof sessionId === "string" && /^cs_test_[A-Za-z0-9_]+$/.test(sessionId);
+  if (!validId) {
+    throw new StripePaymentVerificationReadError(invalidSession);
   }
-  const stripe = input.stripe ?? getStripeClient();
-  const provenance = await verifyStripeAccount(stripe);
+  const stripe = binding?.stripe ?? input.stripe ?? getStripeClient();
+  const { accountId } = binding ? await verifyBusinessStripeAccount(binding) : await verifyStripeAccount(stripe);
   try {
     const session = await stripe.checkout.sessions.retrieve(
       input.sessionId,
@@ -80,8 +89,8 @@ export async function retrieveCheckoutPaymentProviderBundle(input: {
       requestOptions,
     );
     if (!session || session.object !== "checkout.session" || session.id !== input.sessionId ||
-      session.livemode !== false) {
-      throw new StripePaymentVerificationReadError("invalid_session");
+      session.livemode !== live) {
+      throw new StripePaymentVerificationReadError(invalidSession);
     }
     const lineItems: Stripe.LineItem[] = [];
     const seenLineIds = new Set<string>();
@@ -107,7 +116,7 @@ export async function retrieveCheckoutPaymentProviderBundle(input: {
       }
       lineItems.push(...page.data);
       if (!page.has_more) {
-        return { ...provenance, session, lineItems, lineItemsComplete: true };
+        return { accountId, apiVersion: STRIPE_API_VERSION, environment, session, lineItems, lineItemsComplete: true };
       }
       startingAfter = page.data.at(-1)?.id;
     }

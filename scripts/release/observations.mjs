@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import flags from "../../lib/release-observations/flags.json" with { type: "json" };
+import { createVercelRelease, helixRepositoryId } from "./vercel.mjs";
 
 const canonical = "https://www.helixskin.us";
 const apex = "https://helixskin.us";
@@ -90,6 +91,57 @@ async function boundedBytes(response, max) {
     void reader.cancel().catch(() => {});
     reader.releaseLock();
   }
+}
+
+/** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
+ *  expectedSettlementConfigured?: boolean, bypassToken?: string, vercelToken?: string, fetchImpl?: typeof fetch }} options */
+export function verifyClosedLiveCheckout(options) {
+  return verifyLiveCheckout({ ...options, expectedAdmissionOpen: false });
+}
+
+/** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
+ *  expectedAdmissionOpen: boolean, expectedSettlementConfigured?: boolean, bypassToken?: string,
+ *  vercelToken?: string, fetchImpl?: typeof fetch }} options */
+export async function verifyLiveCheckout({
+  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, expectedAdmissionOpen, bypassToken = "",
+  vercelToken = process.env.HELIX_RELEASE_VERCEL_TOKEN, fetchImpl = fetch,
+}) {
+  requireValue((origin === canonical || immutable.test(origin)) && /^dpl_[A-Za-z0-9]{1,96}$/.test(deploymentId) &&
+    /^[a-f0-9]{40}$/.test(sha) && typeof statusToken === "string" && allowedToken.test(statusToken) &&
+    typeof expectedAdmissionOpen === "boolean" && (expectedSettlementConfigured === undefined || typeof expectedSettlementConfigured === "boolean"),
+    "untrusted Checkout diagnostic target");
+  let destination = canonical;
+  if (origin !== canonical) {
+    const vercel = createVercelRelease({ token: vercelToken, repositoryId: helixRepositoryId });
+    const build = await vercel.readProductionGitBuild(deploymentId, sha);
+    requireValue(build.url === origin, "Checkout diagnostic hostname differs from immutable deployment");
+    destination = build.url;
+  }
+  const headers = { authorization: "Bearer " + statusToken };
+  if (destination !== canonical && bypassToken) headers["x-vercel-protection-bypass"] = bypassToken;
+  const response = await fetchImpl(destination + "/api/internal/release-status?checkout=1", {
+    method: "GET", headers, redirect: "manual", cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(10000),
+  });
+  try {
+    requireValue(response.status === 200 && response.headers.get("content-type")?.includes("application/json"),
+      "Checkout diagnostic unavailable");
+    const bytes = await boundedBytes(response, 4096);
+    let status;
+    try { status = JSON.parse(bytes.toString("utf8")); }
+    catch { throw new Error("Malformed Checkout diagnostic"); }
+    const checkout = status?.checkout;
+    requireValue(typeof checkout?.chargesEnabled === "boolean" && typeof checkout.payoutsEnabled === "boolean" &&
+      typeof checkout.settlementConfigured === "boolean", "invalid Checkout readiness observation");
+    requireValue(!expectedAdmissionOpen || (checkout.chargesEnabled && checkout.payoutsEnabled && checkout.settlementConfigured),
+      "enabled Checkout requires a qualified live merchant and signer");
+    const expected = { version: 2, deploymentId, sha, checkout: {
+      providerMode: "live", merchantVerified: true,
+      chargesEnabled: checkout.chargesEnabled, payoutsEnabled: checkout.payoutsEnabled,
+      settlementConfigured: expectedSettlementConfigured ?? checkout.settlementConfigured, admissionOpen: expectedAdmissionOpen,
+    } };
+    requireValue(isDeepStrictEqual(status, expected), "Checkout diagnostic differs from the expected live contract");
+    return expected;
+  } finally { if (!response.bodyUsed) await response.body?.cancel(); }
 }
 
 export async function verifyCanonicalRedirect({ fetchImpl = fetch } = {}) {

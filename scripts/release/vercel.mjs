@@ -2,7 +2,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { HELIX_VERCEL_PROJECT_ID as projectId } from "../../lib/supabase/project-safety.ts";
 
 const teamId = "team_uriJjJWNwpZnZHnIp5AiXuv0";
-const helixRepositoryId = "1280166759";
+export const helixRepositoryId = "1280166759";
 const canonical = "www.helixskin.us";
 const apex = "helixskin.us";
 const development = "helixskin.vercel.app";
@@ -397,6 +397,7 @@ export function createVercelRelease({
 
   return {
     assertHeldProject,
+    readProductionGitBuild: (id, expectedSha) => deployment(id, expectedSha, { original: true }),
     candidateForSha,
     candidateById,
     discoverPrevious,

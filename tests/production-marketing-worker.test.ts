@@ -1,3 +1,4 @@
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
@@ -5,15 +6,15 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { randomUUID } from "node:crypto";
 import { dispatchProductionMarketing, type ProductionMarketingWorkerDependencies } from "@/lib/production-marketing/worker";
 import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
-import { productionMarketingContractFingerprint } from "@/lib/production-marketing/delivery-config";
+import { directMarketingDeliveryContract, productionMarketingContractFingerprint } from "@/lib/production-marketing/delivery-config";
+import { createProductionMarketingDeliveryStorage } from "@/lib/production-marketing/delivery-storage";
 import { sealProductionMarketingCapabilities } from "@/lib/production-marketing/capabilities";
 
 const origin = "https://www.helixskin.us";
 const contract = () => ({ version: "production_welcome_delivery_v1", from: "news@helixskin.us", replyTo: "support@helixskin.us",
   topicId: "11111111-1111-4111-8111-111111111111", postalAddress: "Synthetic test address, not approved for delivery", templateHash: productionMarketingTemplateHash });
 function fixture() {
-  const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild", VERCEL_PROJECT_PRODUCTION_URL: "helixskin.us",
-    HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-db",
+  const env = { ...productionMarketingTestTarget,
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "c".repeat(64), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "test-v1",
     HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED: "true", HELIX_PRODUCTION_MARKETING_WORKER_TOKEN: "w".repeat(48),
     HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: "synthetic-production-send", HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY: "synthetic-separate-preference-read",
@@ -41,7 +42,7 @@ describe("production marketing worker boundary", () => {
   it("stays off by default and rejects deployment, template and shared-credential drift before claims", async () => {
     for (const delta of [{ HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED: "" }, { VERCEL_ENV: "preview" }, { VERCEL_PROJECT_PRODUCTION_URL: "helixskin.vercel.app" },
       { HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT: JSON.stringify({ ...contract(), templateHash: "0".repeat(64) }) },
-      { HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT: JSON.stringify({ ...contract(), from: "news@helixskin.us\n" }) }, { HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: "synthetic-dedicated-db" }]) {
+      { HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT: JSON.stringify({ ...contract(), from: "news@helixskin.us\n" }) }, { HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: productionMarketingTestTarget.SUPABASE_SERVICE_ROLE_KEY }]) {
       const f=fixture(); Object.assign(f.env,delta);
       expect((await dispatchProductionMarketing(f.request(),f.deps)).status).toBe(503);
       expect(f.storage.cleanup).not.toHaveBeenCalled(); expect(f.storage.claim).not.toHaveBeenCalled(); expect(f.provider.send).not.toHaveBeenCalled();
@@ -95,6 +96,38 @@ describe("production marketing worker boundary", () => {
     expect(body.headers["List-Unsubscribe"]).toMatch(/^<https:\/\/www\.helixskin\.us\/api\/marketing\/production\/unsubscribe\?token=[A-Za-z0-9_-]{43}>$/);
     expect(body.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(body.text).not.toMatch(/discount|review request|cart reminder/i);
+  });
+  it("sends a new direct welcome with its Topic and first-party withdrawal without reading Contact history", async () => {
+    const f = fixture();
+    f.intent.purpose = "welcome";
+    Object.assign(f.intent, { direct: true });
+    const direct = directMarketingDeliveryContract;
+    f.env.HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT = JSON.stringify(direct);
+    f.env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY = "";
+    expect(await (await dispatchProductionMarketing(f.request(), f.deps)).json()).toEqual({ status: "accepted" });
+    expect(f.provider.permission).not.toHaveBeenCalled();
+    const body = JSON.parse(f.storage.prepare.mock.calls[0][2]);
+    expect(body.topic_id).toBe(direct.topicId);
+    expect([body.from, body.reply_to]).toEqual([direct.from, direct.replyTo]);
+    expect(body.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    expect(body.text.includes("https://www.helixskin.us/marketing/production/preferences#token=")).toBe(true);
+  });
+  it("blocks direct claims during an intake outage and refuses an unmarked direct RPC response", async () => {
+    const f = fixture();
+    const env = { ...f.env, CRON_SECRET: "k".repeat(48), HELIX_PRODUCTION_MARKETING_ABUSE_KEY: "a".repeat(48),
+      HELIX_PRODUCTION_MARKETING_PROVIDER_KEY: "re_synthetic_send_only",
+      HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT: JSON.stringify(directMarketingDeliveryContract),
+      HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED: "false",
+      HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET: "whsec_" + Buffer.alloc(32, 7).toString("base64") };
+    const db = createProductionMarketingDeliveryStorage(env);
+    const network = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(f.intent));
+    try {
+      await expect(db.claim(randomUUID())).rejects.toThrow("Production marketing is unavailable.");
+      expect(network).not.toHaveBeenCalled();
+      env.HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED = "true";
+      await expect(db.claim(randomUUID())).rejects.toThrow("Production marketing is unavailable.");
+      expect(String(network.mock.calls[0][0])).toBe(env.NEXT_PUBLIC_SUPABASE_URL + "/rest/v1/rpc/claim_direct_production_marketing_message");
+    } finally { network.mockRestore(); }
   });
   it("does not send after an unknown prepare result or create another payload to recover an uncertain write", async () => {
     const f=fixture();f.storage.prepare.mockRejectedValue(new Error("unknown write PRIVATE"));
