@@ -6,6 +6,7 @@ import { verifyPublicSearchBinding } from "@/lib/algolia/build-binding";
 import { searchProducts } from "@/lib/algolia/search-client";
 import { getIndexName } from "@/lib/algolia/server";
 import { readCheckoutConfig, readPaymentProviderConfig } from "@/lib/checkout/config";
+import { hasLivePaymentConfiguration, observeClosedLivePaymentProvider } from "@/lib/stripe/live-provider";
 import { measurementConfig } from "@/lib/privacy/measurement-config";
 import { readPublicSupabaseConnection, runtimeSupabaseTarget, SUPABASE_PROJECT_REFS, verifyHostedSiteOrigins } from "@/lib/supabase/project-safety";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -35,6 +36,9 @@ export function searchCredentialFingerprints(env: Environment) {
 
 export async function observeProduction(productSlug: string) {
   const env = process.env;
+  if (hasLivePaymentConfiguration(env) || (env.CHECKOUT_MODE && env.CHECKOUT_MODE !== "sandbox")) {
+    throw new Error("Invalid payment mode for Catalog observation");
+  }
   if (runtimeSupabaseTarget() !== "production" || !/^dpl_[A-Za-z0-9]+$/.test(env.VERCEL_DEPLOYMENT_ID ?? "") ||
       !/^[0-9a-f]{40}$/.test(env.VERCEL_GIT_COMMIT_SHA ?? "")) throw new Error("Invalid release context");
   verifyHostedSiteOrigins(env, "production");
@@ -46,7 +50,6 @@ export async function observeProduction(productSlug: string) {
   if (searchWrite && getIndexName() !== "helix_products") {
     throw new Error("Unbound Search writer");
   }
-  if (env.CHECKOUT_MODE && env.CHECKOUT_MODE !== "sandbox") throw new Error("Invalid payment mode");
   // Missing payment credentials are an observable disabled state. A partially configured or enabled
   // sandbox must satisfy the same validation as the real settlement and admission paths.
   const sandboxSettlement = Boolean(env.STRIPE_SECRET_KEY || env.STRIPE_WEBHOOK_SECRET || env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
@@ -79,15 +82,30 @@ export async function observeProduction(productSlug: string) {
   };
 }
 
-export async function serveReleaseStatus(request: Request, env: Environment, observe: (productSlug: string) => Promise<unknown>) {
+export async function serveReleaseStatus(
+  request: Request, env: Environment, observe: (productSlug: string) => Promise<unknown>,
+  observeCheckout = observeClosedLivePaymentProvider,
+) {
   const url = new URL(request.url);
   const hostAllowed = url.origin === "https://www.helixskin.us" ||
     (env.VERCEL_URL && url.origin === "https://" + env.VERCEL_URL);
-  const slug = url.searchParams.get("product");
-  if (!hostAllowed || !releaseReaderAuthorized(request, env) || url.searchParams.size !== 1 ||
-      !slug || slug.length > 128 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+  if (!hostAllowed || !releaseReaderAuthorized(request, env) || url.searchParams.size !== 1) {
     return new Response(null, { status: 404, headers });
   }
-  try { return Response.json(await observe(slug), { headers }); }
-  catch { return new Response(null, { status: 503, headers }); }
+  try {
+    if (url.searchParams.get("checkout") === "1") {
+      if (!await productionDeploymentAuthorized(env)) throw new Error("Unauthorized deployment");
+      verifyHostedSiteOrigins(env, "production");
+      const { providerMode, merchantVerified, chargesEnabled, payoutsEnabled, settlementConfigured, admissionOpen } = await observeCheckout(env);
+      return Response.json({
+        version: 2, deploymentId: env.VERCEL_DEPLOYMENT_ID, sha: env.VERCEL_GIT_COMMIT_SHA,
+        checkout: { providerMode, merchantVerified, chargesEnabled, payoutsEnabled, settlementConfigured, admissionOpen },
+      }, { headers });
+    }
+    const slug = url.searchParams.get("product");
+    if (!slug || slug.length > 128 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return new Response(null, { status: 404, headers });
+    }
+    return Response.json(await observe(slug), { headers });
+  } catch { return new Response(null, { status: 503, headers }); }
 }

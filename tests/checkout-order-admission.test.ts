@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type Stripe from "stripe";
 import { createHash } from "node:crypto";
 import type { AcceptedCheckoutContract } from "@/lib/checkout/payment-verification";
+import { POST as postCheckoutSession } from "@/app/api/checkout/sessions/route";
 
 const boundary = vi.hoisted(() => ({
-  cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(),
+  cookieGet: vi.fn(), cookieSet: vi.fn(), identity: vi.fn(), providerClientCreated: vi.fn(),
   retrieveSession: vi.fn(), createSession: vi.fn(), expireSession: vi.fn(), retrieveShipping: vi.fn(),
   createCustomer: vi.fn(), retrieveCustomer: vi.fn(), retrieveAccount: vi.fn(), listLineItems: vi.fn(),
   authorizeReceipt: vi.fn(), rpc: vi.fn(), from: vi.fn(),
@@ -21,12 +22,15 @@ vi.mock("@/lib/supabase/admin", () => ({
   createSupabaseAdminClient: () => ({ from: boundary.from, rpc: boundary.rpc }),
 }));
 vi.mock("@/lib/stripe/server", () => ({
-  getStripeClient: () => ({
-    checkout: { sessions: { retrieve: boundary.retrieveSession, create: boundary.createSession, expire: boundary.expireSession, listLineItems: boundary.listLineItems } },
-    accounts: { retrieve: boundary.retrieveAccount },
-    shippingRates: { retrieve: boundary.retrieveShipping },
-    customers: { create: boundary.createCustomer, retrieve: boundary.retrieveCustomer },
-  }),
+  getStripeClient: () => {
+    boundary.providerClientCreated();
+    return {
+      checkout: { sessions: { retrieve: boundary.retrieveSession, create: boundary.createSession, expire: boundary.expireSession, listLineItems: boundary.listLineItems } },
+      accounts: { retrieve: boundary.retrieveAccount },
+      shippingRates: { retrieve: boundary.retrieveShipping },
+      customers: { create: boundary.createCustomer, retrieve: boundary.retrieveCustomer },
+    };
+  },
 }));
 
 import { cancelPendingCheckoutFromCookie, checkoutErrorResponseMessage, createStripeCheckoutSession, getOrderConfirmationBySession } from "@/lib/orders/server";
@@ -190,6 +194,25 @@ function rpcCallOrder(name: string): number {
 }
 
 describe("customer checkout admission", () => {
+  it.each(["live", "partial"])("closes a %s enrollment before any customer, provider or storage access", async (enrollment) => {
+    const origin = "https://www.helixskin.us";
+    vi.stubEnv("CHECKOUT_ORIGIN", origin);
+    vi.stubEnv("CHECKOUT_MODE", enrollment === "live" ? "live" : "sandbox");
+    vi.stubEnv("HELIX_STRIPE_LIVE_ACCOUNT_ID", "acct_LiveFixture");
+    const request = new Request(origin + "/api/checkout/sessions", {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: "{}",
+    });
+
+    const response = await postCheckoutSession(request);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ error: "The store is not accepting new payments yet." });
+    for (const operation of Object.values(boundary)) expect(operation).not.toHaveBeenCalled();
+  });
+
   it.each(["unresolved", "reserved"])("blocks dev return URLs on www through the %s-order resume entrypoint", async (entry) => {
     vi.stubEnv("CHECKOUT_ORIGIN", "https://www.helixskin.us");
     useCheckoutFixture({ stripe_checkout_session_id: sessionId });

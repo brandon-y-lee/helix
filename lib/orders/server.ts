@@ -64,6 +64,7 @@ import {
 } from "@/content/support/policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
+import { hasLivePaymentConfiguration } from "@/lib/stripe/live-provider";
 import {
   expireCheckoutPaymentProviderSession,
   retrieveCheckoutPaymentProviderBundle,
@@ -168,6 +169,7 @@ type CreateCheckoutResult = {
 class CheckoutError extends Error {
   code:
     | "empty_cart"
+    | "live_admission_closed"
     | "unavailable_cart"
     | "checkout_unavailable"
     | "checkout_in_progress"
@@ -616,6 +618,9 @@ async function markAttemptFailed(
 export async function createStripeCheckoutSession(
   input: CreateCheckoutInput = {},
 ): Promise<CreateCheckoutResult> {
+  if (hasLivePaymentConfiguration(process.env)) {
+    throw new CheckoutError("live_admission_closed", "The store is not accepting new payments yet.");
+  }
   const origin = resolveCheckoutOrigin({ requestOrigin: input.requestOrigin });
   const config = readPaymentProviderConfig();
   const stripe = getStripeClient(config);
@@ -1309,6 +1314,9 @@ export async function getOrdersForCurrentUser(): Promise<Array<{
 }
 
 export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number; code?: "CHECKOUT_ORIGIN_CHANGED" } {
+  if (error instanceof CheckoutError && error.code === "live_admission_closed") {
+    return { message: error.message, status: 503 };
+  }
   if (error instanceof CheckoutAdmissionError) {
     return { message: error.message, status: error.status, retryAfterSeconds: error.retryAfterSeconds };
   }
