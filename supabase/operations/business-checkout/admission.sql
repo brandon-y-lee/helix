@@ -113,7 +113,7 @@ $fn$;
 -- its allocation exhausted saleable stock. It never creates or changes a hold.
 CREATE FUNCTION private.read_business_checkout_resume(
   p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid,
-  p_guest_cart_hash text,p_receipt_hash text) RETURNS boolean
+  p_guest_cart_hash text,p_receipt_hash text,p_allow_send boolean DEFAULT false) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
   SELECT EXISTS (
     SELECT FROM public.carts c JOIN public.orders o ON o.cart_id=c.id AND o.checkout_generation=c.checkout_generation
@@ -130,7 +130,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
         AND c.guest_token_hash=p_guest_cart_hash AND r.guest_owner_digest=sha256(convert_to(p_guest_cart_hash,'UTF8'))
         AND b.receipt_hash=p_receipt_hash AND b.receipt_expires_at>statement_timestamp()
         AND b.receipt_ownership_version=o.receipt_ownership_version))
-      AND (b.session_id IS NOT NULL OR (sp.enabled AND
+      AND (b.session_id IS NOT NULL OR (p_allow_send IS TRUE AND sp.enabled AND
         (b.first_send_at IS NULL OR b.first_send_at>statement_timestamp()-interval '12 hours'))))
 $fn$;
 
@@ -231,13 +231,13 @@ LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$
 $api$;
 REVOKE ALL ON FUNCTION public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION private.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean),public.reserve_business_checkout(text,text,uuid,uuid,uuid,text,text,boolean) TO service_role;
-REVOKE ALL ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
-CREATE FUNCTION public.read_business_checkout_resume(p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid, p_guest_cart_hash text,p_receipt_hash text) RETURNS boolean
+REVOKE ALL ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean) FROM PUBLIC,anon,authenticated,service_role;
+CREATE FUNCTION public.read_business_checkout_resume(p_environment text,p_account_id text,p_cart_id uuid,p_checkout_generation uuid,p_user_id uuid, p_guest_cart_hash text,p_receipt_hash text,p_allow_send boolean DEFAULT false) RETURNS boolean
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$
- SELECT private.read_business_checkout_resume(p_environment,p_account_id,p_cart_id,p_checkout_generation,p_user_id,p_guest_cart_hash,p_receipt_hash)
+ SELECT private.read_business_checkout_resume(p_environment,p_account_id,p_cart_id,p_checkout_generation,p_user_id,p_guest_cart_hash,p_receipt_hash,p_allow_send)
 $api$;
-REVOKE ALL ON FUNCTION public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) FROM PUBLIC,anon,authenticated,service_role;
-GRANT EXECUTE ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text),public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text) TO service_role;
+REVOKE ALL ON FUNCTION public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean),public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean) TO service_role;
 REVOKE ALL ON FUNCTION private.start_business_checkout_send(text,text,uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
 CREATE FUNCTION public.start_business_checkout_send(p_environment text,p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid,p_request_sha256 text) RETURNS jsonb
 LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,pg_temp AS $api$

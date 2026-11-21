@@ -13,7 +13,7 @@ BEGIN
       AND p.prolang=(SELECT oid FROM pg_language WHERE lanname='sql') AND NOT p.prosecdef AND p.provolatile='s'
       AND p.prokind='f' AND NOT p.proretset AND p.prorettype='boolean'::regtype
       AND ARRAY(SELECT replace(x,' ','') FROM unnest(p.proconfig) x)=ARRAY['search_path=pg_catalog,pg_temp']
-      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='742e04574bc0bb278d970fa01c67521c643493b5ec05cd5c0cb8fb6b23d92279'
+      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='b8875b6e51221a8244ffbf1aac4d4a142c022ecc0143641ff2c80b5edaae3057'
       AND has_function_privilege(session_user,p.oid,'EXECUTE')
       AND NOT EXISTS (SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
         WHERE a.grantor<>p.proowner OR (a.grantee<>p.proowner AND
@@ -25,7 +25,7 @@ BEGIN
   IF NOT NOT EXISTS (SELECT FROM (VALUES
       ('private.install_first_order_inventory()','a480c3708e19291468240b7d8aafa457f6c5a167bcd0b78d4aabe4585a602549'),
       ('private.install_first_order_issuer()','0cb8040b9f9a702e05c820dd39bb135f3ce8ff068955250cbbeabcd9cb964f44'),
-      ('private.install_first_order_admission()','1a0867dac9144075d62438bf7ffeec6be041f05ee251590bc2968564bfe7049e'),
+      ('private.install_first_order_admission()','a2cdf64146874bb21d96883891ac00e07d510bcc66e0984a6af68ac6f13a5829'),
       ('private.install_first_order_fulfillment()','1d0502c757be333f737ef0200db9ccb8319deca9e41025d4b58e6161c4a7e3f5')
     ) expected(signature,digest) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(expected.signature)
     WHERE p.oid IS NULL OR p.proowner<>(SELECT relowner FROM pg_class WHERE oid='public.orders'::regclass)
@@ -96,7 +96,7 @@ SELECT
       ('private.read_business_checkout_payment_contract(text,text,uuid,text)','896d1c10d22a9f1853e29a1078ffeab68c98692e53d250142d4d856854d5cfc7',true,'jsonb','sql','s'),
       ('private.read_business_checkout_receipt(text,text,uuid,text,uuid,text)','c05eaf191e6fed379c4f6dbc2bf700ef55152f5b8a595f9afb025aa6740997a5',true,'jsonb','sql','s'),
       ('private.read_business_checkout_refund_target(text,text,text)','deacfe4c5b63a7ea06a0ba968a8645e4eec70b6170272b4352c10b2d7f57634b',true,'jsonb','sql','s'),
-      ('private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','b9737a6ff91198d64bd0b25a189428f617e88dad40686b605028a8aa11b63013',true,'boolean','sql','s'),
+      ('private.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean)','27264b0ec7993aa7d4b530f7cbddfb6bd2ea8972f2f1e2310647e8e56fa78b45',true,'boolean','sql','s'),
       ('private.read_business_order_shipments(text,text,uuid,text,uuid,text)','40d6e218b22b1d0f03ca041e76eebdc00d3423d59783735fa6c09f557bfc19c5',true,'jsonb','sql','s'),
       ('private.read_business_shipment_order(text,text,text,uuid)','085f3fe31ca1c93fa42721e48d9208a3a533834db33440e6490173c38745dd22',true,'jsonb','sql','s'),
       ('private.read_live_checkout_order_history(text,uuid,integer,timestamptz,uuid)','bb7b4c6d5be0caf305af16346d3f3035d6f4102d59a485a4c9c335f94e71948e',true,'jsonb','sql','s'),
@@ -138,7 +138,7 @@ SELECT
       ('public.read_business_checkout_payment_contract(text,text,uuid,text)','7ca192400f3900354b3508575e73ddc0351944f72b9832a21181f959a2462aef',false,'jsonb','sql','s'),
       ('public.read_business_checkout_receipt(text,text,uuid,text,uuid,text)','1ca24d97b04bebe862521469dcc57a13f32a054e18553a926f3fbe1e925442c7',false,'jsonb','sql','s'),
       ('public.read_business_checkout_refund_target(text,text,text)','cdd59bd103f56b2c93363239299b3998c029e531447e512e1931f04dfc5feab1',false,'jsonb','sql','s'),
-      ('public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','feaab68899b014f660caa921c32f66dad5c0102e3c3b1f42d1e5c3c403ae8aee',false,'boolean','sql','s'),
+      ('public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean)','3285b7c8d6b5e86045de7ef26a75d78664f748ab4132e1845e305f1ecf287782',false,'boolean','sql','s'),
       ('public.read_business_order_shipments(text,text,uuid,text,uuid,text)','872ba711992359d0978f6b407add70517c299a10892123bb3eae1c5cd4ba6123',false,'jsonb','sql','s'),
       ('public.read_business_shipment_order(text,text,text,uuid)','6929dbb05c0e186a4618b87b32b0cf768bc041612e6dc71ba1b34b48404d6147',false,'jsonb','sql','s'),
       ('public.read_live_checkout_order_history(text,uuid,integer,timestamptz,uuid)','08ad65ca9dee56b47b86932eb712d0df3bb7454277712ec44246458a9ef68d56',false,'jsonb','sql','s'),
@@ -211,7 +211,7 @@ SELECT encode(sha256(convert_to(jsonb_agg(details ORDER BY details::text COLLATE
     AND NOT EXISTS (SELECT FROM (VALUES
       ('private.install_first_order_inventory()','a480c3708e19291468240b7d8aafa457f6c5a167bcd0b78d4aabe4585a602549'),
       ('private.install_first_order_issuer()','0cb8040b9f9a702e05c820dd39bb135f3ce8ff068955250cbbeabcd9cb964f44'),
-      ('private.install_first_order_admission()','1a0867dac9144075d62438bf7ffeec6be041f05ee251590bc2968564bfe7049e'),
+      ('private.install_first_order_admission()','a2cdf64146874bb21d96883891ac00e07d510bcc66e0984a6af68ac6f13a5829'),
       ('private.install_first_order_fulfillment()','1d0502c757be333f737ef0200db9ccb8319deca9e41025d4b58e6161c4a7e3f5')
     ) expected(signature,digest) LEFT JOIN pg_proc p ON p.oid=to_regprocedure(expected.signature)
     WHERE p.oid IS NULL OR p.proowner<>(SELECT relowner FROM pg_class WHERE oid='public.orders'::regclass)

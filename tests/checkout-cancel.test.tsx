@@ -7,12 +7,13 @@ import {
   isCheckoutCancelledSearchParams,
 } from "@/lib/orders/checkout-cancel";
 
-const { refreshCart } = vi.hoisted(() => ({ refreshCart: vi.fn() }));
+const { refreshCart, readCart } = vi.hoisted(() => ({ refreshCart: vi.fn(), readCart: vi.fn() }));
 vi.mock("@/components/cart/useCart", () => ({
-  useCart: () => ({ refresh: refreshCart }),
+  useCart: readCart,
 }));
 beforeEach(() => {
   refreshCart.mockReset().mockResolvedValue(undefined);
+  readCart.mockReturnValue({ refresh: refreshCart, checkout: { mode: "historical_sandbox" } });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -36,6 +37,18 @@ describe("checkout cancellation routing", () => {
     expect(isCheckoutCancelledSearchParams({ checkout: ["cancelled"] })).toBe(true);
     expect(isCheckoutCancelledSearchParams({ checkout: "order-123" })).toBe(false);
     expect(isCheckoutCancelledSearchParams({})).toBe(false);
+  });
+
+  it.each(["live", "business_sandbox"] as const)("guides a %s return back to the cart without exposing legacy cancellation", (mode) => {
+    readCart.mockReturnValue({ refresh: refreshCart, checkout: { mode, canResume: true } });
+    const fetchRequest = vi.fn();
+    vi.stubGlobal("fetch", fetchRequest);
+    render(<CheckoutCancellationCleanup active />);
+
+    expect(screen.getByText(/choose Continue checkout in your cart/i)).toBeVisible();
+    expect(Boolean(screen.queryByText(/test checkout/i))).toBe(mode === "business_sandbox");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(fetchRequest).not.toHaveBeenCalled();
   });
 
   it("waits for an explicit cancellation click before sending strict JSON", async () => {

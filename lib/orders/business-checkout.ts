@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 import { getCheckoutCartSnapshot } from "@/lib/cart/server";
 import { businessCheckoutOrigin } from "@/lib/checkout/business-origin";
@@ -7,7 +8,7 @@ import { matchesBusinessCheckoutSessionId, type AcceptedCheckoutContract } from 
 import { businessAdmissionEnabled } from "@/lib/checkout/storefront";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { readBusinessStripeBinding, verifyBusinessStripeAccount, type BusinessStripeEnvironment, type BusinessStripeBinding } from "@/lib/stripe/live-provider";
-import { prepareBusinessGuestReceipt } from "./business-receipt-cookie";
+import { prepareBusinessGuestReceipt, readPreparedBusinessGuestReceipt } from "./business-receipt-cookie";
 import { buildCheckoutCancelUrl } from "./checkout-cancel";
 import { checkoutReturnDestinationState } from "./checkout-return";
 import { isStoredCheckoutPaymentContract } from "./payment-contracts";
@@ -24,9 +25,9 @@ async function rpc(name: string, args: Record<string, unknown>) {
   return data;
 }
 
-type Reserved = { state: "reserved" | "bound" | "send"; orderId: string; attemptId: string; orderNumber: string;
+type Reserved = { state: "reserved" | "bound" | "send" | "send_started" | "recover"; orderId: string; attemptId: string; orderNumber: string;
   bindingNonce: string; idempotencyKey: string; productName: string; taxCode?: string | null;
-  sessionId: string | null; terms: AcceptedCheckoutContract };
+  sessionId: string | null; firstSendAt?: string; terms: AcceptedCheckoutContract };
 
 function reservation(data: unknown, binding: BusinessStripeBinding): Reserved {
   if (!data || typeof data !== "object") return hold();
@@ -35,7 +36,7 @@ function reservation(data: unknown, binding: BusinessStripeBinding): Reserved {
   if (row.state === "unavailable" || row.state === "stale") {
     throw new BusinessCheckoutError("The selected item or quantity is unavailable. Please review your cart.", 409);
   }
-  if (row.state !== "reserved" && row.state !== "bound" && row.state !== "send") return hold();
+  if (!["reserved", "bound", "send", "send_started", "recover"].includes(String(row.state))) return hold();
   if (typeof row.orderNumber !== "string" || !row.orderNumber || typeof row.productName !== "string" || !row.productName ||
       typeof row.idempotencyKey !== "string" || !row.idempotencyKey.startsWith(binding.environment + ":") || row.idempotencyKey.length > 255 ||
       !isStoredCheckoutPaymentContract(row.terms, true, binding) || row.terms.orderId !== row.orderId ||
@@ -55,7 +56,7 @@ async function sessionParams(row: Reserved, binding: BusinessStripeBinding, orig
     const rate = await binding.stripe.shippingRates.retrieve(terms.shippingRateId);
     if (rate.id !== terms.shippingRateId || rate.object !== "shipping_rate" || rate.livemode !== (binding.environment === "live") ||
         !rate.active || rate.type !== "fixed_amount" || rate.fixed_amount?.currency !== "usd" ||
-        rate.fixed_amount.amount !== terms.shippingCents || rate.tax_behavior === "inclusive") return hold();
+        rate.fixed_amount.amount !== terms.shippingCents || rate.tax_behavior !== terms.taxBehavior) return hold();
     shipping = { shipping_rate: rate.id };
   } else {
     if (!terms.freeShipping || terms.shippingCents !== 0) return hold();
@@ -97,51 +98,62 @@ function payable(session: Stripe.Checkout.Session, row: Reserved, binding: Busin
 }
 
 export async function createBusinessCheckout(mode: BusinessStripeEnvironment, input: {
-  requestOrigin?: string; rewardTierId?: unknown; offerId?: unknown;
+  requestOrigin?: string; rewardTierId?: unknown; offerId?: unknown; resumeOnly?: true;
 }) {
-  if (!businessAdmissionEnabled(mode, process.env)) throw new BusinessCheckoutError(closed, 503);
+  const enabled = businessAdmissionEnabled(mode, process.env);
+  if (!enabled && !input.resumeOnly) throw new BusinessCheckoutError(closed, 503);
   const origin = businessCheckoutOrigin(mode, process.env);
   if (input.requestOrigin !== origin) throw new BusinessCheckoutError("Checkout is unavailable on this address.", 403);
   if (input.rewardTierId != null || input.offerId != null) throw new BusinessCheckoutError("This checkout does not accept points or discount offers.", 400);
   const binding = readBusinessStripeBinding(mode);
   if (!binding.webhookSecret) throw new BusinessCheckoutError(closed, 503);
   const cart = await getCheckoutCartSnapshot();
-  if (cart.lines.length !== 1 || !cart.lines[0].available || cart.lines[0].quantity < 1) {
+  if (!input.resumeOnly && (cart.lines.length !== 1 || !cart.lines[0].available || cart.lines[0].quantity < 1)) {
     throw new BusinessCheckoutError("Please choose an available item before checkout.", 409);
   }
-  const guest = cart.userId ? null : await prepareBusinessGuestReceipt(cart.cartId, cart.checkoutGeneration);
-  if (!cart.userId && !guest) throw new BusinessCheckoutError("Preparing private checkout. Please try again.", 409, "CHECKOUT_RECEIPT_PREPARED");
+  const guestReceipt = input.resumeOnly ? readPreparedBusinessGuestReceipt : prepareBusinessGuestReceipt;
+  const guest = cart.userId ? null : await guestReceipt(cart.cartId, cart.checkoutGeneration);
+  if (!cart.userId && !guest) {
+    if (input.resumeOnly) return hold();
+    throw new BusinessCheckoutError("Preparing private checkout. Please try again.", 409, "CHECKOUT_RECEIPT_PREPARED");
+  }
   const account = await verifyBusinessStripeAccount(binding);
   if (!account.chargesEnabled || !account.payoutsEnabled) throw new BusinessCheckoutError(closed, 503);
   const scope = { p_environment: mode, p_account_id: binding.accountId };
   const row = reservation(await rpc("reserve_business_checkout", { ...scope, p_cart_id: cart.cartId,
     p_checkout_generation: cart.checkoutGeneration, p_user_id: cart.userId, p_guest_cart_hash: guest?.guestHash ?? null,
-    p_receipt_hash: guest?.receiptHash ?? null }), binding);
+    p_receipt_hash: guest?.receiptHash ?? null, p_allow_new: enabled && !input.resumeOnly }), binding);
   const attempt = { ...scope, p_order_id:row.orderId, p_attempt_id:row.attemptId, p_binding_nonce:row.bindingNonce };
   let session: Stripe.Checkout.Session;
   if (row.state === "bound" && row.sessionId) {
     session = await binding.stripe.checkout.sessions.retrieve(row.sessionId);
   } else {
-    if (row.state !== "reserved") return hold();
+    if (!enabled || (row.state !== "reserved" && row.state !== "send_started")) return hold();
+    const recovering = row.state === "send_started";
+    if (recovering && !withinRecoveryWindow(row.firstSendAt)) return hold();
     let params: Stripe.Checkout.SessionCreateParams;
     try {
       const line = row.terms.lines[0], displayed = cart.lines[0];
-      if (line.productId !== displayed.productId || line.variantKey !== displayed.variantId || line.productSlug !== displayed.slug ||
+      if (!displayed || line.productId !== displayed.productId || line.variantKey !== displayed.variantId || line.productSlug !== displayed.slug ||
           line.quantity !== displayed.quantity || line.unitAmountCents !== displayed.price) return hold();
       params = await sessionParams(row, binding, origin);
     } catch (error) {
-      await rpc("release_unsent_business_checkout", attempt);
+      if (!recovering) await rpc("release_unsent_business_checkout", attempt);
       throw error;
     }
-    const decision = await rpc("start_business_checkout_send", attempt);
+    // Bind the actual POST parameters and API version before the first network request. An updated
+    // build may repeat the key only when it can reproduce the exact original merchant request.
+    const requestDigest = createHash("sha256").update(JSON.stringify([binding.accountId, mode, STRIPE_API_VERSION, params])).digest("hex");
+    const decision = await rpc("start_business_checkout_send", { ...attempt, p_request_sha256: requestDigest });
     // The database returned a confirmed denial before this request could send.
     // Its locked release still refuses if a concurrent request has started Stripe.
-    if (["stale", "unavailable", "closed"].includes(decision?.state)) {
+    if (!recovering && ["stale", "unavailable", "closed"].includes(decision?.state)) {
       await rpc("release_unsent_business_checkout", attempt);
     }
     const admitted = reservation(decision, binding);
-    if (admitted.state !== "send" || admitted.orderId !== row.orderId || admitted.attemptId !== row.attemptId ||
+    if (admitted.state !== (recovering ? "recover" : "send") || admitted.orderId !== row.orderId || admitted.attemptId !== row.attemptId ||
         admitted.bindingNonce !== row.bindingNonce || admitted.idempotencyKey !== row.idempotencyKey) return hold();
+    if (recovering && (admitted.firstSendAt !== row.firstSendAt || !withinRecoveryWindow(admitted.firstSendAt))) return hold();
     // Once sending starts, a timeout can mean Stripe accepted the original request. Keep the stock held.
     try {
       session = await binding.stripe.checkout.sessions.create(params, { idempotencyKey: row.idempotencyKey,
@@ -152,4 +164,11 @@ export async function createBusinessCheckout(mode: BusinessStripeEnvironment, in
   if (!row.sessionId && await rpc("bind_recovered_business_checkout_session", { ...attempt, p_session_id:session.id }) !== true) return hold();
   guest?.bindSession(session.id);
   return { orderId:row.orderId, orderNumber:row.orderNumber, sessionId:session.id, url };
+}
+
+function withinRecoveryWindow(firstSendAt?: string) {
+  if (!firstSendAt) return false;
+  const age = Date.now() - Date.parse(firstSendAt);
+  // Stripe retains idempotency results for at least 24 hours. The DB independently enforces this shorter window.
+  return Number.isFinite(age) && age >= 0 && age < 12 * 60 * 60 * 1000;
 }

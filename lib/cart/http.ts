@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { readCheckoutStorefrontForOrigin } from "@/lib/checkout/storefront";
+import { canResumeBusinessCart } from "@/lib/cart/server";
 import { CartError, type CartState } from "@/lib/cart/types";
 import {
   isSupabaseNetworkError,
@@ -16,7 +17,9 @@ export async function cartResponse(request: Request, cart: CartState) {
     mode: "closed" as const,
     admissionOpen: false,
   }));
-  return NextResponse.json({ ...cart, checkout }, {
+  const canResume = (checkout.mode === "live" || checkout.mode === "business_sandbox") &&
+    await canResumeBusinessCart(cart, checkout.mode).catch(() => false);
+  return NextResponse.json({ ...cart, checkout: canResume ? { ...checkout, canResume: true } : checkout }, {
     headers: { "Cache-Control": "private, no-store" },
   });
 }

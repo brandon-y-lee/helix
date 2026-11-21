@@ -8,9 +8,21 @@ type CancellationState = "idle" | "pending" | "cancelled" | "paid" | "processing
 export function CheckoutCancellationCleanup({ active, recoverOriginChange = false, onCancelled }: {
   active: boolean; recoverOriginChange?: boolean; onCancelled?: () => void;
 }) {
-  const { refresh } = useCart();
+  const { checkout, error, refresh } = useCart();
   const [state, setState] = useState<CancellationState>("idle");
-  if (!active) return null;
+  if (!active || error) return null;
+  if (checkout?.mode === "live" || checkout?.mode === "business_sandbox") {
+    if (recoverOriginChange) return null;
+    return (
+      <p className="checkout-panel__hint">
+        {checkout.mode === "business_sandbox" && "This was a test checkout. "}
+        {checkout.canResume === true
+          ? "Choose Continue checkout in your cart to return to your payment session."
+          : "Review your cart for available checkout options."}
+      </p>
+    );
+  }
+  if (checkout?.mode !== "historical_sandbox") return null;
   const terminal = state === "cancelled" || state === "paid" || state === "unavailable";
 
   async function cancelCheckout() {

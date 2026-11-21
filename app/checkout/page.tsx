@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { readCheckoutStorefrontForOrigin } from "@/lib/checkout/storefront";
+import { CheckoutOfferTerms } from "@/components/cart/CheckoutOfferTerms";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function CheckoutPage() {
   const message = !checkout.admissionOpen
     ? "Checkout is currently closed."
     : checkout.mode === "live"
-      ? "Review your cart, then pay by card with Stripe. Shipping and any tax are shown before payment."
+      ? "Review your cart, then pay by card with Stripe."
       : "Test checkout. No payment will be taken and no items will ship.";
   return (
     <div className="container public-utility-page">
@@ -26,6 +27,9 @@ export default async function CheckoutPage() {
       </div>
       <div className="empty-state">
         <p className="checkout-panel__notice">{message}</p>
+        {checkout.admissionOpen && checkout.offer && (checkout.mode === "live" || checkout.mode === "business_sandbox") && (
+          <CheckoutOfferTerms offer={checkout.offer} />
+        )}
         <Link href="/cart" className="btn btn--editorial-rounded">
           Review cart
         </Link>

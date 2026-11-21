@@ -7,11 +7,26 @@ vi.mock("next/headers",()=>({cookies:async()=>({
   get:(name:string)=>state.values.has(name)?{value:state.values.get(name)}:undefined,
   set:(name:string,value:string,options:unknown)=>{state.values.set(name,value);state.set(name,value,options);},
 })}));
-import { prepareBusinessGuestReceipt, readBusinessReceiptTokenHash } from "@/lib/orders/business-receipt-cookie";
+import { prepareBusinessGuestReceipt, readBusinessReceiptTokenHash, readPreparedBusinessGuestReceipt } from "@/lib/orders/business-receipt-cookie";
 const digest=(v:string)=>createHash("sha256").update(v).digest("hex");
 beforeEach(()=>{state.values.clear();state.set.mockClear();});
 afterEach(()=>vi.unstubAllGlobals());
 describe("private business guest checkout",()=>{
+  it("only reads an existing independent receipt for this cart generation", async () => {
+    const guest = Buffer.alloc(32, 1).toString("base64url");
+    const receipt = Buffer.alloc(32, 2).toString("base64url");
+    const name = "helix_checkout_attempt_" + digest("cart/generation").slice(0, 32);
+    state.values.set(GUEST_CART_COOKIE, guest);
+    expect(await readPreparedBusinessGuestReceipt("cart", "generation")).toBeNull();
+    for (const invalid of [guest, "malformed"]) {
+      state.values.set(name, invalid);
+      expect(await readPreparedBusinessGuestReceipt("cart", "generation")).toBeNull();
+    }
+    state.values.set(name, receipt);
+    expect(await readPreparedBusinessGuestReceipt("cart", "other")).toBeNull();
+    expect(await readPreparedBusinessGuestReceipt("cart", "generation")).toMatchObject({ guestHash: digest(guest), receiptHash: digest(receipt) });
+    expect(state.set).not.toHaveBeenCalled();
+  });
   it("binds only an independent per-generation secret after the browser proves it on a second request",async()=>{
     const cartToken=Buffer.alloc(32,6).toString("base64url");
     state.values.set(GUEST_CART_COOKIE,cartToken);

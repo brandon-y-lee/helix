@@ -158,6 +158,7 @@ export type OrderConfirmation = OrderConfirmationDisplay;
 
 type CreateCheckoutInput = {
   requestOrigin?: string;
+  resumeOnly?: true;
   rewardTierId?: unknown;
   offerId?: unknown;
 };
@@ -623,7 +624,7 @@ export async function createStripeCheckoutSession(
 ): Promise<CreateCheckoutResult> {
   const businessMode = selectedBusinessCheckout(process.env);
   if (businessMode) return createBusinessCheckout(businessMode, input);
-  if (process.env.VERCEL || process.env.VERCEL_ENV) {
+  if (input.resumeOnly || process.env.VERCEL || process.env.VERCEL_ENV) {
     throw new CheckoutError("live_admission_closed", "The store is not accepting new payments yet.");
   }
   const origin = resolveCheckoutOrigin({ requestOrigin: input.requestOrigin });

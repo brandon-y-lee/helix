@@ -42,10 +42,12 @@ type CheckoutPanelProps = {
 };
 
 export function CheckoutPanel({ storefront, ...props }: CheckoutPanelProps & { storefront?: CheckoutStorefront }) {
-  if (!storefront?.admissionOpen || !["live", "business_sandbox", "historical_sandbox"].includes(storefront.mode)) {
+  const resumeOnly = storefront?.canResume === true && (storefront.mode === "live" || storefront.mode === "business_sandbox");
+  if (!storefront || !["live", "business_sandbox", "historical_sandbox"].includes(storefront.mode) ||
+      (!storefront.admissionOpen && !resumeOnly)) {
     return <p className="checkout-panel__notice" role="status">Checkout is currently closed.</p>;
   }
-  return <OpenCheckoutPanel key={storefront.mode} mode={storefront.mode} {...props} />;
+  return <OpenCheckoutPanel key={storefront.mode} mode={storefront.mode} resumeOnly={resumeOnly} {...props} />;
 }
 
 function OpenCheckoutPanel({
@@ -53,7 +55,8 @@ function OpenCheckoutPanel({
   subtotal,
   cartUpdatedAt,
   mode,
-}: CheckoutPanelProps & { mode: CheckoutStorefront["mode"] }) {
+  resumeOnly,
+}: CheckoutPanelProps & { mode: CheckoutStorefront["mode"]; resumeOnly: boolean }) {
   const rewardsEnabled = mode === "historical_sandbox";
   const [originRecovered, setOriginRecovered] = useState(false);
   const [rewardSummary, setRewardSummary] = useState<RewardsSummaryResponse | null>(null);
@@ -122,10 +125,12 @@ function OpenCheckoutPanel({
     if (pending || disabled) return;
     resetErrors();
     setOriginRecovered(false);
-    const session = await createCheckout(
-      rewardsEnabled && selectedReward !== "none" ? selectedReward : null,
-      rewardsEnabled && selectedOffer ? selectedOffer : undefined,
-    );
+    const session = resumeOnly
+      ? await createCheckout(null, undefined, true)
+      : await createCheckout(
+        rewardsEnabled && selectedReward !== "none" ? selectedReward : null,
+        rewardsEnabled && selectedOffer ? selectedOffer : undefined,
+      );
     if (session) window.location.assign(session.url);
   }
 
@@ -209,7 +214,7 @@ function OpenCheckoutPanel({
         </p>
       )}
 
-      {cartErrorCode(checkoutError) === "CHECKOUT_ORIGIN_CHANGED" && (
+      {rewardsEnabled && cartErrorCode(checkoutError) === "CHECKOUT_ORIGIN_CHANGED" && (
         <CheckoutCancellationCleanup active recoverOriginChange onCancelled={() => {
           setOriginRecovered(true);
           resetErrors();
@@ -224,7 +229,7 @@ function OpenCheckoutPanel({
         aria-busy={pending || undefined}
         onClick={() => void startCheckout()}
       >
-        {pending ? "Opening checkout" : `Checkout ${formatPrice(checkoutSubtotal)}`}
+        {pending ? "Opening checkout" : resumeOnly ? "Continue checkout" : `Checkout ${formatPrice(checkoutSubtotal)}`}
       </button>
     </div>
   );

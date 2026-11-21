@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cartServer = vi.hoisted(() => ({
+  canResumeBusinessCart: vi.fn().mockResolvedValue(false),
   clearCart: vi.fn(),
   getCartState: vi.fn(),
 }));

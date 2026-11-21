@@ -4,7 +4,7 @@ const edge = vi.hoisted(() => ({ binding: vi.fn(), account: vi.fn(), cart: vi.fn
 vi.mock("@/lib/stripe/live-provider", async original => ({ ...await original<typeof import("@/lib/stripe/live-provider")>(),
   readBusinessStripeBinding: edge.binding, verifyBusinessStripeAccount: edge.account }));
 vi.mock("@/lib/cart/server", () => ({ getCheckoutCartSnapshot: edge.cart }));
-vi.mock("@/lib/orders/business-receipt-cookie", () => ({ prepareBusinessGuestReceipt: edge.guest }));
+vi.mock("@/lib/orders/business-receipt-cookie", () => ({ prepareBusinessGuestReceipt: edge.guest, readPreparedBusinessGuestReceipt: edge.guest }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: edge.rpc }) }));
 import { createStripeCheckoutSession } from "@/lib/orders/server";
 import { BUSINESS_SANDBOX_STOREFRONT_ORIGIN } from "@/lib/checkout/business-origin";
@@ -60,13 +60,59 @@ describe("business Checkout admission from the normal cart service", () => {
     expect(options.idempotencyKey).toBe(reservation.idempotencyKey);
     expect(edge.setReceipt).toHaveBeenCalledWith(sessionId);
   });
-  it("leaves a lost send unresolved without a replacement or stock release", async () => {
+  it("keeps a lost response held until the database admits recovery of the same original request", async () => {
     edge.create.mockRejectedValue(new Error("network"));
     await expect(createStripeCheckoutSession({requestOrigin:origin})).rejects.toThrow();
     expect(edge.rpc.mock.calls.map(([name]) => name)).toEqual(["reserve_business_checkout","start_business_checkout_send"]);
-    storage({reserve_business_checkout:{...reservation,state:"send_started"}});
+    const pending = {...reservation,state:"send_started",firstSendAt:new Date(Date.now()-30000).toISOString()};
+    storage({reserve_business_checkout:pending,start_business_checkout_send:pending});
     await expect(createStripeCheckoutSession({requestOrigin:origin})).rejects.toThrow();
     expect(edge.create).toHaveBeenCalledTimes(1); expect(edge.setReceipt).not.toHaveBeenCalled();
+    edge.create.mockResolvedValue(hosted);
+    storage({reserve_business_checkout:pending,start_business_checkout_send:{...pending,state:"recover"}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).resolves.toMatchObject({ sessionId });
+    expect(edge.create.mock.calls[1]).toEqual(edge.create.mock.calls[0]);
+    const inputs = edge.rpc.mock.calls.filter(([name]) => name === "start_business_checkout_send").map(([, args]) => args.p_request_sha256);
+    expect(inputs[0]).toMatch(/^[0-9a-f]{64}$/);
+    expect(new Set(inputs).size).toBe(1);
+    expect(edge.rpc.mock.calls.some(([name]) => name === "release_unsent_business_checkout")).toBe(false);
+  });
+  it("keeps a previous send held past its recovery window, including when a stale response recommends retry", async () => {
+    const past = {...reservation,state:"send_started",firstSendAt:new Date(Date.now()-86400000).toISOString()};
+    storage({reserve_business_checkout:past,start_business_checkout_send:{...past,state:"recover"}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).rejects.toThrow();
+    expect(edge.create).not.toHaveBeenCalled();
+    expect(edge.rpc.mock.calls.some(([name]) => name === "release_unsent_business_checkout")).toBe(false);
+  });
+  it("finishes with the original key when the previous worker stopped before its first network call", async () => {
+    const pending = {...reservation,state:"send_started",firstSendAt:new Date(Date.now()-60000).toISOString()};
+    storage({reserve_business_checkout:pending,start_business_checkout_send:{...pending,state:"recover"}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).resolves.toMatchObject({sessionId});
+    expect(edge.create).toHaveBeenCalledTimes(1);
+    expect(edge.create.mock.calls[0][1].idempotencyKey).toBe(reservation.idempotencyKey);
+    expect(edge.rpc.mock.calls.map(([name])=>name)).toEqual(["reserve_business_checkout","start_business_checkout_send","bind_recovered_business_checkout_session"]);
+  });
+  it("holds an unbound original after the operator closes new payments", async () => {
+    vi.stubEnv("HELIX_STRIPE_LIVE_ADMISSION_ENABLED","false");
+    storage({reserve_business_checkout:{...reservation,state:"send_started",firstSendAt:new Date(Date.now()-60000).toISOString()}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).rejects.toThrow();
+    expect(edge.rpc.mock.calls.map(([name])=>name)).toEqual(["reserve_business_checkout"]);
+    expect(edge.create).not.toHaveBeenCalled();
+  });
+  it("returns an owned already-bound original when new admission is disabled and the cart no longer advertises the SKU", async () => {
+    vi.stubEnv("HELIX_STRIPE_LIVE_ADMISSION_ENABLED","false");
+    edge.cart.mockResolvedValue({cartId:"cart-fixture",checkoutGeneration:"generation",userId:"user-fixture",lines:[]});
+    storage({reserve_business_checkout:{...reservation,state:"bound",sessionId,terms:{...terms,sessionId}}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).resolves.toMatchObject({ sessionId });
+    expect(edge.rpc).toHaveBeenCalledWith("reserve_business_checkout",expect.objectContaining({p_allow_new:false}));
+    expect(edge.create).not.toHaveBeenCalled();
+    expect(edge.retrieve).toHaveBeenCalledWith(sessionId);
+  });
+  it("prevents resume-only from allocating stock or sending without an owned original", async () => {
+    storage({reserve_business_checkout:{state:"closed"}});
+    await expect(createStripeCheckoutSession({requestOrigin:origin,resumeOnly:true})).rejects.toThrow();
+    expect(edge.rpc).toHaveBeenCalledWith("reserve_business_checkout",expect.objectContaining({p_allow_new:false}));
+    expect(edge.create).not.toHaveBeenCalled();
   });
   it("creates a business sandbox Session for the stable child and binds the buyer return there", async () => {
     const mode = "business_sandbox", childAccount = "acct_ChildFixture", childSession = "cs_test_ChildFixture";
@@ -114,6 +160,16 @@ describe("business Checkout admission from the normal cart service", () => {
       expect(edge.rpc.mock.calls.map(([name]) => name)).toEqual(["reserve_business_checkout","release_unsent_business_checkout"]);
     }
     expect(edge.shippingRate).toHaveBeenCalledWith(shippingRateId);
+  });
+  it("rejects a chargeable shipping rate with unspecified tax treatment before a send starts", async () => {
+    const shippingRateId = "shr_fixture";
+    const accepted = { ...reservation, terms:{...terms,shippingRateId,shippingCents:500,freeShipping:false,preTaxTotalCents:3500} };
+    storage({reserve_business_checkout:accepted,release_unsent_business_checkout:true});
+    edge.shippingRate.mockResolvedValue({ id:shippingRateId,object:"shipping_rate",livemode:true,type:"fixed_amount",
+      active:true,fixed_amount:{currency:"usd",amount:500},tax_behavior:"unspecified" });
+    await expect(createStripeCheckoutSession({requestOrigin:origin})).rejects.toThrow();
+    expect(edge.rpc.mock.calls.map(([name])=>name)).toEqual(["reserve_business_checkout","release_unsent_business_checkout"]);
+    expect(edge.create).not.toHaveBeenCalled();
   });
   it("prepares missing guest proof without opening an Order or payment", async () => {
     edge.guest.mockResolvedValue(null);

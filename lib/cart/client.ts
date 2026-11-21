@@ -153,13 +153,13 @@ function isCheckoutSession(value: unknown): value is CheckoutSession {
   );
 }
 
-export async function createCheckoutSession(rewardTierId: string | null, offerId?: string) {
+export async function createCheckoutSession(rewardTierId: string | null, offerId?: string, resumeOnly?: true) {
   const request = () => requestJson(
     "/api/checkout/sessions",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ rewardTierId, ...(offerId ? { offerId } : {}) }),
+      body: JSON.stringify({ rewardTierId, ...(offerId ? { offerId } : {}), ...(resumeOnly ? { resumeOnly: true } : {}) }),
     },
     isCheckoutSession,
     "Checkout is temporarily unavailable.",

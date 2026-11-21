@@ -56,7 +56,10 @@ test("Account, Cart, Checkout, and privacy choices use the helix identity", asyn
   await expect(page.locator("body")).not.toContainText(formerBrandPattern);
 });
 
-test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
+test("Historical checkout cancellation returns to the intact Cart", async ({ page }) => {
+  await page.route("**/api/cart", route => route.fulfill({
+    json: { ...emptyCart, checkout: { mode: "historical_sandbox", admissionOpen: false } },
+  }));
   await page.goto("/cart?checkout=cancelled");
 
   await expect(page.getByText("You returned from checkout. Your cart is still here.")).toBeVisible();

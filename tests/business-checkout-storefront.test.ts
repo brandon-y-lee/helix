@@ -6,10 +6,12 @@ vi.mock("@/lib/stripe/live-provider", async original => ({
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: edges.offer }) }));
 import { readCheckoutStorefront, readCheckoutStorefrontForOrigin } from "@/lib/checkout/storefront";
 const prod = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main", CHECKOUT_ENABLED: "true" };
+const publicTerms = { shippingCents: 500, freeShippingThresholdCents: null, dispatchTerms: "Within two days", returnTerms: "Returns within 30 days" };
+const offer = { admissionOpen: true, sku: "FIXTURE", productSlug: "serum", variantKey: "30ml", unitPriceCents: 3000, currency: "USD", ...publicTerms };
 beforeEach(() => {
   vi.resetAllMocks();
   edges.binding.mockReturnValue({ environment: "live", accountId: "acct_Fixture", webhookSecret: "whsec_fixture" });
-  edges.offer.mockResolvedValue({ data: { admissionOpen: true, sku: "FIXTURE", productSlug: "serum", variantKey: "30ml", unitPriceCents: 3000, currency: "USD" }, error: null });
+  edges.offer.mockResolvedValue({ data: offer, error: null });
 });
 describe("public checkout availability", () => {
   it("closes main and arbitrary previews before storage or provider work", async () => {
@@ -24,7 +26,7 @@ describe("public checkout availability", () => {
     expect(edges.offer).not.toHaveBeenCalled();
     const candidate = { ...env, HELIX_STRIPE_LIVE_ADMISSION_ENABLED: "true" };
     expect(await readCheckoutStorefront(candidate)).toEqual({ mode: "live", admissionOpen: true,
-      offer: { productSlug: "serum", variantId: "30ml", unitPriceCents: 3000 } });
+      offer: { productSlug: "serum", variantId: "30ml", unitPriceCents: 3000, ...publicTerms } });
     expect(edges.offer).toHaveBeenCalledWith("read_business_checkout_offer", { p_environment: "live", p_account_id: "acct_Fixture" });
     edges.offer.mockResolvedValue({ data: null, error: null });
     expect((await readCheckoutStorefront(candidate)).admissionOpen).toBe(false);
@@ -32,6 +34,14 @@ describe("public checkout availability", () => {
     edges.offer.mockClear();
     expect((await readCheckoutStorefront(candidate)).admissionOpen).toBe(false);
     expect(edges.offer).not.toHaveBeenCalled();
+  });
+  it.each([
+    { shippingCents: undefined }, { shippingCents: -1 }, { freeShippingThresholdCents: undefined },
+    { freeShippingThresholdCents: 1.5 }, { dispatchTerms: " " }, { returnTerms: null },
+  ])("closes new admission when the approved policy is incomplete: %o", async invalid => {
+    edges.offer.mockResolvedValue({ data: { ...offer, ...invalid }, error: null });
+    expect(await readCheckoutStorefront({ ...prod, CHECKOUT_MODE: "live", HELIX_STRIPE_LIVE_ADMISSION_ENABLED: "true" }))
+      .toEqual({ mode: "live", admissionOpen: false });
   });
 });
 

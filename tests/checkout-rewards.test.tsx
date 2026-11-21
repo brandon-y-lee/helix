@@ -86,6 +86,7 @@ describe("Checkout helix rewards state", () => {
 });
 
 it("shows explicit local recovery only for the structured origin error, then requires a separate checkout click", async () => {
+  cart.useCart.mockReturnValue({ refresh: vi.fn(), checkout: { mode: "historical_sandbox", admissionOpen: true } });
   const fetchRequest = vi.fn().mockResolvedValueOnce(Response.json({ error: { code: "CHECKOUT_ORIGIN_CHANGED", message: "This pending checkout was opened on another Helix site." } }, { status: 409 }));
   vi.stubGlobal("fetch", fetchRequest);
   const error = await createCheckoutSession(null).catch((value: unknown) => value);

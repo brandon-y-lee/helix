@@ -10,8 +10,18 @@ type Environment = Record<string, string | undefined>;
 export type CheckoutStorefront = {
   mode: "closed" | "historical_sandbox" | BusinessStripeEnvironment;
   admissionOpen: boolean;
-  offer?: { productSlug: string; variantId: string; unitPriceCents: number };
+  canResume?: true;
+  offer?: {
+    productSlug: string; variantId: string; unitPriceCents: number;
+    shippingCents?: number; freeShippingThresholdCents?: number | null;
+    dispatchTerms?: string; returnTerms?: string;
+  };
 };
+
+const cents = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+const policyText = (value: unknown, limit: number): value is string =>
+  typeof value === "string" && value.trim().length > 0 && value.length <= limit;
 
 export function selectedBusinessCheckout(env: Environment): BusinessStripeEnvironment | null {
   if (hasLivePaymentConfiguration(env)) return "live";
@@ -45,11 +55,16 @@ export const readCheckoutStorefront = cache(async (env: Environment = process.en
     const { data, error } = await createSupabaseAdminClient().rpc("read_business_checkout_offer", {
       p_environment: mode, p_account_id: binding.accountId,
     });
-    if (error || data?.admissionOpen !== true || data.currency !== "USD" || !Number.isSafeInteger(data.unitPriceCents) ||
-        data.unitPriceCents < 1 || typeof data.productSlug !== "string" || !data.productSlug ||
+    if (error || data?.admissionOpen !== true || data.currency !== "USD" || !cents(data.unitPriceCents) ||
+        data.unitPriceCents < 1 || !cents(data.shippingCents) ||
+        (data.freeShippingThresholdCents !== null && !cents(data.freeShippingThresholdCents)) ||
+        !policyText(data.dispatchTerms, 2000) || !policyText(data.returnTerms, 4000) ||
+        typeof data.productSlug !== "string" || !data.productSlug ||
         typeof data.variantKey !== "string" || !data.variantKey) return closed;
     return { mode, admissionOpen: true,
-      offer: { productSlug: data.productSlug, variantId: data.variantKey, unitPriceCents: data.unitPriceCents } };
+      offer: { productSlug: data.productSlug, variantId: data.variantKey, unitPriceCents: data.unitPriceCents,
+        shippingCents: data.shippingCents, freeShippingThresholdCents: data.freeShippingThresholdCents,
+        dispatchTerms: data.dispatchTerms, returnTerms: data.returnTerms } };
   } catch {
     return closed;
   }

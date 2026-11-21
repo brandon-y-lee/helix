@@ -1,7 +1,4 @@
-import {
-  returnsPolicy,
-  supportPolicy,
-} from "@/content/support/policy";
+import { supportPolicy } from "@/content/support/policy";
 
 type FAQItem = {
   id: string;
@@ -130,7 +127,7 @@ export const faqCategories: FAQCategory[] = [
         id: "edit-order",
         question: "Can I edit or cancel an order?",
         answer:
-          "You can return to your cart and cancel a pending checkout. If you have already paid, contact Customer Care with your order details.",
+          "Before you pay, return to your cart to see the options for your checkout. If you have already paid, contact Customer Care with your order details.",
         links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
@@ -142,27 +139,28 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "free-shipping",
-        question: "Is standard shipping available?",
+        question: "How much does shipping cost?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Available shipping options are shown at checkout.",
+          "Your cart shows the shipping fee and any minimum for free shipping. You can review the total at checkout before you pay.",
       },
       {
         id: "shipping-destinations",
         question: "Where is standard shipping available?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Check the available shipping options at checkout.",
+          "Enter your delivery address at checkout to see whether shipping is available to you.",
       },
       {
         id: "shipping-timing",
         question: "When will my order ship and tracking become available?",
         answer:
-          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Look for tracking information on your order after dispatch. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
+          "Check the dispatch terms in your cart before checkout. After your order ships, look for tracking information on your order.",
+        links: [{ label: "Terms & Conditions", href: "/terms" }],
       },
       {
         id: "shipping-address-changes",
         question: "Can I change my shipping address after checkout?",
         answer:
-          "Contact Customer Care about an address change. Orders may be canceled before they are processed for shipment, with a full refund to the original payment method. Once an order is processed for shipment, it must be returned in accordance with the Return Policy.",
+          "Contact Customer Care with your order details as soon as possible. They can check whether your shipping address can still be changed.",
         links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
@@ -175,8 +173,12 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "return-window",
         question: "What is the return policy?",
-        answer: `Helix offers free returns on all orders. Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition} Products must not otherwise be altered, marked or damaged. Return the product with its original packaging where available. When a return is approved, a prepaid return label will be sent by email. Expedited shipping fees are non-refundable. Rejected items may be held until a reshipment fee is paid; Customer Care will explain the available options.`,
-        links: [{ label: "Request a return", href: "/contact" }],
+        answer:
+          "Review the return terms for your item in your cart before checkout. For the full return policy, see the Terms & Conditions. Contact Customer Care to request a return.",
+        links: [
+          { label: "Terms & Conditions", href: "/terms" },
+          { label: "Request a return", href: "/contact" },
+        ],
       },
       {
         id: "damaged-missing",
@@ -204,7 +206,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
+          "Review the return terms for your order and the shipping fee policy in the Terms & Conditions. Customer Care can help with questions about a specific charge.",
         links: [
           { label: "Terms & Conditions", href: "/terms" },
           { label: "Customer Care", href: "/contact" },

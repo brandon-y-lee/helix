@@ -33,11 +33,11 @@ LANGUAGE sql AS $$
     context->>'guestHash',context->>'receiptHash',allow_new);
 $$;
 
-CREATE FUNCTION pg_temp.test_first_resume(context jsonb) RETURNS boolean
+CREATE FUNCTION pg_temp.test_first_resume(context jsonb,allow_send boolean DEFAULT true) RETURNS boolean
 LANGUAGE sql AS $$
   SELECT public.read_business_checkout_resume(context->>'environment',context->>'accountId',
     (context->>'cartId')::uuid,(context->>'generation')::uuid,(context->>'userId')::uuid,
-    context->>'guestHash',context->>'receiptHash');
+    context->>'guestHash',context->>'receiptHash',allow_send);
 $$;
 
 CREATE FUNCTION pg_temp.reserve_test_first_cart(context jsonb) RETURNS uuid

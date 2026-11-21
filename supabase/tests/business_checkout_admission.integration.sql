@@ -221,9 +221,9 @@ BEGIN
   SELECT allocated_units INTO STRICT prior_units FROM private.live_checkout_sale_policy;
   SELECT count(*) INTO prior_orders FROM public.orders;
   SELECT count(*) INTO prior_attempts FROM public.payment_attempts;
-  IF has_function_privilege('anon','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE')
-    OR has_function_privilege('authenticated','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE')
-    OR NOT has_function_privilege('service_role','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text)','EXECUTE') THEN
+  IF has_function_privilege('anon','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean)','EXECUTE')
+    OR has_function_privilege('authenticated','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean)','EXECUTE')
+    OR NOT has_function_privilege('service_role','public.read_business_checkout_resume(text,text,uuid,uuid,uuid,text,text,boolean)','EXECUTE') THEN
     RAISE EXCEPTION 'The scoped resume read must remain service-only';
   END IF;
   UPDATE public.carts SET guest_token_hash=repeat('c',64) WHERE id=(recent->>'cartId')::uuid;
@@ -242,6 +242,7 @@ BEGIN
   SET LOCAL ROLE service_role;
   IF public.read_business_checkout_offer(mode_,recent->>'accountId') IS NOT NULL
     OR pg_temp.test_first_resume(recent) IS DISTINCT FROM true
+    OR pg_temp.test_first_resume(recent,false) IS DISTINCT FROM false
     OR pg_temp.test_first_resume(fresh) IS DISTINCT FROM false
     OR pg_temp.test_first_resume(recent||jsonb_build_object('environment',other_mode))
     OR pg_temp.test_first_resume(recent||jsonb_build_object('accountId','acct_OtherIssuer'))
@@ -291,7 +292,7 @@ BEGIN
     RAISE EXCEPTION 'Could not attach the authenticated original Session after admission closed';
   END IF;
   result := pg_temp.prepare_test_first_cart(recent,false);
-  IF pg_temp.test_first_resume(recent) IS DISTINCT FROM true OR result->>'state' IS DISTINCT FROM 'bound'
+  IF pg_temp.test_first_resume(recent,false) IS DISTINCT FROM true OR result->>'state' IS DISTINCT FROM 'bound'
     OR result->>'sessionId' IS DISTINCT FROM bound_session OR result->>'orderId' IS DISTINCT FROM recent->>'orderId'
     OR pg_temp.retry_test_send(recent,digest_)->>'state' IS DISTINCT FROM 'bound'
     OR pg_temp.prepare_test_first_cart(recent||jsonb_build_object('receiptHash',fresh->>'receiptHash'),false) ? 'sessionId' THEN
