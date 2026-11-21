@@ -25,9 +25,11 @@ function releaseReaderAuthorized(request: Request, env: Environment) {
 
 export function searchCredentialFingerprints(env: Environment) {
   const fingerprint = (value: string | undefined) => value ? createHash("sha256").update(value, "utf8").digest("hex") : null;
+  const signer = catalogWebhookSecret(env, "production");
+  if (env.HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET && !signer) throw new Error("Unbound Catalog webhook signer");
   return {
     writeKeySha256: fingerprint(catalogWriteApiKey(env, "production")),
-    webhookSecretSha256: fingerprint(catalogWebhookSecret(env, "production")),
+    webhookSecretSha256: fingerprint(signer),
   };
 }
 

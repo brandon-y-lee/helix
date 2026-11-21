@@ -4,17 +4,24 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { liteClient } from "algoliasearch/lite";
 import { GET } from "@/app/api/internal/release-status/route";
 import { POST as reindex } from "@/app/api/admin/search-reindex/route";
+import { upsertSearchRecord } from "@/lib/algolia/server";
 import { supabaseOriginForTarget, SUPABASE_PROJECT_REFS } from "@/lib/supabase/project-safety";
 import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 
-const { searchForHits } = vi.hoisted(() => ({ searchForHits: vi.fn() }));
+const { searchForHits, saveObjects } = vi.hoisted(() => ({ searchForHits: vi.fn(), saveObjects: vi.fn() }));
 vi.mock("algoliasearch/lite", () => ({ liteClient: vi.fn(() => ({ searchForHits })) }));
+vi.mock("algoliasearch", () => ({ algoliasearch: vi.fn(() => ({ saveObjects })) }));
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const origin = supabaseOriginForTarget("production");
 const token = "r".repeat(40);
 const publicKey = "synthetic-public-reader";
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const status = () => GET(new Request("https://www.helixskin.us/api/internal/release-status?product=super-serum",
+  { headers: { Authorization: "Bearer " + token } }));
+const requestReindex = (signer: string) => reindex(new Request("https://www.helixskin.us/api/admin/search-reindex", {
+  method: "POST", headers: { "x-webhook-secret": signer },
+}));
 beforeEach(() => {
   for (const [name, value] of Object.entries({
     ...syntheticMainContext,
@@ -42,9 +49,6 @@ beforeEach(() => {
 });
 
 it("reports successful storefront reads and only the effective production writer and signer", async () => {
-  const status = () => GET(new Request("https://www.helixskin.us/api/internal/release-status?product=super-serum",
-    { headers: { Authorization: "Bearer " + token } }));
-
   const readOnly = await status();
   expect(readOnly.status).toBe(200);
   expect(await readOnly.json()).toMatchObject({
@@ -69,18 +73,34 @@ it("reports successful storefront reads and only the effective production writer
 
 it("refuses an authenticated production reindex before reading the Catalog when only legacy writer material exists", async () => {
   vi.stubEnv("ALLOW_PRODUCTION_SEARCH_REINDEX", "true");
-  const request = (signer: string) => new Request("https://www.helixskin.us/api/admin/search-reindex", {
-    method: "POST", headers: { "x-webhook-secret": signer },
-  });
-  expect((await reindex(request("retained-legacy-signer"))).status).toBe(401);
+  expect((await requestReindex("retained-legacy-signer")).status).toBe(401);
 
   vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", "production-signer");
   vi.spyOn(console, "error").mockImplementation(() => {});
-  const response = await reindex(request("production-signer"));
+  const response = await requestReindex("production-signer");
   expect(response.status).toBe(502);
   expect(await response.json()).toMatchObject({
     error: "reindex failed", message: expect.stringContaining("HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY"),
     report: { read: 0, upserted: 0, failed: 1 },
   });
   expect(fetch).not.toHaveBeenCalled();
+});
+
+it.each([
+  { writer: "retained-legacy-writer", signer: "dedicated-signer", reindexStatus: 502 },
+  { writer: "retained-operator-key", signer: "dedicated-signer", reindexStatus: 502 },
+  { writer: "dedicated-writer", signer: "retained-legacy-signer", reindexStatus: 401 },
+  { writer: "dedicated-writer", signer: "development-signer", reindexStatus: 401 },
+])("rejects a copied production credential at each serving boundary ($writer / $signer)", async ({ writer, signer, reindexStatus }) => {
+  vi.stubEnv("HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", writer);
+  vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", signer);
+  vi.stubEnv("HELIX_DEV_CATALOG_WEBHOOK_SECRET", "development-signer");
+  vi.stubEnv("ALLOW_PRODUCTION_SEARCH_REINDEX", "true");
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  await expect(upsertSearchRecord({ objectID: "synthetic-product" } as never)).rejects.toThrow(/writer|signer/i);
+  expect((await requestReindex(signer)).status).toBe(reindexStatus);
+  expect(fetch).not.toHaveBeenCalled();
+  expect((await status()).status).toBe(503);
+  expect(fetch).toHaveBeenCalledTimes(1); // Release authorization only.
+  expect(saveObjects).not.toHaveBeenCalled();
 });

@@ -39,11 +39,8 @@ function getWriteConfig(): WriteConfig {
   if (appId !== expectedSearchAppId(process.env, target)) {
     throw new AlgoliaConfigError("Algolia application does not match the approved deployment target.");
   }
-  if (target === "production") {
-    const signer = catalogWebhookSecret(process.env, target);
-    if (!signer || signer === catalogWebhookSecret(process.env, "development")) {
-      throw new AlgoliaConfigError("Production Search writes require an independent Catalog webhook signer.");
-    }
+  if (target === "production" && !catalogWebhookSecret(process.env, target)) {
+    throw new AlgoliaConfigError("Production Search writes require an independent Catalog webhook signer.");
   }
   const expectedIndex = productsIndexForTarget(target);
   if (indexName !== expectedIndex) {
