@@ -2,7 +2,7 @@ import "server-only";
 import { OFFER_ID } from "@/lib/offers/rules";
 import { STRIPE_API_VERSION, STRIPE_SANDBOX_ACCOUNT_ID } from "@/lib/checkout/config";
 import type Stripe from "stripe";
-import type { AcceptedCheckoutContract, PaymentVerificationExceptionCode, VerifiedCheckoutPaymentFacts } from "@/lib/checkout/payment-verification";
+import { isBusinessStripeEnvironment, matchesBusinessCheckoutSessionId, validBusinessTerms, type AcceptedCheckoutContract, type PaymentVerificationExceptionCode, type VerifiedCheckoutPaymentFacts } from "@/lib/checkout/payment-verification";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrderRow } from "@/lib/orders/server";
 
@@ -33,6 +33,13 @@ export function isStoredCheckoutPaymentContract(
   value: unknown, sessionOptional = false,
   scope: ContractScope = { accountId: STRIPE_SANDBOX_ACCOUNT_ID, environment: "sandbox" },
 ): value is AcceptedCheckoutContract {
+  if (!matchesStoredTerms(value, sessionOptional, scope)) return false;
+  if (!isBusinessStripeEnvironment(scope.environment)) return true;
+  return validBusinessTerms(value) &&
+    (value.sessionId === null || matchesBusinessCheckoutSessionId(value.sessionId, scope.environment));
+}
+
+function matchesStoredTerms(value: unknown, sessionOptional: boolean, scope: ContractScope): value is AcceptedCheckoutContract {
   return record(value) && ["checkout_v1", "checkout_v2"].includes(String(value.version))
     && typeof value.legacyEligible === "boolean" && (value.version !== "checkout_v1" ||
       (value.legacyEligible && scope.environment === "sandbox" && scope.accountId === STRIPE_SANDBOX_ACCOUNT_ID))
@@ -42,7 +49,7 @@ export function isStoredCheckoutPaymentContract(
     && value.accountId === scope.accountId && value.apiVersion === STRIPE_API_VERSION
     && value.environment === scope.environment && value.currency === "USD" && nullableString(value.customerId)
     && [value.merchandiseSubtotalCents, value.discountCents, value.shippingCents, value.preTaxTotalCents].every(amount)
-    && (value.offerId === undefined || (scope.environment === "live" && value.offerId === null && value.discountCents === 0) ||
+    && (value.offerId === undefined || (scope.environment !== "sandbox" && value.offerId === null && value.discountCents === 0) ||
       (typeof value.offerId === "string" && OFFER_ID.test(value.offerId)))
     && nullableString(value.couponId) && nullableString(value.shippingRateId) && typeof value.freeShipping === "boolean"
     && (typeof value.automaticTaxEnabled === "boolean" || (value.version === "checkout_v1" && value.automaticTaxEnabled === null))

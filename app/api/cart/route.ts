@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
 import { clearCart, getCartState } from "@/lib/cart/server";
-import { cartErrorResponse } from "@/lib/cart/http";
+import { cartErrorResponse, cartResponse } from "@/lib/cart/http";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -8,7 +7,7 @@ export const runtime = "nodejs";
 export async function GET(request: Request) {
   const startedAt = Date.now();
   try {
-    return NextResponse.json(await getCartState());
+    return cartResponse(request, await getCartState());
   } catch (error) {
     return cartErrorResponse({
       error,
@@ -22,7 +21,7 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   const startedAt = Date.now();
   try {
-    return NextResponse.json(await clearCart());
+    return cartResponse(request, await clearCart());
   } catch (error) {
     return cartErrorResponse({
       error,

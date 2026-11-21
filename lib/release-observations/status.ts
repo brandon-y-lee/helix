@@ -7,6 +7,7 @@ import { searchProducts } from "@/lib/algolia/search-client";
 import { getIndexName } from "@/lib/algolia/server";
 import { readCheckoutConfig, readPaymentProviderConfig } from "@/lib/checkout/config";
 import { hasLivePaymentConfiguration, observeClosedLivePaymentProvider } from "@/lib/stripe/live-provider";
+import { readCheckoutStorefront } from "@/lib/checkout/storefront";
 import { measurementConfig } from "@/lib/privacy/measurement-config";
 import { readPublicSupabaseConnection, runtimeSupabaseTarget, SUPABASE_PROJECT_REFS, verifyHostedSiteOrigins } from "@/lib/supabase/project-safety";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -82,9 +83,16 @@ export async function observeProduction(productSlug: string) {
   };
 }
 
+export async function observeBusinessCheckoutReadiness(env: Environment) {
+  const provider = await observeClosedLivePaymentProvider(env);
+  if (!provider.chargesEnabled || !provider.payoutsEnabled || !provider.settlementConfigured) return provider;
+  const storefront = await readCheckoutStorefront(env);
+  return { ...provider, admissionOpen: storefront.mode === "live" && storefront.admissionOpen };
+}
+
 export async function serveReleaseStatus(
   request: Request, env: Environment, observe: (productSlug: string) => Promise<unknown>,
-  observeCheckout = observeClosedLivePaymentProvider,
+  observeCheckout = observeBusinessCheckoutReadiness,
 ) {
   const url = new URL(request.url);
   const hostAllowed = url.origin === "https://www.helixskin.us" ||

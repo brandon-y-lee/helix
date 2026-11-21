@@ -1,3 +1,5 @@
+import type { CheckoutEnvironment } from "@/lib/checkout/payment-verification";
+
 export const SHIPMENT_STATES = [
   "preparing",
   "dispatched",
@@ -28,13 +30,14 @@ export type ManualShipment = {
   items: { name: string; quantity: number }[];
 };
 export type ManualShipments = {
-  environment: "sandbox";
+  environment: CheckoutEnvironment;
   shipments: ManualShipment[];
 };
 export type ShipmentOrder = ManualShipments & {
   orderId: string;
   orderNumber: string;
   eligible: boolean;
+  delivery?: { name: string; address: { line1: string; line2: string | null; city: string; state: string; postal_code: string; country: "US" } };
   lines: {
     id: string;
     name: string;

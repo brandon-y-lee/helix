@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { validateObservations, verifyClosedLiveCheckout, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
+import { validateObservations, verifyClosedLiveCheckout, verifyLiveCheckout, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
 import { observeProduction, searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
 import example from "../scripts/release/catalog-observations.example.json";
 
@@ -152,6 +152,17 @@ describe("authenticated closed live Checkout observation", () => {
     expect(url).toBe(canonical + path);
     expect(metadata).not.toHaveBeenCalled();
     expect(Object.fromEntries(new Headers(init?.headers))).toEqual({ authorization: "Bearer " + statusToken });
+  });
+
+  it("qualifies open admission only with the expected merchant capabilities and enrolled signer", async () => {
+    const checkout = { ...closedCheckout, chargesEnabled: true, payoutsEnabled: true, admissionOpen: true };
+    const status = { version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout };
+    const fetchImpl = vi.fn().mockResolvedValueOnce(Response.json(status));
+    await expect(verifyLiveCheckout({ ...args, origin: canonical, expectedAdmissionOpen: true, fetchImpl })).resolves.toEqual(status);
+    for (const field of ["chargesEnabled", "payoutsEnabled", "settlementConfigured"]) {
+      fetchImpl.mockResolvedValueOnce(Response.json({ ...status, checkout: { ...checkout, [field]: false } }));
+      await expect(verifyLiveCheckout({ ...args, origin: canonical, expectedAdmissionOpen: true, fetchImpl })).rejects.toThrow();
+    }
   });
 
   it("returns an empty failure on the wrong deployment or failed merchant qualification", async () => {

@@ -83,6 +83,7 @@ export function OrderConfirmationView({
 
   const { order, items } = confirmation;
   const sandbox = confirmation.providerMode !== "live";
+  const historical = !confirmation.providerMode || confirmation.providerMode === "sandbox";
   const copy = sandbox && confirmation.state === "exception" && confirmation.verificationIssue === "refund_reconciliation"
     ? {
       heading: "Refund needs verification",
@@ -92,7 +93,7 @@ export function OrderConfirmationView({
     }
     : STATUS_COPY[confirmation.state];
   const sandboxPaid = sandbox && confirmation.state === "paid";
-  const shipping = sandbox && ["paid", "partially_refunded", "refunded"].includes(confirmation.state)
+  const shipping = historical && ["paid", "partially_refunded", "refunded"].includes(confirmation.state)
     ? confirmation.shipping
     : null;
 
@@ -118,7 +119,7 @@ export function OrderConfirmationView({
             <dt>Status</dt>
             <dd>{copy.status}</dd>
           </div>
-          {sandbox && (
+          {historical && (
             <>
               <div>
                 <dt>Points earned</dt>
@@ -133,14 +134,11 @@ export function OrderConfirmationView({
         </dl>
       </section>
 
-      {sandbox && (
-        <>
-          {confirmation.manualShipments && <ManualShipmentTimeline records={confirmation.manualShipments} />}
-          {confirmation.manualShipmentsUnavailable && <p className="form-status">Shipment records are temporarily unavailable.</p>}
-          {confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
-          {confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
-        </>
-      )}
+      {confirmation.manualShipments?.environment === (confirmation.providerMode ?? "sandbox") &&
+        <ManualShipmentTimeline records={confirmation.manualShipments} />}
+      {confirmation.manualShipmentsUnavailable && <p className="form-status">Shipment records are temporarily unavailable.</p>}
+      {historical && confirmation.tracking && <SimulatedTrackingTimeline tracking={confirmation.tracking} />}
+      {historical && confirmation.trackingUnavailable && <p className="form-status">Demo tracking is temporarily unavailable.</p>}
 
       {shipping && (
         <section className="checkout-result__panel" aria-label="Shipping address">
@@ -191,7 +189,7 @@ export function OrderConfirmationView({
           <span>Total</span>
           <span>{formatPrice(order.total_cents)}</span>
         </div>
-        {!sandbox && order.refunded_cents !== undefined && order.refunded_cents > 0 && (
+        {!historical && order.refunded_cents !== undefined && order.refunded_cents > 0 && (
           <div className="summary-row">
             <span>Amount refunded</span>
             <span>{formatPrice(order.refunded_cents)}</span>

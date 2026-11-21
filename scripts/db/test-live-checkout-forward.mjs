@@ -17,6 +17,8 @@ const stack = localStack();
 const cli = process.env.HELIX_SUPABASE_CLI;
 assert.ok(cli, "Set HELIX_SUPABASE_CLI to the pinned 2.117.0 executable");
 const refs = { development: "zyfkunnpnlmgvrojmrbg", production: "erasogmsqpgiirovubjh" };
+const firstOrder = process.argv[2] === "--first-order";
+assert.ok(process.argv.length === (firstOrder ? 3 : 2), "Optional argument: --first-order");
 const basenames = [
   "20261120131137_bind_catalog_media_to_environment.sql",
   "20261120141910_index_stable_catalog_product_order.sql",
@@ -33,6 +35,13 @@ const rendered = (...args) => execFileSync(process.execPath,
   [join(root, "scripts/db/bootstrap/render-development-schema.mjs"), ...args], { encoding: "utf8", maxBuffer: 4_000_000 });
 const base = rendered();
 const developmentChanges = rendered("--dev-changes");
+const admissionOperation = "supabase/operations/release-bootstrap/enroll_first_order_checkout.sql";
+if (firstOrder) {
+  basenames.push("20261121075612_extend_business_checkout_environment.sql", "20261121075613_install_first_order_checkout.sql");
+  targetFiles.push(admissionOperation, "supabase/operations/live-checkout/extend-business-checkout-environment.sql",
+    "supabase/operations/live-checkout/install-first-order-checkout.sql",
+    ...["inventory", "issuer", "admission", "manual-fulfillment"].map(name => "supabase/operations/business-checkout/" + name + ".sql"));
+}
 const migrations = (await loadMigrations(root)).filter(row => basenames.includes(row.file));
 assert.deepEqual(migrations.map(m => m.file), basenames);
 const location = "/tmp/helix-checkout-" + stack.nonce;
@@ -44,8 +53,8 @@ async function verifyTarget(environment, database, port) {
   const psql = ["/opt/postgres/bin/psql", "-X", "-Atq", "-h", "/tmp", "-d", database, "-v", "ON_ERROR_STOP=1"];
   const owner = sql => stack.exec([...psql, "-U", "postgres", "-f", "-"], sql).stdout.toString().trim();
   const vars = ["-v", "writer_role=" + writer, "-v", "expected_environment=" + environment, "-v", "expected_project_ref=" + projectRef];
-  const enroll = (args = [], mayFail = false) => stack.exec(
-    [...psql, "-U", "postgres", ...vars, ...args, "-f", location + "/" + checkoutOperation], undefined, mayFail,
+  const enroll = (args = [], mayFail = false, file = checkoutOperation) => stack.exec(
+    [...psql, "-U", "postgres", ...vars, ...args, "-f", location + "/" + file], undefined, mayFail,
   );
   const requiredOwner = sql => stack.exec([...psql, "-U", "postgres", ...vars, "-f", "-"], sql);
   const scalar = sql => stack.sql(database, sql).stdout.toString().trim();
@@ -81,6 +90,8 @@ async function verifyTarget(environment, database, port) {
       assert.notEqual(enroll(args, true).status, 0);
       assert.equal(absent(), "t");
     }
+    const enrollAdmission = (args = [], mayFail = false) => enroll(args, mayFail, admissionOperation);
+    if (firstOrder) assert.notEqual(enrollAdmission([], true).status, 0, "Settlement owner operations must be enrolled first");
     enroll();
     assert.notEqual(enroll([], true).status, 0, "Owner enrollment cannot replace an existing operation");
     for (const capability of ["extend_checkout_environment", "install_live_checkout_contract"]) {
@@ -90,6 +101,12 @@ async function verifyTarget(environment, database, port) {
     await assert.rejects(client.query("SELECT * FROM private.checkout_verified_payments"), { code: "42501" });
     await assert.rejects(client.query("ALTER TYPE public.checkout_environment ADD VALUE 'unapproved'"), { code: "42501" });
     await assert.rejects(client.query("DELETE FROM supabase_migrations.schema_migrations WHERE false"), { code: "42501" });
+    if (firstOrder) {
+      const { testFirstOrderForward } = await import("./test-first-order-forward.mjs");
+      await testFirstOrderForward({ environment, writerRole: writer, client, stack, database, ownerSql: owner,
+        scalar, migrations, forward, ledger, enroll: enrollAdmission });
+      return;
+    }
     const lastVersion = basenames[3].split("_")[0];
     owner(`CREATE SEQUENCE private.checkout_ledger_failure_observed;
       CREATE FUNCTION private.interrupt_checkout_ledger_fixture() RETURNS trigger
@@ -147,7 +164,8 @@ try {
   stack.start();
   const port = Number(/^127\.0\.0\.1:(\d+)$/.exec(stack.docker(["port", stack.container, "5432/tcp"]).stdout.toString().trim())?.[1]);
   assert.ok(port, "Expected one loopback PostgreSQL port");
-  stack.exec(["mkdir", "-p", location + "/supabase/operations/release-bootstrap", location + "/supabase/operations/live-checkout"]);
+  stack.exec(["mkdir", "-p", location + "/supabase/operations/release-bootstrap", location + "/supabase/operations/live-checkout",
+    location + "/supabase/operations/business-checkout"]);
   for (const file of targetFiles) stack.docker(["cp", join(root, file), stack.container + ":" + location + "/" + file]);
   const empty = stack.backup("postgres");
   for (const [environment, stage] of [["development", "fresh_a"], ["production", "fresh_b"]]) {

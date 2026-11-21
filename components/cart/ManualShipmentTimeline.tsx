@@ -4,16 +4,18 @@ export function ManualShipmentTimeline({
 }: {
   records: ManualShipments;
 }) {
-  if (!records.shipments.length) return null;
+  const shipments = records.environment === "sandbox" ? records.shipments :
+    records.shipments.filter(shipment => shipment.dispatchedAt && shipment.state !== "preparing");
+  if (!shipments.length) return null;
   return (
     <section
       className="checkout-result__panel"
       aria-label="Manual shipment records"
     >
       <h2>Shipment records</h2>
-      <p>Manually updated by helix. Not carrier-verified.</p>
-      <p>Demo only. No goods will ship.</p>
-      {records.shipments.map((s, i) => (
+      <p>{records.environment === "live" ? "Helix records dispatch and delivery manually." : "Manually updated by helix. Not carrier-verified."}</p>
+      {records.environment !== "live" && <p>Demo only. No goods will ship.</p>}
+      {shipments.map((s, i) => (
         <section key={s.id}>
           <h3>
             Shipment {i + 1}: {s.state}

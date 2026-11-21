@@ -7,7 +7,9 @@ import {
   type ShipmentOrder,
 } from "@/lib/shipments/contract";
 import styles from "./SimulatedTrackingConsole.module.css";
-export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
+export function ManualShipmentConsole({ enabled, environment = "sandbox" }: {
+  enabled: boolean; environment?: ShipmentOrder["environment"];
+}) {
   const [number, setNumber] = useState(""),
     [order, setOrder] = useState<ShipmentOrder | null>(null),
     [busy, setBusy] = useState(false),
@@ -23,7 +25,7 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
       method: "POST",
       credentials: "same-origin",
       cache: "no-store",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-helix-shipment-environment": environment },
       body: JSON.stringify(body),
     });
     const data = await response.json();
@@ -40,9 +42,10 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
     try {
       const { response, data } = await request({ orderNumber: number });
       if (!response.ok) throw Error(data.error ?? "Lookup failed.");
+      if (data.order && data.order.environment !== environment) throw Error("Shipment environment changed.");
       setOrder(data.order);
       setQuantities({});
-      if (!data.order) setMessage("No matching sandbox order.");
+      if (!data.order) setMessage("No matching order.");
     } catch {
       setError("Shipment lookup is unavailable. Try again.");
     } finally {
@@ -76,7 +79,7 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
       const latest = await request({
         orderNumber: order?.orderNumber ?? number,
       });
-      if (latest.response.ok) setOrder(latest.data.order);
+      if (latest.response.ok && latest.data.order?.environment === environment) setOrder(latest.data.order);
       else setOrder(null);
       setQuantities({});
     } catch {
@@ -126,7 +129,7 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
           Manually updated by helix. Not carrier-verified. No emails are
           triggered.
         </p>
-        <p>Sandbox demo only. No goods will ship.</p>
+        {environment === "live" ? <p>Record dispatch when the parcel ships.</p> : <p>Sandbox demo only. No goods will ship.</p>}
         {!enabled && (
           <p>Updates are disabled. Existing records remain readable.</p>
         )}
@@ -157,6 +160,16 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
       {order && (
         <>
           <h2>{order.orderNumber}</h2>
+          {order.delivery && order.environment === environment && (
+            <section aria-label="Ship to">
+              <h3>Ship to</h3>
+              <address>{order.delivery.name}<br />{order.delivery.address.line1}<br />
+                {order.delivery.address.line2 && <>{order.delivery.address.line2}<br /></>}
+                {order.delivery.address.city}, {order.delivery.address.state} {order.delivery.address.postal_code}<br />
+                {order.delivery.address.country}
+              </address>
+            </section>
+          )}
           <form onSubmit={create}>
             <fieldset
               disabled={!enabled || busy || !!uncertain || !order.eligible}
@@ -246,6 +259,7 @@ export function ManualShipmentConsole({ enabled }: { enabled: boolean }) {
                       {s.state} (keep status, correct details)
                     </option>
                     {SHIPMENT_STATES.filter((st) =>
+                      (order.environment === "sandbox" || ((order.eligible || st !== "dispatched") && (s.dispatchedAt || st !== "delivered"))) &&
                       allowedShipmentTransition(
                         s.state,
                         st,

@@ -2,33 +2,33 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type Stripe from "stripe";
 import { STRIPE_API_VERSION } from "@/lib/checkout/config";
-import { reconcileLiveCheckoutSession } from "@/lib/orders/live-settlement";
+import { matchesBusinessCheckoutSessionId } from "@/lib/checkout/payment-verification";
+import { reconcileBusinessCheckoutSession, type BusinessSettlementOutcome as Outcome } from "@/lib/orders/live-settlement";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { type LiveStripeBinding, verifyLiveStripeAccount } from "./live-provider";
+import { type BusinessStripeBinding, verifyBusinessStripeAccount } from "./live-provider";
 import { readChargeRefundHistory, RefundHistoryMismatch } from "./refund-history";
 
 const sessionTypes = new Set<string>([
   "checkout.session.completed", "checkout.session.async_payment_succeeded",
   "checkout.session.async_payment_failed", "checkout.session.expired",
 ]);
-type Outcome = "processed" | "ignored" | "retryable" | "exception";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function objectReference(event: Stripe.Event, accountId: string) {
-  if (event.object !== "event" || event.livemode !== true || event.api_version !== STRIPE_API_VERSION ||
+function objectReference(event: Stripe.Event, { accountId, environment }: BusinessStripeBinding) {
+  const live = environment === "live";
+  if (event.object !== "event" || event.livemode !== live || event.api_version !== STRIPE_API_VERSION ||
       !/^evt_[A-Za-z0-9_]{1,200}$/.test(event.id) ||
       (event.account != null && event.account !== accountId) || (event.context != null && event.context !== accountId)) {
-    throw new Error("Unsupported live Stripe event.");
+    throw new Error("Unsupported Stripe event.");
   }
   const sessionEvent = sessionTypes.has(event.type);
   if (!sessionEvent && event.type !== "charge.refunded" && event.type !== "charge.dispute.created") return null;
   const object = event.data.object as { id?: string; object?: string; livemode?: boolean };
-  const expected = sessionEvent ? ["checkout.session", "cs_live_"] :
-    event.type === "charge.refunded" ? ["charge", "ch_"] : ["dispute", "dp_"];
-  if (object.livemode !== true || object.object !== expected[0] || !object.id?.startsWith(expected[1]) ||
-      !/^[A-Za-z0-9_]{1,200}$/.test(object.id.slice(expected[1].length))) {
-    throw new Error("Invalid live Stripe event reference.");
-  }
+  if (object.livemode !== live || typeof object.id !== "string") throw new Error("Invalid Stripe event reference.");
+  const valid = sessionEvent ? object.object === "checkout.session" && matchesBusinessCheckoutSessionId(object.id, environment) :
+    event.type === "charge.refunded" ? object.object === "charge" && /^ch_[A-Za-z0-9_]{1,200}$/.test(object.id) :
+    object.object === "dispute" && /^dp_[A-Za-z0-9_]{1,200}$/.test(object.id);
+  if (!valid) throw new Error("Invalid Stripe event reference.");
   return object.id;
 }
 
@@ -36,32 +36,33 @@ function hasHelixMetadata(metadata: Stripe.Metadata | null | undefined) {
   return metadata?.application === "helix" || metadata?.binding_nonce !== undefined || metadata?.schema === "checkout_v2";
 }
 
-function liveReference(value: string | { id: string; object: string; livemode: boolean } | null, kind: string) {
+function providerReference(value: string | { id: string; object: string; livemode: boolean } | null, kind: string, live: boolean) {
   if (typeof value === "string") return value;
-  return value?.object === kind && value.livemode === true ? value.id : null;
+  return value?.object === kind && value.livemode === live ? value.id : null;
 }
 
 /** Disputes and refunds are account-wide notifications, including payments made outside Helix. */
-async function resolveCharge(binding: LiveStripeBinding, chargeId: string, disputedIntent?: string):
+async function resolveCharge(binding: BusinessStripeBinding, chargeId: string, disputedIntent?: string):
   Promise<{ charge: Stripe.Charge; intentId: string } | Outcome> {
   const charge = await binding.stripe.charges.retrieve(chargeId, { expand: ["payment_intent"] });
-  if (charge.object !== "charge" || charge.id !== chargeId || charge.livemode !== true) return "exception";
+  const live = binding.environment === "live";
+  if (charge.object !== "charge" || charge.id !== chargeId || charge.livemode !== live) return "exception";
   const intent = charge.payment_intent;
   if (intent === null) return hasHelixMetadata(charge.metadata) || disputedIntent ? "exception" : "ignored";
   if (typeof intent === "string") return "retryable"; // Stripe did not return the requested expanded object.
-  if (intent.object !== "payment_intent" || intent.livemode !== true || !/^pi_[A-Za-z0-9_]{1,200}$/.test(intent.id) ||
+  if (intent.object !== "payment_intent" || intent.livemode !== live || !/^pi_[A-Za-z0-9_]{1,200}$/.test(intent.id) ||
       (disputedIntent !== undefined && intent.id !== disputedIntent)) return "exception";
   const db = createSupabaseAdminClient();
-  const identity = { p_account_id: binding.accountId, p_payment_intent_id: intent.id };
-  const target = await db.rpc("read_live_checkout_refund_target", identity);
+  const identity = { p_environment: binding.environment, p_account_id: binding.accountId, p_payment_intent_id: intent.id };
+  const target = await db.rpc("read_business_checkout_refund_target", identity);
   if (target.error) return "retryable";
   const metadata = intent.metadata;
   if (!target.data && !hasHelixMetadata(metadata) && !hasHelixMetadata(charge.metadata)) return "ignored";
-  if (!metadata || metadata.schema !== "checkout_v2" || metadata.environment !== "live" ||
+  if (!metadata || metadata.schema !== "checkout_v2" || metadata.environment !== binding.environment ||
       !uuid.test(metadata.order_id) || !uuid.test(metadata.attempt_id) || !uuid.test(metadata.binding_nonce)) return "exception";
   if (target.data && (target.data.orderId !== metadata.order_id || target.data.attemptId !== metadata.attempt_id ||
       target.data.paymentIntentId !== intent.id)) return "exception";
-  const attempt = await db.rpc("classify_live_checkout_attempt", { ...identity, p_order_id: metadata.order_id,
+  const attempt = await db.rpc("classify_business_checkout_attempt", { ...identity, p_order_id: metadata.order_id,
     p_attempt_id: metadata.attempt_id, p_binding_nonce: metadata.binding_nonce });
   if (attempt.error) return "retryable";
   if (attempt.data === "unmatched") return target.data ? "exception" : "ignored";
@@ -69,7 +70,7 @@ async function resolveCharge(binding: LiveStripeBinding, chargeId: string, dispu
   if (attempt.data !== "pending" && attempt.data !== "matched") return "retryable";
   if (["order_id", "attempt_id", "binding_nonce", "schema", "environment"].some((field) =>
       charge.metadata?.[field] !== undefined && charge.metadata[field] !== metadata[field])) return "exception";
-  if (liveReference(intent.latest_charge, "charge") !== chargeId || intent.status !== "succeeded" ||
+  if (providerReference(intent.latest_charge, "charge", live) !== chargeId || intent.status !== "succeeded" ||
       intent.currency !== "usd" || intent.amount !== charge.amount || intent.amount_received !== charge.amount ||
       charge.currency !== "usd" || charge.paid !== true || charge.captured !== true || charge.status !== "succeeded" ||
       !Number.isSafeInteger(charge.amount) || charge.amount <= 0 || charge.amount !== charge.amount_captured) return "exception";
@@ -80,29 +81,30 @@ async function resolveCharge(binding: LiveStripeBinding, chargeId: string, dispu
   return { charge, intentId: intent.id };
 }
 
-async function reconcileDispute(binding: LiveStripeBinding, disputeId: string): Promise<Outcome | "disputed"> {
+async function reconcileDispute(binding: BusinessStripeBinding, disputeId: string): Promise<Outcome | "disputed"> {
   const dispute = await binding.stripe.disputes.retrieve(disputeId);
-  const chargeId = liveReference(dispute.charge, "charge");
-  const intentId = liveReference(dispute.payment_intent, "payment_intent");
-  if (dispute.object !== "dispute" || dispute.id !== disputeId || dispute.livemode !== true ||
+  const live = binding.environment === "live";
+  const chargeId = providerReference(dispute.charge, "charge", live);
+  const intentId = providerReference(dispute.payment_intent, "payment_intent", live);
+  if (dispute.object !== "dispute" || dispute.id !== disputeId || dispute.livemode !== live ||
       !chargeId || !/^ch_[A-Za-z0-9_]{1,200}$/.test(chargeId) ||
       (dispute.payment_intent != null && (!intentId || !/^pi_[A-Za-z0-9_]{1,200}$/.test(intentId)))) return "exception";
   const payment = await resolveCharge(binding, chargeId, intentId ?? undefined);
   return typeof payment === "string" ? payment : "disputed";
 }
 
-async function reconcileRefund(binding: LiveStripeBinding, chargeId: string): Promise<Outcome> {
+async function reconcileRefund(binding: BusinessStripeBinding, chargeId: string): Promise<Outcome> {
   const payment = await resolveCharge(binding, chargeId);
   if (typeof payment === "string") return payment;
   const { charge, intentId } = payment;
   if (!Number.isSafeInteger(charge.amount_refunded) || charge.amount_refunded < 0 || charge.amount_refunded > charge.amount ||
       charge.refunded !== (charge.amount === charge.amount_refunded)) return "exception";
 
-  const { succeededCents, unsettled } = await readChargeRefundHistory(binding.stripe, chargeId, intentId, true);
+  const { succeededCents, unsettled } = await readChargeRefundHistory(binding.stripe, chargeId, intentId, binding.environment === "live");
   if (unsettled || succeededCents !== charge.amount_refunded) return "retryable";
   if (succeededCents === 0) return "ignored";
-  const recorded = await createSupabaseAdminClient().rpc("record_live_checkout_refund", {
-    p_account_id: binding.accountId, p_payment_intent_id: intentId,
+  const recorded = await createSupabaseAdminClient().rpc("record_business_checkout_refund", {
+    p_environment: binding.environment, p_account_id: binding.accountId, p_payment_intent_id: intentId,
     p_charge_id: chargeId, p_refunded_cents: succeededCents, p_currency: "USD",
   });
   if (recorded.error || recorded.data === "unmatched") return "retryable";
@@ -112,13 +114,13 @@ async function reconcileRefund(binding: LiveStripeBinding, chargeId: string): Pr
   throw new Error("Unexpected refund reconciliation result.");
 }
 
-export async function processLiveStripeEvent(event: Stripe.Event, binding: LiveStripeBinding) {
-  const objectId = objectReference(event, binding.accountId);
-  await verifyLiveStripeAccount(binding);
+export async function processBusinessStripeEvent(event: Stripe.Event, binding: BusinessStripeBinding) {
+  const objectId = objectReference(event, binding);
+  await verifyBusinessStripeAccount(binding);
   if (!objectId) return { action: "ignored" };
   const db = createSupabaseAdminClient();
-  const identity = { p_account_id: binding.accountId, p_event_id: event.id, p_lease_id: randomUUID() };
-  const claim = await db.rpc("claim_live_stripe_event", {
+  const identity = { p_environment: binding.environment, p_account_id: binding.accountId, p_event_id: event.id, p_lease_id: randomUUID() };
+  const claim = await db.rpc("claim_business_stripe_event", {
     ...identity, p_event_type: event.type, p_object_id: objectId,
   });
   if (!claim.error && claim.data === "processed") return { action: "duplicate" };
@@ -128,14 +130,14 @@ export async function processLiveStripeEvent(event: Stripe.Event, binding: LiveS
   try {
     if (event.type === "charge.dispute.created") outcome = await reconcileDispute(binding, objectId);
     else if (event.type === "charge.refunded") outcome = await reconcileRefund(binding, objectId);
-    else outcome = await reconcileLiveCheckoutSession(objectId, binding);
+    else outcome = await reconcileBusinessCheckoutSession(objectId, binding);
   } catch (error) {
     outcome = error instanceof RefundHistoryMismatch ? "exception" : "retryable";
   }
   const code = outcome === "retryable" ? "reconciliation_pending" : outcome === "disputed" ?
     "dispute_requires_review" : outcome === "exception" ? "reconciliation_requires_review" : null;
   if (outcome === "disputed") outcome = "exception";
-  const finish = await db.rpc("finish_live_stripe_event", { ...identity, p_outcome: outcome, p_code: code });
+  const finish = await db.rpc("finish_business_stripe_event", { ...identity, p_outcome: outcome, p_code: code });
   if (finish.error || finish.data !== true || outcome === "retryable") throw new Error("Event processing incomplete.");
   return { action: outcome };
 }

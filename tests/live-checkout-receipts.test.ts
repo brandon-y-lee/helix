@@ -52,13 +52,13 @@ describe("live receipt and account history", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("reads only the atomically authorized projection using the hashed guest receipt cookie, with sales closed", async () => {
+  it("reads an archived live projection with the prior hashed receipt cookie when sales are closed", async () => {
     cookie.mockImplementation((name: string) => name === CHECKOUT_RECEIPT_COOKIE ? { value: token } : undefined);
     rpc.mockResolvedValue({ data: { ...receipt, shippingAddress: "private address" }, error: null });
     const result = await getOrderConfirmationBySession(session);
     expect(rpc).toHaveBeenCalledOnce();
-    expect(rpc).toHaveBeenCalledWith("read_live_checkout_receipt", {
-      p_account_id: account, p_order_id: null, p_session_id: session, p_user_id: null,
+    expect(rpc).toHaveBeenCalledWith("read_archived_live_checkout_receipt", {
+      p_account_id: account, p_session_id: session,
       p_receipt_token_hash: createHash("sha256").update(token).digest("hex"),
     });
     expect(result).toMatchObject({ providerMode: "live", state: "partially_refunded", shipping: null,
@@ -76,12 +76,90 @@ describe("live receipt and account history", () => {
     user.mockResolvedValue({ id: userId });
     rpc.mockResolvedValue({ data: null, error: null });
     expect(await getOrderConfirmationBySession(session)).toBeNull();
-    expect(rpc).toHaveBeenLastCalledWith("read_live_checkout_receipt", expect.objectContaining({ p_user_id: userId, p_receipt_token_hash: null }));
+    expect(rpc).toHaveBeenLastCalledWith("read_business_checkout_receipt", expect.objectContaining({ p_user_id: userId, p_receipt_token_hash: null }));
     user.mockResolvedValue(null);
     cookie.mockReturnValue({ value: token });
     expect(await getOrderConfirmationBySession(session)).toBeNull();
     expect(from).not.toHaveBeenCalled();
     expect(stripe).not.toHaveBeenCalled();
+  });
+
+  it.each(["live", "business_sandbox"] as const)("authorizes the %s Session cookie and discloses only recorded dispatch fields", async environment => {
+    const test = environment === "business_sandbox";
+    const id = test ? "cs_test_receipt" : session;
+    if (test) {
+      vi.stubEnv("HELIX_STRIPE_LIVE_ACCOUNT_ID", undefined);
+      vi.stubEnv("HELIX_STRIPE_DEV_ACCOUNT_ID", account);
+      vi.stubEnv("VERCEL_ENV", "preview");
+      vi.stubEnv("VERCEL_GIT_COMMIT_REF", "codex/558-verified-dev-preview");
+      vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "development");
+      vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+    }
+    const receiptCookie = "helix_order_receipt_" + createHash("sha256").update(id).digest("hex").slice(0, 32);
+    const hash = createHash("sha256").update(token).digest("hex");
+    cookie.mockImplementation((name: string) => name === receiptCookie ? { value: token } : undefined);
+    const dispatched = { id: userId, version: 2, state: "dispatched", carrier: "USPS", trackingReference: "TEST",
+      dispatchedAt: "2026-11-20T10:00:00Z", deliveredAt: null, items: [{ name: "Serum", quantity: 1 }],
+      actorId: "operator-private", correctionReason: "private-note" };
+    let authorized = true;
+    rpc.mockImplementation((name: string) => {
+      if (name === "read_business_checkout_receipt") return { data: { ...receipt, billingAddress: "private-address" }, error: null };
+      if (name === "read_business_order_shipments") return { abortSignal: () => ({ data: { environment,
+        shipments: [dispatched], delivery: "private-address" }, error: null }) };
+      if (name === "authorize_business_checkout_receipt") return { data: authorized, error: null };
+      throw new Error("Unexpected receipt RPC");
+    });
+    const result = await getOrderConfirmationBySession(id);
+    expect(result).toMatchObject({ providerMode: environment, manualShipments: { environment, shipments: [{
+      carrier: "USPS", trackingReference: "TEST" }] }, shipping: null });
+    expect(rpc).toHaveBeenCalledWith("read_business_order_shipments", {
+      p_environment: environment, p_account_id: account, p_order_id: receipt.orderId, p_session_id: id, p_user_id: null, p_receipt_token_hash: hash,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/private-address|private-note|operator-private/);
+    expect(JSON.stringify(rpc.mock.calls)).not.toContain(token);
+    authorized = false;
+    expect(await getOrderConfirmationBySession(id)).toBeNull();
+    expect(from).not.toHaveBeenCalled();
+    expect(stripe).not.toHaveBeenCalled();
+  });
+
+  it("rejects another Session's capability, a generic receipt and a malformed 44-character dev token without historical fallback", async () => {
+    vi.stubEnv("HELIX_STRIPE_LIVE_ACCOUNT_ID", undefined);
+    vi.stubEnv("HELIX_STRIPE_DEV_ACCOUNT_ID", account);
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "codex/558-verified-dev-preview");
+    vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "development");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+    const wrongName = "helix_order_receipt_" + createHash("sha256").update("cs_test_other").digest("hex").slice(0, 32);
+    cookie.mockImplementation((name: string) => ({ value: [wrongName, GUEST_CART_COOKIE, CHECKOUT_RECEIPT_COOKIE].includes(name) ? token : token+"=" }));
+    expect(await getOrderConfirmationBySession("cs_test_intended")).toBeNull();
+    expect(await getOrderConfirmationBySession("cs_live_receipt")).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+    expect(stripe).not.toHaveBeenCalled();
+  });
+
+  it("does not retry an unaccepted per-Session capability through the archive", async () => {
+    cookie.mockReturnValue({ value: token });
+    rpc.mockResolvedValue({ data: null, error: null });
+    expect(await getOrderConfirmationBySession(session)).toBeNull();
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual(["read_business_checkout_receipt"]);
+  });
+
+  it("keeps historical-personal orders out of child business history", async () => {
+    vi.stubEnv("HELIX_STRIPE_LIVE_ACCOUNT_ID", undefined);
+    vi.stubEnv("HELIX_STRIPE_DEV_ACCOUNT_ID", account);
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "codex/558-verified-dev-preview");
+    vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "development");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://zyfkunnpnlmgvrojmrbg.supabase.co");
+    user.mockResolvedValue({ id: userId });
+    rpc.mockResolvedValue({ data: [receipt], error: null });
+    expect(await getOrdersForCurrentUser()).toMatchObject([{ providerMode: "business_sandbox", status: "partially_refunded" }]);
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("read_business_checkout_order_history", expect.objectContaining({
+      p_account_id: account, p_environment: "business_sandbox", p_user_id: userId,
+    }));
   });
 
   it("merges independently scoped live and sandbox history for the verified account in stable creation order", async () => {
@@ -91,8 +169,8 @@ describe("live receipt and account history", () => {
     const orders = await getOrdersForCurrentUser();
     expect(query.eq).toHaveBeenCalledWith("checkout_environment", "sandbox");
     expect(query.eq).toHaveBeenCalledWith("user_id", userId);
-    expect(rpc).toHaveBeenCalledWith("read_live_checkout_order_history", {
-      p_account_id: account, p_user_id: userId, p_limit: 10, p_before_created_at: null, p_before_id: null,
+    expect(rpc).toHaveBeenCalledWith("read_business_checkout_order_history", {
+      p_environment: "live", p_account_id: account, p_user_id: userId, p_limit: 10, p_before_created_at: null, p_before_id: null,
     });
     expect(orders.map(row => row.order_number)).toEqual(["HX-123", "HX-120"]);
     expect(orders[0]).toMatchObject({ providerMode: "live", status: "partially_refunded" });

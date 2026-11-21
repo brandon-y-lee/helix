@@ -61,10 +61,17 @@ async function readJsonObject(request: Request): Promise<Record<string, unknown>
 export async function readCheckoutRequest(request: Request): Promise<{
   rewardTierId: RewardTier["id"] | null;
   offerId?: string;
+  resumeOnly?: true;
 }> {
   const body = await readJsonObject(request);
-  if (Object.keys(body).some((key) => key !== "rewardTierId" && key !== "offerId")) {
+  if (Object.keys(body).some((key) => key !== "rewardTierId" && key !== "offerId" && key !== "resumeOnly")) {
     throw new CheckoutRequestError("Invalid checkout request.", 400);
+  }
+  if (body.resumeOnly !== undefined) {
+    if (body.resumeOnly !== true || body.offerId != null || body.rewardTierId != null) {
+      throw new CheckoutRequestError("Invalid checkout request.", 400);
+    }
+    return { rewardTierId: null, resumeOnly: true };
   }
   if (body.offerId !== undefined && body.offerId !== null) {
     if (typeof body.offerId !== "string" || !OFFER_ID.test(body.offerId) || body.rewardTierId != null) {

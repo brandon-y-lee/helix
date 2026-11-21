@@ -2,7 +2,8 @@ import "server-only";
 
 import type Stripe from "stripe";
 import { STRIPE_API_VERSION, STRIPE_SANDBOX_ACCOUNT_ID } from "@/lib/checkout/config";
-import { verifyLiveStripeAccount, type LiveStripeBinding } from "@/lib/stripe/live-provider";
+import { isBusinessStripeEnvironment, matchesBusinessCheckoutSessionId, type CheckoutEnvironment } from "@/lib/checkout/payment-verification";
+import { verifyBusinessStripeAccount, type BusinessStripeBinding } from "@/lib/stripe/live-provider";
 import { getStripeClient } from "@/lib/stripe/server";
 
 export type StripeAccountProvenance = {
@@ -11,7 +12,7 @@ export type StripeAccountProvenance = {
 };
 
 export type CheckoutPaymentProviderBundle = StripeAccountProvenance & {
-  environment: "sandbox" | "live";
+  environment: CheckoutEnvironment;
   session: Stripe.Checkout.Session;
   lineItems: Stripe.LineItem[];
   lineItemsComplete: true;
@@ -68,19 +69,19 @@ export async function verifyStripeAccount(
 }
 
 export async function retrieveCheckoutPaymentProviderBundle(
-  input: { sessionId: string } & ({ stripe?: Stripe; binding?: never } | { stripe?: never; binding: LiveStripeBinding }),
+  input: { sessionId: string } & ({ stripe?: Stripe; binding?: never } | { stripe?: never; binding: BusinessStripeBinding }),
 ): Promise<CheckoutPaymentProviderBundle> {
   const { binding, sessionId } = input;
-  const live = binding !== undefined;
-  const environment = live ? "live" : "sandbox";
-  if (live && binding.environment !== "live") throw new StripePaymentVerificationReadError("invalid_live_session");
-  const sessionPattern = live ? /^cs_live_[A-Za-z0-9_]{1,200}$/ : /^cs_test_[A-Za-z0-9_]+$/;
+  const environment = binding ? binding.environment : "sandbox";
+  const live = environment === "live";
   const invalidSession = live ? "invalid_live_session" : "invalid_session";
-  if (typeof sessionId !== "string" || !sessionPattern.test(sessionId)) {
+  const validId = binding ? isBusinessStripeEnvironment(binding.environment) && matchesBusinessCheckoutSessionId(sessionId, binding.environment) :
+    typeof sessionId === "string" && /^cs_test_[A-Za-z0-9_]+$/.test(sessionId);
+  if (!validId) {
     throw new StripePaymentVerificationReadError(invalidSession);
   }
   const stripe = binding?.stripe ?? input.stripe ?? getStripeClient();
-  const { accountId } = binding ? await verifyLiveStripeAccount(binding) : await verifyStripeAccount(stripe);
+  const { accountId } = binding ? await verifyBusinessStripeAccount(binding) : await verifyStripeAccount(stripe);
   try {
     const session = await stripe.checkout.sessions.retrieve(
       input.sessionId,

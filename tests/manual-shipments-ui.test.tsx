@@ -107,6 +107,39 @@ describe("manual shipment UI", () => {
       correctionReason: "Tracking typo",
     });
   });
+  it("shows the operator verified ship-to address and binds the console to the displayed live environment", async () => {
+    const delivery = { name: "Fixture Recipient", address: { line1: "10 Shipping Road", line2: null, city: "Test City",
+      state: "CA", postal_code: "90001", country: "US" } };
+    const fetcher = vi.fn(async () => ({ ok: true, json: async () => ({
+      order: { ...order, environment: "live", delivery, billingAddress: "private-billing-address" },
+    }) }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<ManualShipmentConsole enabled environment="live" />);
+    fireEvent.change(screen.getByLabelText("Order number"), { target: { value: "HX-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find order" }));
+    expect(await screen.findByRole("region", { name: "Ship to" })).toHaveTextContent("10 Shipping Road");
+    expect(screen.queryByText(/private-billing-address|Sandbox demo/i)).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledWith("/api/admin/shipments", expect.objectContaining({
+      headers: expect.objectContaining({ "x-helix-shipment-environment": "live" }),
+    }));
+  });
+
+  it("keeps dispatch closed after a refund and requires prior dispatch before recording delivery", async () => {
+    const shipment = { id, version: 2, state: "exception", carrier: "", trackingReference: "", dispatchedAt: null,
+      deliveredAt: null, items: [] };
+    const fetcher = vi.fn(async () => ({ ok: true, json: async () => ({
+      order: { ...order, environment: "live", eligible: false, shipments: [shipment] },
+    }) }));
+    vi.stubGlobal("fetch", fetcher);
+    render(<ManualShipmentConsole enabled environment="live" />);
+    fireEvent.change(screen.getByLabelText("Order number"), { target: { value: "HX-1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Find order" }));
+    await screen.findByLabelText("Next status");
+    expect(screen.queryByRole("option", { name: "dispatched" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "delivered" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save preparing shipment" })).toBeDisabled();
+  });
+
   it("labels customer records as manual demo and renders tracking references as text", () => {
     render(
       <ManualShipmentTimeline

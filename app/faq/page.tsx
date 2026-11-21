@@ -9,7 +9,7 @@ import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 export const metadata: Metadata = createPublicSiteMetadata({
   title: "FAQ | helix",
   description:
-    "Answers about helix products, accounts, sandbox orders, shipping, returns, refunds, rewards, contact, privacy, and accessibility.",
+    "Answers about helix products, accounts, orders, shipping, returns, refunds, rewards, contact, privacy, and accessibility.",
   canonical: "/faq",
 });
 

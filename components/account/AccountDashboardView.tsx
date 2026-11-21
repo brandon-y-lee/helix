@@ -5,7 +5,7 @@ import { formatPrice } from "@/lib/products";
 import type { RewardsSummary } from "@/lib/rewards/server";
 
 export type AccountDashboardOrder = {
-  providerMode?: "sandbox" | "live";
+  providerMode?: "sandbox" | "business_sandbox" | "live";
   id: string;
   order_number: string;
   status: string;
@@ -104,7 +104,7 @@ export function AccountDashboardView({
                   </div>
                   <dl>
                     <div><dt className="sr-only">Total</dt><dd>{formatPrice(order.total_cents)}</dd></div>
-                    {order.providerMode !== "live" && (
+                    {(order.providerMode === "sandbox" || !order.providerMode) && (
                       <div><dt className="sr-only">Points earned</dt><dd>{order.reward_points_earned} pts</dd></div>
                     )}
                   </dl>
