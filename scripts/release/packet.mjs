@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { validateObservations } from "./observations.mjs";
+import { originalCatalogBuild, validateLegacyPublicObservations, validateObservations } from "./observations.mjs";
 
 const providers = ["authRouting", "searchWriters", "emailCallbacks", "checkoutSettlement"];
 const pairKeys = ["candidateId", "candidateSha", "previousId", "previousSha"];
-const legacyId = "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC";
-const legacySha = "4d45e0d3e14271513fb887592faadf6c2c24fede";
+const { deploymentId: legacyId, sha: legacySha } = originalCatalogBuild;
+const unobservable = ["features.bulkSearchReindex", "features.searchWrite",
+  "searchCredentials.webhookSecretSha256", "searchCredentials.writeKeySha256"];
 const profileLimit = 16 * 1024;
 const packetLimit = 2 * profileLimit + 1024;
 const hash = value => createHash("sha256").update(value, "utf8").digest("hex");
@@ -43,27 +44,63 @@ function releasePair(release) {
   return Object.fromEntries(pairKeys.map(k => [k, release[k]]));
 }
 
+function verifyInspectionEvidence(legacy, now) {
+  check(exact(legacy, ["deploymentId", "sha", "observation", "publicObservations", "protectedValues"]) &&
+    legacy.deploymentId === legacyId && legacy.sha === legacySha, "invalid legacy inspection artifact");
+  validateLegacyPublicObservations(legacy.publicObservations);
+  attest(legacy.observation, now, true);
+
+  const statement = legacy.protectedValues;
+  check(exact(statement, ["observedAt", "expiresAt", "evidenceSha256", "unobservable", "sha256"]) &&
+    JSON.stringify(statement.unobservable) === JSON.stringify(unobservable) &&
+    statement.evidenceSha256 !== legacy.observation.sha256, "invalid protected legacy statement");
+  const { observedAt, expiresAt, evidenceSha256 } = statement;
+  attest({ observedAt, expiresAt, sha256: evidenceSha256 }, now, true);
+  const binding = [legacyId, legacySha, observedAt, expiresAt, evidenceSha256, unobservable];
+  check(statement.sha256 === hash(JSON.stringify(binding)), "protected legacy statement digest mismatch");
+}
+
 export function readReleaseProfile(raw, now = Date.now()) {
   check(Number.isFinite(now), "invalid clock");
   const profile = boundedJson(raw, profileLimit);
-  check(exact(profile, ["version", "observations", "previous", "legacyPrevious", "evidence"]) &&
-    profile.version === 1 && exact(profile.evidence, providers), "invalid profile");
-  validateObservations(profile.observations);
-  if (profile.previous !== "same") validateObservations(profile.previous);
-  for (const provider of providers) attest(profile.evidence[provider], now, true);
-  const legacy = profile.legacyPrevious;
-  if (legacy !== null) {
-    check(exact(legacy, ["deploymentId","sha","observation","observations"]) &&
-      legacy.deploymentId === legacyId && legacy.sha === legacySha, "invalid legacy artifact");
-    validateObservations(legacy.observations);
-    attest(legacy.observation, now, false);
+  if (profile?.version === 2) {
+    check(exact(profile, ["version", "mode", "observations", "legacyPrevious", "evidence"]) &&
+      profile.mode === "inspection-only", "invalid inspection profile");
+    verifyInspectionEvidence(profile.legacyPrevious, now);
+  } else {
+    check(exact(profile, ["version", "observations", "previous", "legacyPrevious", "evidence"]) &&
+      profile.version === 1, "invalid profile");
+    if (profile.previous !== "same") validateObservations(profile.previous);
+    const legacy = profile.legacyPrevious;
+    if (legacy !== null) {
+      check(exact(legacy, ["deploymentId","sha","observation","observations"]) &&
+        legacy.deploymentId === legacyId && legacy.sha === legacySha, "invalid legacy artifact");
+      validateObservations(legacy.observations);
+      attest(legacy.observation, now, false);
+    }
   }
+  validateObservations(profile.observations);
+  if (profile.version === 2) {
+    const { features, searchCredentials } = profile.observations;
+    check(!features.searchWrite && searchCredentials.writeKeySha256 === null && searchCredentials.webhookSecretSha256 === null,
+      "inspection candidate must disable application Search writes and omit both Search credentials");
+  }
+  check(exact(profile.evidence, providers), "invalid provider reports");
+  for (const provider of providers) attest(profile.evidence[provider], now, true);
   return profile;
 }
 
 export function observationsFor(profile, release, phase, now = Date.now()) {
   releasePair(release);
   check(["previous","staged","canonical"].includes(phase), "invalid observation phase");
+  if (profile.version === 2) {
+    check(profile.mode === "inspection-only" && phase !== "canonical" &&
+      release.previousId === legacyId && release.previousSha === legacySha, "invalid original Catalog inspection");
+    verifyInspectionEvidence(profile.legacyPrevious, now);
+    if (phase === "previous") {
+      return { expectations: profile.legacyPrevious.publicObservations, legacyPrevious: true, inspectionOnly: true };
+    }
+  }
   if (phase !== "previous") return { expectations: profile.observations, legacyPrevious: false };
   if (release.previousId === legacyId) {
     check(release.previousSha === legacySha && profile.legacyPrevious?.deploymentId === legacyId &&
@@ -72,6 +109,17 @@ export function observationsFor(profile, release, phase, now = Date.now()) {
     return { expectations:profile.legacyPrevious.observations, legacyPrevious:true };
   }
   return { expectations:profile.previous === "same" ? profile.observations : profile.previous, legacyPrevious:false };
+}
+
+// The packet has already been verified for this pair. Only evidence used to
+// qualify its two deployments sets the deadline for forward migrations.
+export function releaseEvidenceExpiry(profile, release) {
+  const reports = providers.map(name => profile.evidence[name]);
+  if (release.previousId === legacyId && release.previousSha === legacySha) {
+    reports.push(profile.legacyPrevious.observation);
+    if (profile.version === 2) reports.push(profile.legacyPrevious.protectedValues);
+  }
+  return new Date(Math.min(...reports.map(report => Date.parse(report.expiresAt)))).toISOString();
 }
 
 export function buildReleasePacket(rawProfile, release, now = Date.now()) {

@@ -408,13 +408,73 @@ $migration$`,
   await assert.rejects(apply(evolvedRelease), 'a successor must enforce its own installed contract');
   await control.query("UPDATE public.interrupt_probe SET display_label='Catalog''s current state'");
 
+  // Use the actual production runner against this disposable marker. The sequence
+  // counts attempted SQL even if a CLI transaction is subsequently rolled back.
+  const stepOne = migration('20300101000005', 'first_admitted', `DO $migration$ BEGIN
+    PERFORM nextval('public.admission_attempts'); CREATE TABLE public.first_admitted(id integer);
+    END; $migration$`, "to_regclass('public.first_admitted') IS NOT NULL");
+  const stepTwo = migration('20300101000006', 'second_admitted', `DO $migration$ BEGIN
+    PERFORM nextval('public.admission_attempts'); CREATE TABLE public.second_admitted(id integer);
+    END; $migration$`, "to_regclass('public.second_admitted') IS NOT NULL");
+  const completeRelease = [...evolvedRelease, stepOne, stepTwo];
+  await control.query(`UPDATE private.helix_environment SET environment='production';
+    CREATE SEQUENCE public.admission_attempts;
+    GRANT USAGE ON SEQUENCE public.admission_attempts TO ${writerRole}`);
+  const production = { ...target, environment: 'production' };
+  const expiry = Date.parse('2031-01-01T00:01:00.000Z');
+  function receipt(deadline) {
+    const expectedSha = 'a'.repeat(40);
+    const raw = JSON.stringify({ version: 1, operation: 'verify', candidateSha: expectedSha,
+      contextSha256: 'b'.repeat(64), packetSha256: 'c'.repeat(64), expiresAt: new Date(deadline).toISOString() });
+    return { raw, digest: createHash('sha256').update(raw).digest('hex'), expectedSha };
+  }
+  const admission = receipt(expiry);
+  const beforeExpiryChecks = (await control.query(historyQuery)).rows[0];
+  let clock = expiry - 1;
+  await control.query('SELECT pg_advisory_lock(2107275624,561)');
+  const waiting = apply(completeRelease, { target: production, client: secondClient, admission, now: () => clock });
+  try {
+    await Promise.race([
+      until(async () => (await control.query(
+        "SELECT EXISTS(SELECT FROM pg_locks WHERE pid=$1 AND locktype='advisory' AND NOT granted) AS waiting",
+        [secondPid],
+      )).rows[0].waiting, 'Production writer never waited for the release lock'),
+      waiting.then(() => assert.fail('Production writer finished while the lock was held')),
+    ]);
+    clock = expiry;
+  } finally {
+    await control.query('SELECT pg_advisory_unlock(2107275624,561)');
+  }
+  await assert.rejects(waiting, /expired/i);
+  assert.deepEqual((await control.query(historyQuery)).rows[0], beforeExpiryChecks);
+  assert.equal((await control.query('SELECT is_called FROM public.admission_attempts')).rows[0].is_called, false);
+
+  // Drive time from an independent reader of the real CLI ledger. The receipt
+  // expires precisely when the first forward transaction becomes durable.
+  const afterFirstCommit = () => docker(['exec', containerId, 'psql', '-XAtq', '-U', 'postgres', '-c',
+    "SELECT EXISTS(SELECT FROM supabase_migrations.schema_migrations WHERE version='20300101000005')",
+  ]) === 't' ? expiry : expiry - 1;
+  await assert.rejects(apply(completeRelease, { target: production, admission, now: afterFirstCommit }), /expired/i);
+  const committed = (await control.query(historyQuery)).rows[0];
+  assert.deepEqual(committed.forward.slice(0, -1), beforeExpiryChecks.forward);
+  assert.equal(committed.forward.at(-1).version, '20300101000005');
+  assert.equal(committed.legacy_digest, beforeExpiryChecks.legacy_digest);
+  assert.deepEqual((await control.query(`SELECT last_value::int AS attempts, is_called,
+    to_regclass('public.first_admitted') IS NOT NULL AS first, to_regclass('public.second_admitted') IS NULL AS second_pending
+    FROM public.admission_attempts`)).rows, [{ attempts: 1, is_called: true, first: true, second_pending: true }]);
+  const renewed = { target: production, admission: receipt(expiry + 60_000), now: () => expiry };
+  assert.deepEqual((await apply(completeRelease, { ...renewed, apply: false })).pending, [stepTwo.file]);
+  assert.deepEqual((await apply(completeRelease, renewed)).applied, [stepTwo.file]);
+  assert.deepEqual((await apply(completeRelease, renewed)).applied, []);
+  await control.query("UPDATE private.helix_environment SET environment='development'");
+
   await control.query('DROP INDEX public.catalog_order');
-  await assert.rejects(apply(evolvedRelease), 'an applied migration with a broken schema contract must fail');
+  await assert.rejects(apply(completeRelease), /Installed migration contract failed/);
   await control.query('CREATE INDEX catalog_order ON public.catalog(id)');
   await control.query(
     "UPDATE supabase_migrations.schema_migrations SET statements=ARRAY['different synthetic SQL'] WHERE version='20300101000002'",
   );
-  await assert.rejects(apply(evolvedRelease), 'a version recorded with different SQL must fail');
+  await assert.rejects(apply(completeRelease), /Applied migration content drift/);
   console.log(
     'Forward migration PostgreSQL/CLI checks passed (apply, dry run, retry, wrong target, history drift, partial failure, interrupted DDL, DO ledger, concurrency, separated writer/app permissions, successor preflight, source and verifier immutability, replay).',
   );

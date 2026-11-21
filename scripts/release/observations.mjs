@@ -27,14 +27,31 @@ const catalogTrialOff = ["supportAdmission", "supportWorker", "supportMediaQuali
   "lifecycle", "lifecycleCampaigns", "lifecycleReviews", "offers", "publicReviews", "guestReviews",
   "manualShipments", "orderSimulation", "bulkSearchReindex"];
 
-export function validateObservations(e) {
-  requireValue(exactKeys(e, ["version","productSlug","mediaUrl","features","database","searchCredentials","canonicalCheckoutGet","stagedCheckoutGet"]) &&
-    e.version === 1 && typeof e.productSlug === "string" && e.productSlug.length <= 128 &&
+export const originalCatalogBuild = Object.freeze({
+  deploymentId: "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC",
+  sha: "4d45e0d3e14271513fb887592faadf6c2c24fede",
+});
+
+function validatePublicCatalog(e) {
+  requireValue(typeof e.productSlug === "string" && e.productSlug.length <= 128 &&
     /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(e.productSlug), "invalid Catalog expectations");
   requireValue(typeof e.mediaUrl === "string" && e.mediaUrl.length < 1024 &&
     e.mediaUrl.startsWith(mediaOrigin + mediaPrefix) &&
     /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)+\.(?:webp|png|jpg|jpeg)$/.test(e.mediaUrl.slice((mediaOrigin + mediaPrefix).length)),
     "expected governed product image");
+  requireValue([403,405].includes(e.canonicalCheckoutGet), "invalid sandbox admission boundary");
+}
+
+export function validateLegacyPublicObservations(e) {
+  requireValue(exactKeys(e, ["productSlug", "mediaUrl", "canonicalCheckoutGet"]), "invalid public legacy observations");
+  validatePublicCatalog(e);
+  return e;
+}
+
+export function validateObservations(e) {
+  requireValue(exactKeys(e, ["version","productSlug","mediaUrl","features","database","searchCredentials","canonicalCheckoutGet","stagedCheckoutGet"]) &&
+    e.version === 1, "invalid Catalog expectations");
+  validatePublicCatalog(e);
   requireValue(exactKeys(e.features, featureNames) && featureNames.every(k => typeof e.features[k] === "boolean") &&
     catalogTrialOff.every(k => e.features[k] === false) &&
     (!e.features.sandboxCheckout || e.features.sandboxSettlement), "invalid or unapproved feature state");
@@ -52,7 +69,7 @@ export function validateObservations(e) {
   if (db.marketing !== null) requireValue((exactKeys(db.marketing, ["enrollment","dispatch"]) ||
     exactKeys(db.marketing, ["enrollment","dispatch","events","status"])) &&
     Object.values(db.marketing).every(value => value === false), "unexpected marketing controls");
-  requireValue([403,405].includes(e.canonicalCheckoutGet) && [403,405].includes(e.stagedCheckoutGet), "invalid sandbox admission boundary");
+  requireValue([403,405].includes(e.stagedCheckoutGet), "invalid sandbox admission boundary");
   return e;
 }
 
@@ -128,8 +145,12 @@ export async function verifyStorefrontCardOrder({ html, target, env, productSlug
     "Catalog card order or membership differs from the public database");
 }
 
-export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, legacyPrevious = false, statusToken, bypassToken = "", fetchImpl = fetch, env = process.env }) {
-  const e = validateObservations(expectations);
+export async function verifyReleaseObservations({ phase, origin, deploymentId, sha, expectations, legacyPrevious = false, inspectionOnly = false, statusToken, bypassToken = "", fetchImpl = fetch, env = process.env }) {
+  requireValue(!inspectionOnly || (legacyPrevious && phase === "previous" && origin === canonical),
+    "limited observations require the serving original build");
+  requireValue(!legacyPrevious || (phase === "previous" && deploymentId === originalCatalogBuild.deploymentId &&
+    sha === originalCatalogBuild.sha), "invalid legacy observation exception");
+  const e = inspectionOnly ? validateLegacyPublicObservations(expectations) : validateObservations(expectations);
   requireValue(["previous", "staged", "canonical"].includes(phase) &&
     (phase === "canonical" ? origin === canonical : phase === "staged" ? immutable.test(origin) : (origin === canonical || immutable.test(origin))) &&
     /^dpl_[A-Za-z0-9]+$/.test(deploymentId) && /^[0-9a-f]{40}$/.test(sha), "untrusted deployment");
@@ -149,8 +170,6 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
     } finally { if (!resp.bodyUsed) await resp.body?.cancel(); }
   }
 
-  requireValue(!legacyPrevious || (phase === "previous" && deploymentId === "dpl_91HXTZGJXtUp9P4Us9edBvC73CmC" &&
-    sha === "4d45e0d3e14271513fb887592faadf6c2c24fede"), "invalid legacy observation exception");
   if (!legacyPrevious) {
     requireValue(typeof statusToken === "string" && allowedToken.test(statusToken), "missing release status credential");
     const status = await read("/api/internal/release-status?product=" + e.productSlug, 200, "json", { headers: { authorization: "Bearer " + statusToken } });
