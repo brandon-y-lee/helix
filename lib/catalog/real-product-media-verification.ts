@@ -1,3 +1,5 @@
+import { containsMediaPathEscape } from "./media-storage";
+
 export type CatalogProductMediaType = "image" | "video";
 
 export type ExpectedProductMedia = Readonly<{
@@ -194,24 +196,6 @@ function isPrivateHostname(hostname: string): boolean {
   );
 }
 
-function containsPathEscape(value: string): boolean {
-  const match = /^[a-z][a-z\d+.-]*:\/\/[^/?#]*(?<path>[^?#]*)/i.exec(value);
-  let path = match?.groups?.path ?? value.split(/[?#]/, 1)[0] ?? "";
-  for (let depth = 0; depth <= value.length; depth += 1) {
-    if (/[\\]|%2f|%5c/i.test(path)) return true;
-    if (/(?:^|\/)\.{1,2}(?:\/|$)/.test(path)) return true;
-    let decoded: string;
-    try {
-      decoded = decodeURIComponent(path);
-    } catch {
-      return true;
-    }
-    if (decoded === path) return false;
-    path = decoded;
-  }
-  return true;
-}
-
 function isKnownPrivateMediaEndpoint(pathname: string): boolean {
   return /^\/storage\/v1\/object\/(?:authenticated|sign)(?:\/|$)/.test(
     pathname,
@@ -232,7 +216,7 @@ function approvedPublicUrl(
       url.search ||
       isPrivateHostname(url.hostname) ||
       isKnownPrivateMediaEndpoint(url.pathname) ||
-      containsPathEscape(value)
+      containsMediaPathEscape(value)
     ) {
       return null;
     }
@@ -478,7 +462,7 @@ async function verifyOne(
           message: "The Product Media response exceeded the redirect limit.",
         }, expected.url, { status: response.status, redirects });
       }
-      if (containsPathEscape(location)) {
+      if (containsMediaPathEscape(location)) {
         return failedResult(expected, {
           code: "redirect_rejected",
           message:

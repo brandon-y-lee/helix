@@ -4,7 +4,7 @@ import { lstat, open, readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 import {
   assertCatalogEvidence, assertCatalogEvidencePlan, compareCatalogEvidence, createCatalogEvidence, parseCatalogEvidenceJson,
   type CatalogEvidenceInput, type EvidencePhase,
@@ -18,7 +18,7 @@ type Runtime = {
 };
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const EXTRACTOR_FILES = ["scripts/catalog/catalog-evidence.ts", "scripts/catalog/catalog-evidence-query.ts", "scripts/catalog/capture-catalog-evidence.ts", "lib/supabase/project-safety.ts"];
-const PROJECT_URL = `https://${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`;
+const PROJECT_URL = `https://${SUPABASE_PROJECT_REFS.development}.supabase.co`;
 function record(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function fail(message: string): never { throw new Error(`Catalog evidence: ${message}`); }
 
@@ -84,7 +84,7 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
   async function request(suffix: string, query?: string): Promise<unknown> {
     let response: Response;
     try {
-      response = await fetchImpl(`https://api.supabase.com/v1/projects/${APPROVED_SUPABASE_PROJECT_REF}${suffix}`, {
+      response = await fetchImpl(`https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REFS.development}${suffix}`, {
         method: query === undefined ? "GET" : "POST",
         redirect: "error",
         headers: { Authorization: `Bearer ${runtime.env.SUPABASE_ACCESS_TOKEN!.trim()}`, "Content-Type": "application/json" },
@@ -98,8 +98,8 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
     return parseCatalogEvidenceJson(await response.text());
   }
   const project = await request("");
-  if (!record(project) || project.ref !== APPROVED_SUPABASE_PROJECT_REF || project.status !== "ACTIVE_HEALTHY"
-    || !record(project.database) || project.database.host !== `db.${APPROVED_SUPABASE_PROJECT_REF}.supabase.co`) fail("the provider did not confirm the exact healthy approved project and database host.");
+  if (!record(project) || project.ref !== SUPABASE_PROJECT_REFS.development || project.status !== "ACTIVE_HEALTHY"
+    || !record(project.database) || project.database.host !== `db.${SUPABASE_PROJECT_REFS.development}.supabase.co`) fail("the provider did not confirm the exact healthy approved project and database host.");
   const projectVerifiedAt = now().toISOString();
   const media = singleRow(await request("/database/query", MEDIA_BOUNDARY_INSPECTION_QUERY), "media_boundary");
   if (!record(media) || Object.keys(media).length !== 3) fail("media-boundary inspection was incomplete.");
@@ -112,7 +112,7 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
   if (typeof sqlJson !== "string") fail("complete evidence must arrive as SQL JSON text without intermediate numeric parsing.");
   const raw = parseCatalogEvidenceJson(sqlJson);
   const evidence = createCatalogEvidence(raw as CatalogEvidenceInput, {
-    projectRef: APPROVED_SUPABASE_PROJECT_REF, endpoint: PROJECT_URL, projectVerifiedAt, sourceCommit, extractorSha256,
+    projectRef: SUPABASE_PROJECT_REFS.development, endpoint: PROJECT_URL, projectVerifiedAt, sourceCommit, extractorSha256,
   }, flags.phase as EvidencePhase);
   if (evidence.state.mediaBoundary.present !== mediaPresent) fail("the media installation changed during capture; repeat inspection.");
   const contents = `${JSON.stringify(evidence, null, 2)}\n`;
@@ -123,7 +123,7 @@ export async function runCatalogEvidenceCommand(argv: string[], runtime: Runtime
   try { await file.writeFile(contents, "utf8"); await file.sync(); } finally { await file.close(); }
   return {
     ok: true, phase: evidence.phase, operationalCompletionVerified: false,
-    output: destination, projectRef: APPROVED_SUPABASE_PROJECT_REF, capturedAt: evidence.metadata.capturedAt,
+    output: destination, projectRef: SUPABASE_PROJECT_REFS.development, capturedAt: evidence.metadata.capturedAt,
     products: Object.keys(evidence.state.documents).length,
     activeProducts: Object.values(evidence.state.productStatuses).filter((status) => status === "active").length,
     revisions: Object.keys(evidence.state.history.revisions).length,

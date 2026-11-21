@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createHmac } from "node:crypto";
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { describe, expect, it, vi } from "vitest";
 import { handleSupportPhotoAccessRequest, type SupportPhotoAccessDependencies } from "@/lib/support/photo-access";
 import { SupportError } from "@/lib/support/request";
@@ -11,7 +12,7 @@ const otherId = "6dd1d191-1c1b-441b-8f98-87b314e17de6";
 const path = `/api/admin/support/${inquiryId}/photos/${photoId}`;
 const now = Date.parse("2026-09-29T01:00:00.000Z");
 function setup() {
-  return { env: { NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "private-service-key", HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "support-private",
+  return { env: { ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "private-service-key", HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "support-private",
     HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted", HELIX_EMAIL_SITE_ORIGIN: origin,
     HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "a".repeat(32) }, now: vi.fn().mockReturnValue(now),
     requireAccess: vi.fn().mockResolvedValue({ userId: "trusted-operator" }),

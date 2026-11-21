@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { assertSupabaseTargetUrl, deploymentSupabaseTarget, supabaseOriginForTarget, verifyHostedSiteOrigins } from "./lib/supabase/project-safety";
+import { verifyPublicSearchBinding } from "./lib/algolia/build-binding";
+import { verifySupabaseCredential } from "./lib/supabase/key-binding";
 import { CATALOG_MEDIA_BUCKET } from "./lib/catalog/media-storage";
 
 const DAYS_PER_YEAR = 365;
@@ -14,7 +17,19 @@ const HOME_VIDEO_PATHS = [
   "/media/home/final-cta-loop.mp4",
 ] as const;
 
+const target = deploymentSupabaseTarget(process.env);
+verifyHostedSiteOrigins(process.env, target);
+verifyPublicSearchBinding(process.env, target);
+const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const publicKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Reject swapped role-bearing values before Next can inline them in public JS.
+if (publicUrl || publicKey || process.env.VERCEL === "1") {
+  assertSupabaseTargetUrl(publicUrl ?? "", target);
+  verifySupabaseCredential(publicKey ?? "", target, "anon", process.env);
+}
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_HELIX_SUPABASE_TARGET: target },
   reactStrictMode: true,
   async headers() {
     return [
@@ -64,7 +79,9 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**.supabase.co",
+        hostname: new URL(supabaseOriginForTarget(target)).hostname,
+        port: "",
+        search: "",
         pathname: `/storage/v1/object/public/${CATALOG_MEDIA_BUCKET}/**`,
       },
     ],

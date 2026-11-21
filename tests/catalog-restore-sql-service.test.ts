@@ -50,6 +50,12 @@ describe.skipIf(!container || !database)("SQL Restore through normal Catalog ser
     expect(execFileSync("docker", ["inspect", "--format",
       '{{index .Config.Labels "helix.task"}}', container!], { encoding: "utf8" }).trim())
       .toBe("spec358-synthetic-sql");
+    // This disposable checkpoint contains the historical parent Catalog URLs.
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_PROJECT_ID", "prj_N9nyPL9SixJHOROIovS8PDQ9aKny");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "production");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://erasogmsqpgiirovubjh.supabase.co");
     rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
       expect(name).toMatch(/^(get_catalog_editor_document|restore_catalog_product_revision|save_catalog_product_draft|transition_catalog_product_draft|publish_catalog_product_draft)$/);

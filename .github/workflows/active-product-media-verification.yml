@@ -10,14 +10,32 @@ on:
 
 jobs:
   verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: development
+            branch: dev
+            url: https://zyfkunnpnlmgvrojmrbg.supabase.co
+            public_key: HELIX_DEV_SUPABASE_ANON_KEY
+          - target: production
+            branch: main
+            url: https://erasogmsqpgiirovubjh.supabase.co
+            public_key: HELIX_PRODUCTION_SUPABASE_ANON_KEY
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_DEVELOPMENT_SUPABASE_ANON_KEY_SHA256 }}
+      HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256 }}
+      HELIX_MEDIA_VERIFICATION_TARGET: ${{ matrix.target }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ matrix.url }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets[matrix.public_key] }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -34,7 +52,7 @@ jobs:
       - name: Verify active Product Media
         run: |
           status=0
-          report=$(pnpm verify:product-media -- --json) || status=$?
+          report=$(pnpm exec tsx scripts/verify-product-media.ts --json) || status=$?
           printf '%s\n' "$report" > active-product-media-verification.json
           {
             echo "### Active Product Media Verification";

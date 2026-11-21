@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 export default defineConfig({
   plugins: [react()],
   test: {
+    env: { NEXT_PUBLIC_HELIX_SUPABASE_TARGET: "development" },
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],

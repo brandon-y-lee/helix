@@ -1,3 +1,4 @@
+import { readPublicSupabaseConnection } from "./project-safety";
 import {
   createServerClient,
   type CookieOptions,
@@ -55,11 +56,6 @@ function forwardedRequestHeaders(request: NextRequest) {
   return headers;
 }
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required Supabase env var: ${name}`);
-  return value;
-}
 
 function isProtectedAccountRoute(pathname: string): boolean {
   return pathname === "/account";
@@ -70,9 +66,10 @@ function requestId(request: NextRequest): string {
 }
 
 function createDefaultClient(cookies: CookieAdapter): SessionClient {
+  const { url, key } = readPublicSupabaseConnection();
   return createServerClient(
-    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    url,
+    key,
     {
       global: {
         fetch: createSupabaseFetch(),

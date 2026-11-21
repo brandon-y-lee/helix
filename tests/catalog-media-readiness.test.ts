@@ -3,7 +3,7 @@ import { validateCurrentProductMedia } from "@/lib/admin/catalog/media-readiness
 import { validateProductEditorDocument } from "@/lib/admin/catalog/validation";
 import { catalogDocument } from "./fixtures/catalog-editor";
 
-const ORIGIN = "https://erasogmsqpgiirovubjh.supabase.co";
+const ORIGIN = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const HASH = "a".repeat(64);
 const PREFIX = `${ORIGIN}/storage/v1/object/public/helix-catalog/products/`;
 const PRODUCT_ID = catalogDocument.productId;
@@ -61,6 +61,7 @@ describe("current Product Media readiness", () => {
   it.each([
     ["another Product", CURRENT_URL.replace(PRODUCT_ID, "123e4567-e89b-42d3-a456-426614174999")],
     ["retired slug", CURRENT_URL.replace(PRODUCT_ID, "maxxing-serum")],
+    ["production project while in development", CURRENT_URL.replace(ORIGIN, "https://erasogmsqpgiirovubjh.supabase.co")],
     ["foreign origin", CURRENT_URL.replace(ORIGIN, "https://example.com")],
     ["lookalike origin", CURRENT_URL.replace(".supabase.co", ".supabase.co.example.com")],
     ["HTTP", CURRENT_URL.replace("https:", "http:")],

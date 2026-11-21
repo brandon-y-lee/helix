@@ -1,0 +1,80 @@
+[
+  {
+    "version": "20260819233842",
+    "path": "supabase/migrations/20260819233842_complete_helix_rebrand_database_audit.sql",
+    "sha256": "503cb504a3a4f7319678f385a7ddb60be6be4242c71299793adc13e41f59ddb7",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113073325",
+    "path": "supabase/migrations/20261113073325_lifecycle_consent_activity.sql",
+    "sha256": "f914671e886b5ccf810293fd0ccc02712f2e7d2ca7a198ecdd9c531d6249a938",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113073330",
+    "path": "supabase/migrations/20261113073330_public_product_reviews.sql",
+    "sha256": "5c89645b8bc5cbf52ee55b1c1a1a0369461ef613ea6e10eee942cee2d318b3f2",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113073432",
+    "path": "supabase/migrations/20261113073432_lifecycle_offer_entitlements.sql",
+    "sha256": "f7fa207d5aa10f7903538f871834d346eb2ff33136c396140f37fbd72a166c14",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113074306",
+    "path": "supabase/migrations/20261113074306_manual_shipment_records.sql",
+    "sha256": "8dd13cbecc25663050eb54840a56837ece23245e056f460c693a8213d1980819",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113083013",
+    "path": "supabase/migrations/20261113083013_lifecycle_campaigns.sql",
+    "sha256": "785eba4527c36a449b0becaf555e5590cbbc76fc3e89da5c3456f371acf5827d",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113092504",
+    "path": "supabase/migrations/20261113092504_review_winback_core.sql",
+    "sha256": "5495c18a81989286347b6e4c3fd9f489e5ab519e9a1192330469fe6506d75d22",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113092532",
+    "path": "supabase/migrations/20261113092532_review_winback_offers.sql",
+    "sha256": "1cbc9ac8af451263bf736a500a0dae426307c791217d7753bee5bffcd3554053",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113101018",
+    "path": "supabase/migrations/20261113101018_review_offer_disclosure_contract.sql",
+    "sha256": "21b06382287d1646be2f4cf0b32e03a707459c97db213b1391762ac5bb945658",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261113101020",
+    "path": "supabase/migrations/20261113101020_public_review_offer_disclosure.sql",
+    "sha256": "256b74b9583fb0c7b6f8413ca09ed409014c0d6c9137851415cca8df0bcbf8c8",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261115023921",
+    "path": "supabase/migrations/20261115023921_guest_review_invitations.sql",
+    "sha256": "8833e5fd42e74c9b200f64f3ad3a1d4307d5e08a04f50dbed5bc440cef7737fc",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261115023923",
+    "path": "supabase/migrations/20261115023923_guest_product_review_links.sql",
+    "sha256": "11e86910c923275b123dc69e838da13a0b8b2e74bc52e76330d5d01a1db8d969",
+    "transaction": "caller"
+  },
+  {
+    "version": "20261117090000",
+    "path": "supabase/migrations/20261117090000_production_marketing_consent.sql",
+    "sha256": "724b10a3202c2d1a8f0235cd75eb139baa29574a2a2d666186e6b0197ee491bf",
+    "transaction": "source"
+  }
+]

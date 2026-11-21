@@ -30,7 +30,7 @@ Rewards and referrals require an immutable auditable ledger, transactional/idemp
 
 ## Database and remote operations
 
-Approved non-production Supabase project: `erasogmsqpgiirovubjh`. Verify the exact project/environment and current remote state before any authorized database, search-index, payment, catalog, or configuration mutation. Consult provider documentation for version-specific, uncertain, or security-sensitive behavior.
+The persistent development child is `zyfkunnpnlmgvrojmrbg`. The retained production parent is `erasogmsqpgiirovubjh`. Historical Sandbox Orders and original provider events retain their issuing environment and account. Routine dev, PR checks, and operator tools use the child. Access through the protected production release procedure requires a verified deployment and installed database identity. See [environment bindings](../operations/environment-bindings.md) before the hosted cutover. Verify the exact project/environment and current remote state before any authorized database, search-index, payment, catalog, or configuration mutation. Consult provider documentation for version-specific, uncertain, or security-sensitive behavior.
 
 Every exposed application table requires appropriate RLS; public catalog writes are forbidden. Security-definer functions require a fixed safe `search_path` and narrow grants. Never reset the linked database, weaken RLS, truncate broadly, delete real users or catalog history, force migration history, or run destructive drops without explicit approval. Reconcile Supabase, cache state, and Algolia after bulk catalog changes.
 

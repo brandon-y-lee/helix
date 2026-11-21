@@ -1,10 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 import { createProductionMarketingStorage } from "@/lib/production-marketing/storage";
 
-const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_test",
+const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild",
   VERCEL_PROJECT_PRODUCTION_URL: "www.helixskin.us", HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID: "dpl_test",
-  HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-key" };
+  HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-key" };
 afterEach(() => vi.unstubAllGlobals());
 it("uses only dedicated production RPC transport with hashed inputs and never retries an unknown write", async () => {
   const network = vi.fn().mockResolvedValue(new Response("true", { headers: { "content-type": "application/json" } }));
@@ -35,13 +36,19 @@ it("treats malformed or oversized durable responses as unknown without leaking o
 
 it("composes the public production route with dedicated hashed and encrypted seven-argument RPC admission", async () => {
   const { POST } = await import("@/app/api/marketing/production/subscription/route");
-  for (const [key,value] of Object.entries({...env,HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
+  for (const [key,value] of Object.entries({...env,
+    VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID,
+    VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_COMMIT_SHA: "a".repeat(40),
+    NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production"), NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_synthetic",
+    HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_publishable_synthetic").digest("hex"),
+    HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"b".repeat(64)})) vi.stubEnv(key,value);
-  const network = vi.fn().mockResolvedValue(new Response("true",{headers:{"content-type":"application/json"}}));
+  const network = vi.fn().mockResolvedValueOnce(Response.json(true));
   vi.stubGlobal("fetch",network);
   try {
     const result = await POST(new Request("https://www.helixskin.us/api/marketing/production/subscription", {method:"POST",headers:{origin:"https://www.helixskin.us","content-type":"application/json","x-vercel-forwarded-for":"192.0.2.1"},body:JSON.stringify({email:"synthetic@example.invalid",consent:true})}));
     expect([result.status,await result.text()]).toEqual([202,'{"ok":true}']);
+    expect(network).toHaveBeenCalledTimes(1);
     const [url,request] = network.mock.calls[0];
     expect(url).toBe("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/request_production_marketing_subscription");
     const body=JSON.parse(request.body);

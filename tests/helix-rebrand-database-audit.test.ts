@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   APPROVED_SUPABASE_PROJECT_REF,
   HELIX_DATABASE_AUDIT_SQL,
   buildHelixDatabaseAuditReport,
+  runHelixDatabaseAudit,
 } from "@/scripts/db/helix-rebrand-audit";
 
 describe("Helix database rebrand audit", () => {
@@ -68,6 +69,21 @@ describe("Helix database rebrand audit", () => {
       },
       findings: [],
     });
+  });
+
+  it("checks both the configured and observed development project before running the audit query", async () => {
+    const child = "zyfkunnpnlmgvrojmrbg";
+    const env = { NODE_ENV: "test" as const, SUPABASE_PROJECT_REF: child, SUPABASE_ACCESS_TOKEN: "synthetic" };
+    const fetcher = vi.fn<typeof fetch>();
+    await expect(runHelixDatabaseAudit({ ...env, SUPABASE_PROJECT_REF: APPROVED_SUPABASE_PROJECT_REF }, fetcher)).rejects.toThrow();
+    expect(fetcher).not.toHaveBeenCalled();
+    fetcher.mockResolvedValueOnce(Response.json({ id: APPROVED_SUPABASE_PROJECT_REF, name: "helix" }));
+    await expect(runHelixDatabaseAudit(env, fetcher)).rejects.toThrow(/different project/);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+
+    fetcher.mockResolvedValueOnce(Response.json({ id: child, name: "dev" })).mockResolvedValueOnce(Response.json([]));
+    await expect(runHelixDatabaseAudit(env, fetcher)).resolves.toMatchObject({ ok: true, project: { id: child } });
+    expect(fetcher.mock.lastCall?.[0]).toBe(`https://api.supabase.com/v1/projects/${child}/database/query/read-only`);
   });
 
   it("inventories object definitions and current rows without returning row values", () => {

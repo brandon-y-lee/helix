@@ -4,6 +4,8 @@ Spec #538 / Ticket #542. **BLOCKED; not activated; no real sends authorized.** T
 
 The three source packages remain disabled without dedicated runtime configuration and stored controls. The existing marketing sandbox, historical consent and Auth/support permissions remain separate. Do not import old contacts, infer marketing consent from Accounts/purchases, or substitute broad credentials when a required capability is unavailable. The parent Supabase project is the approved production destination in this Spec; a restored child owns development. The hosted development-child write hold remains until the coordinating database task explicitly clears it.
 
+Production marketing writes require the canonical customer origin and the Helix Production deployment and parent database bindings. Vercel assigns that origin to the promoted build. Consent, dispatch, event signatures and withdrawal keep their own controls. Older immutable builds retain their original database authorization reader.
+
 ## Qualification record
 
 Keep actual approval/evidence in a controlled operational record, with this manifest as its field template. Do not commit credentials, capability keys/tokens, webhook secrets, recipient/account identifiers, private event contents, customer data or credential-bearing screenshots/URLs. Use nonsecret purpose/scope/custody and evidence references. Record verifier, time, validity window, exact source commit/deployment/project and provider object scope alongside each actual check. A stale, absent, contradictory or incomplete required item is UNMET. The initial manifest deliberately contains no fabricated qualified values.

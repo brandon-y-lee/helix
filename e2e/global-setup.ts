@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import type { FullConfig } from "@playwright/test";
-import { assertApprovedSupabaseProjectUrl } from "@/lib/supabase/project-safety";
+import { assertSupabaseTargetUrl } from "@/lib/supabase/project-safety";
 import {
   createStorefrontBaseline,
   StorefrontBaselineError,
@@ -40,7 +40,7 @@ function sharedBaseURL(config: FullConfig | undefined): string {
 }
 
 // Playwright starts the built Storefront before this hook. Read the approved
-// non-production Catalog once, validate it at the shared test/tooling seam,
+// development Catalog once, validate it at the shared test/tooling seam,
 // and publish one immutable artifact inherited by every worker process.
 export default async function globalSetup(
   config?: FullConfig,
@@ -56,7 +56,7 @@ export default async function globalSetup(
   }
 
   try {
-    assertApprovedSupabaseProjectUrl(url);
+    assertSupabaseTargetUrl(url, "development");
   } catch (cause) {
     const detail = cause instanceof Error ? cause.message : "Invalid project URL.";
     throw new Error(
@@ -71,6 +71,7 @@ export default async function globalSetup(
   try {
     snapshot = await createStorefrontBaseline(
       createSupabaseStorefrontCatalogAdapter({
+        target: "development",
         url,
         anonKey,
         signal: controller.signal,

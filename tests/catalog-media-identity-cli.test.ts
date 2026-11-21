@@ -13,7 +13,7 @@ import type { MediaIdentityManifest } from "../scripts/catalog/product-media-ide
 
 const operationId = "123e4567-e89b-42d3-a456-426614174006";
 const actorId = "123e4567-e89b-42d3-a456-426614174005";
-const prefix = "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/";
+const prefix = "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/";
 const bytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aHfoAAAAASUVORK5CYII=", "base64");
 const assetSha256 = "350a03119e021c69694ed8e9b78251fc684f8d2d1683374b24099b5efdb59ff8";
 const sourceUrl = `${prefix}products/old-product/primary/${assetSha256}.png`;
@@ -33,7 +33,7 @@ function fixture({ targetMissing = false, missingResponse = missingObjectRespons
     { ...document.media[1], url: targetUrl, width: 1, height: 1 },
   ];
   const manifest: MediaIdentityManifest = {
-    version: 1, projectRef: "erasogmsqpgiirovubjh", operationId, actorId,
+    version: 1, projectRef: "zyfkunnpnlmgvrojmrbg", operationId, actorId,
     products: [{ productId: document.productId, expectedRevision: 3, expectedDocument: document,
       media: [{ mediaId: document.media[0].id, sourceUrl, targetUrl,
         sha256: assetSha256, byteSize: 68, mimeType: "image/png", width: 1, height: 1 }] }],
@@ -103,7 +103,7 @@ describe("media identity command confirmations", () => {
 
   it("requires the exact project and absolute manifest path", () => {
     const { flags } = fixture();
-    expect(() => parseMediaIdentityArgs(["copy", ...flags.map((value) => value === "erasogmsqpgiirovubjh" ? "another-project" : value)])).toThrow();
+    expect(() => parseMediaIdentityArgs(["copy", ...flags.map((value) => value === "zyfkunnpnlmgvrojmrbg" ? "another-project" : value)])).toThrow();
     expect(() => parseMediaIdentityArgs(["copy", ...flags.map((value) => value === "/private/tmp/reviewed-media.json" ? "relative.json" : value)])).toThrow();
   });
 

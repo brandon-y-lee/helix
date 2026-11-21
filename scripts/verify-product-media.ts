@@ -362,7 +362,13 @@ export function createRuntimeFromCatalogAdapter(adapter: StorefrontCatalogReadAd
 }
 
 function createCatalogAdapter(env: NodeJS.ProcessEnv): StorefrontCatalogReadAdapter {
+  const target = env.HELIX_MEDIA_VERIFICATION_TARGET ?? "development";
+  if (target !== "production" && target !== "development") {
+    throw new ProductMediaConfigurationError("Unknown Catalog media verification target.");
+  }
   return createSupabaseStorefrontCatalogAdapter({
+    env,
+    target,
     url: requiredEnv(env, "NEXT_PUBLIC_SUPABASE_URL"),
     anonKey: requiredEnv(env, "NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     fetchImpl: fetch,

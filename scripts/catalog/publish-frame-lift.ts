@@ -1,3 +1,4 @@
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   assertValidProductEditorDocument,
@@ -335,7 +336,7 @@ async function main(): Promise<void> {
     }
     printJson({
       mode: "verified-dry-run",
-      project: "erasogmsqpgiirovubjh",
+      project: SUPABASE_PROJECT_REFS.development,
       candidates,
       mutated: false,
     });
@@ -345,7 +346,7 @@ async function main(): Promise<void> {
   if (!parseFlag("--apply")) {
     printJson({
       mode: "plan",
-      project: "erasogmsqpgiirovubjh",
+      project: SUPABASE_PROJECT_REFS.development,
       products: Object.entries(FRAME_LIFT_PUBLICATIONS).map(
         ([step, definition]) => ({
           step,
@@ -368,7 +369,7 @@ async function main(): Promise<void> {
     results.push(await publishFrameLiftProduct(step, gateway));
   }
   printJson({
-    project: "erasogmsqpgiirovubjh",
+    project: SUPABASE_PROJECT_REFS.development,
     results,
     catalogVerified: true,
     downstreamVerificationRequired: ["cache", "algolia"],

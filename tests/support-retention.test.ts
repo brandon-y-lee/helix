@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleSupportRetentionRequest, type SupportRetentionDependencies } from "@/lib/support/retention";
 
@@ -8,7 +9,7 @@ const counts = { inquiriesRedacted: 1, draftsRedacted: 2, photosExpired: 3, audi
 function setup() {
   return { env: { HELIX_SUPPORT_RETENTION_SECRET: secret, HELIX_SUPPORT_RETENTION_ENABLED: "true",
     HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted", HELIX_EMAIL_DISPATCH_ENABLED: "false",
-    NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co" },
+    ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co" },
   now: () => Date.now(), redact: vi.fn().mockResolvedValue(counts),
   clean: vi.fn().mockResolvedValue({ cleaned: 1, deferred: 0 }) } satisfies SupportRetentionDependencies;
 }

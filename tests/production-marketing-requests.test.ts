@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
+vi.mock("@/lib/release/deployment-authorization", () => ({
+  productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
+}));
 import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "@/lib/production-marketing/requests";
 import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "@/lib/production-marketing/config";
 
 const origin = "https://www.helixskin.us";
 const env = {
-  VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_synthetic", VERCEL_DEPLOYMENT_ID: "dpl_synthetic",
+  VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_synthetic", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild",
   VERCEL_PROJECT_PRODUCTION_URL: "www.helixskin.us",
   HELIX_PRODUCTION_MARKETING_ENABLED: "true", HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: origin,
-  HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_synthetic", HELIX_PRODUCTION_MARKETING_DEPLOYMENT_ID: "dpl_synthetic",
-  HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+  HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_synthetic", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-service-key",
   HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "c".repeat(64), HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "synthetic-v1",
   HELIX_PRODUCTION_MARKETING_ABUSE_KEY: "b".repeat(64),
@@ -26,21 +28,21 @@ describe("dedicated production marketing consent boundary", () => {
     const deps = setup();
     deps.env.VERCEL_PROJECT_PRODUCTION_URL = "helixskin.us";
     expect(readProductionMarketingConfiguration(deps.env).siteOrigin).toBe(origin);
-    expect(productionMarketingEnrollmentEnabled(deps.env)).toBe(true);
+    expect(await productionMarketingEnrollmentEnabled(deps.env)).toBe(true);
     expect((await handleProductionMarketingRequest(post({ email: "visitor@example.invalid", consent: true }), "subscription", deps)).status).toBe(202);
     expect(deps.storage.request).toHaveBeenCalledTimes(1);
     expect((await handleProductionMarketingRequest(post({ email: "visitor@example.invalid", consent: true }, { origin: "https://helixskin.us" }), "subscription", deps)).status).toBe(403);
     expect(deps.storage.request).toHaveBeenCalledTimes(1);
-    expect(productionMarketingEnrollmentEnabled({ ...deps.env, HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://helixskin.us" })).toBe(false);
+    expect(await productionMarketingEnrollmentEnabled({ ...deps.env, HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://helixskin.us" })).toBe(false);
   });
   it("stays off by default and rejects wrong deployment, project, origin and shared credentials", async () => {
-    expect(productionMarketingEnrollmentEnabled({})).toBe(false);
+    expect(await productionMarketingEnrollmentEnabled({})).toBe(false);
     for (const changes of [{ HELIX_PRODUCTION_MARKETING_ENABLED: "false" }, { VERCEL_ENV: "preview" }, { HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY: "not-a-key" }, { HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID: "../unsafe" },
       { HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://other.invalid", VERCEL_PROJECT_PRODUCTION_URL: "other.invalid" }, { VERCEL_PROJECT_ID: "other" }, { VERCEL_DEPLOYMENT_ID: "other" }, { VERCEL_PROJECT_PRODUCTION_URL: "other.invalid" },
       { VERCEL_PROJECT_PRODUCTION_URL: "helixskin.vercel.app" }, { VERCEL_PROJECT_PRODUCTION_URL: "helixskin.us.other.invalid" },
       { HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://other.supabase.co" }, { SUPABASE_SERVICE_ROLE_KEY: env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY }]) {
       const deps = setup(); Object.assign(deps.env, changes);
-      expect(productionMarketingEnrollmentEnabled(deps.env)).toBe(false);
+      expect(await productionMarketingEnrollmentEnabled(deps.env)).toBe(false);
       expect((await handleProductionMarketingRequest(post({ email: "visitor@example.invalid", consent: true }), "subscription", deps)).status).toBe(503);
       expect(deps.storage.request).not.toHaveBeenCalled();
     }

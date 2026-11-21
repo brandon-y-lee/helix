@@ -18,11 +18,11 @@ import {
 const SECRET = "catalog-webhook-secret-that-is-long-enough";
 const DEPLOYMENT_BYPASS_SECRET = "vercel-preview-bypass-secret-that-is-long-enough";
 const ENDPOINT =
-  "https://helix-preview.example/api/webhooks/supabase/catalog-search-sync";
+  "https://helixskin.vercel.app/api/webhooks/supabase/catalog-search-sync";
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";
 
 const config: CatalogWebhookConfig = {
-  projectRef: "erasogmsqpgiirovubjh",
+  projectRef: "zyfkunnpnlmgvrojmrbg",
   targetEnvironment: "preview",
   endpoint: ENDPOINT,
   secret: SECRET,
@@ -199,15 +199,18 @@ describe("catalog webhook desired state", () => {
     );
 
     expect(desired.every((webhook) =>
+      webhook.headers["x-helix-source-project"] === "zyfkunnpnlmgvrojmrbg"
+    )).toBe(true);
+    expect(desired.every((webhook) =>
       webhook.headers["x-vercel-protection-bypass"] === DEPLOYMENT_BYPASS_SECRET
     )).toBe(true);
 
     const loaded = loadCatalogWebhookConfig({
       NODE_ENV: "test",
-      SUPABASE_PROJECT_REF: "erasogmsqpgiirovubjh",
+      SUPABASE_PROJECT_REF: "zyfkunnpnlmgvrojmrbg",
       CATALOG_WEBHOOK_TARGET_ENVIRONMENT: "preview",
       SUPABASE_CATALOG_WEBHOOK_URL: ENDPOINT,
-      SUPABASE_CATALOG_WEBHOOK_SECRET: SECRET,
+      HELIX_DEV_CATALOG_WEBHOOK_SECRET: SECRET,
       SUPABASE_ACCESS_TOKEN: "test-management-token",
       VERCEL_AUTOMATION_BYPASS_SECRET: DEPLOYMENT_BYPASS_SECRET,
     });
@@ -216,6 +219,7 @@ describe("catalog webhook desired state", () => {
     expect(report.desired[0]?.headerNames).toEqual([
       "Content-Type",
       "x-webhook-secret",
+      "x-helix-source-project",
       "x-vercel-protection-bypass",
     ]);
     expect(JSON.stringify(report)).not.toContain(DEPLOYMENT_BYPASS_SECRET);
@@ -224,13 +228,18 @@ describe("catalog webhook desired state", () => {
   it("fails closed for unknown or production projects and missing configuration", () => {
     const base: NodeJS.ProcessEnv = {
       NODE_ENV: "test",
-      SUPABASE_PROJECT_REF: "erasogmsqpgiirovubjh",
+      SUPABASE_PROJECT_REF: "zyfkunnpnlmgvrojmrbg",
       CATALOG_WEBHOOK_TARGET_ENVIRONMENT: "preview",
       SUPABASE_CATALOG_WEBHOOK_URL: ENDPOINT,
-      SUPABASE_CATALOG_WEBHOOK_SECRET: SECRET,
+      HELIX_DEV_CATALOG_WEBHOOK_SECRET: SECRET,
       SUPABASE_ACCESS_TOKEN: "test-management-token",
     };
 
+    expect(() => loadCatalogWebhookConfig({ ...base, SUPABASE_PROJECT_REF: "erasogmsqpgiirovubjh" }))
+      .toThrow(/Refusing Supabase project/);
+    expect(() => loadCatalogWebhookConfig({
+      ...base, SUPABASE_CATALOG_WEBHOOK_URL: ENDPOINT.replace("helixskin.vercel.app", "www.helixskin.us"),
+    })).toThrow(/SUPABASE_CATALOG_WEBHOOK_URL/);
     expect(() =>
       loadCatalogWebhookConfig({
         ...base,
@@ -252,9 +261,9 @@ describe("catalog webhook desired state", () => {
     expect(() =>
       loadCatalogWebhookConfig({
         ...base,
-        SUPABASE_CATALOG_WEBHOOK_SECRET: "",
+        HELIX_DEV_CATALOG_WEBHOOK_SECRET: "",
       }),
-    ).toThrow(/SUPABASE_CATALOG_WEBHOOK_SECRET/);
+    ).toThrow(/HELIX_DEV_CATALOG_WEBHOOK_SECRET/);
   });
 
   it("detects missing, mismatched, and duplicate webhook definitions", () => {
@@ -477,8 +486,8 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
-      indexName: "helix_products",
-      publicIndexName: "helix_products",
+      indexName: "helix_products_dev",
+      publicIndexName: "helix_products_dev",
       cache: {
         tags: ["catalog-product-offer:super-serum"],
         paths: ["/products/super-serum"],
@@ -501,13 +510,16 @@ describe("catalog webhook smoke verification", () => {
       authenticationVerified: true,
       childProductResolutionVerified: true,
       algoliaAttemptVerified: true,
-      indexName: "helix_products",
-      publicIndexName: "helix_products",
+      indexName: "helix_products_dev",
+      publicIndexName: "helix_products_dev",
       cacheInvalidationAttemptVerified: true,
       duplicateDeliveryVerified: true,
     });
     expect(JSON.stringify(report)).not.toContain(SECRET);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([, init]) =>
+      (init?.headers as Record<string, string>)["x-helix-source-project"] === "zyfkunnpnlmgvrojmrbg"
+    )).toBe(true);
     expect(fetchMock.mock.calls.every(([, init]) =>
       (init?.headers as Record<string, string>)["x-vercel-protection-bypass"] ===
         DEPLOYMENT_BYPASS_SECRET
@@ -530,8 +542,8 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
-      indexName: "helix_products",
-      publicIndexName: "helix_products",
+      indexName: "helix_products_dev",
+      publicIndexName: "helix_products_dev",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };
     const partialFailure = vi
@@ -552,7 +564,7 @@ describe("catalog webhook smoke verification", () => {
       action: "upsert",
       table: "product_variants",
       objectID: PRODUCT_ID,
-      indexName: "helix_products",
+      indexName: "helix_products_dev",
       publicIndexName: "unexpected_products",
       cache: { tags: ["tag"], paths: ["/products/example"] },
     };

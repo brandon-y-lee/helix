@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -38,7 +39,11 @@ const psql = ["exec", "-i", container, "psql", "-X", "-U", "postgres", "-d", dat
 const read = (path) => readFileSync(root + path, "utf8");
 const checkpoint = "supabase/tests/checkpoints/catalog-current-20260909042518.sql";
 const migration = "supabase/migrations/20260810135417_durable_product_slug_routes.sql";
+const markerPath = "supabase/operations/release-bootstrap/20261120131122_helix_environment_identity.sql";
 const preflightPath = "supabase/operations/product-url-preflight.sql";
+const keywordPreflightPath = "supabase/operations/product-search-keywords-preflight.sql";
+const inventoryPath = "supabase/operations/product-url-inventory.sql";
+const historicalPreflightPath = "supabase/operations/product-url-contract-preflight.sql";
 const contractPath = "supabase/operations/product-url-contract.sql";
 const testPath = "supabase/tests/product_slug_routes.integration.sql";
 // The current checkpoint excludes this public resolver. Exercise its exact
@@ -56,6 +61,11 @@ create trigger helix_catalog_search_sync_product_slug_routes
   execute function supabase_functions.http_request('https://example.invalid/hook','POST','{}','{}','1000');
 `;
 let created = false;
+let createdDevelopment = false;
+const developmentDatabase = database + "_dev";
+let sqlDirectory;
+const sqlFiles = [preflightPath, keywordPreflightPath, historicalPreflightPath, inventoryPath];
+const containerFile = (path) => sqlDirectory + "/" + path.split("/").at(-1);
 const checks = [];
 function verifyGeneratedTypes() {
   const port = JSON.parse(docker(["inspect", "--format", '{{json (index .NetworkSettings.Ports "5432/tcp")}}', container]).stdout)[0];
@@ -84,11 +94,77 @@ try {
     // Prepare standalone synthetic Products for replacement; family publication
     // behavior belongs to the separate current Catalog checkpoint tests.
     + "begin; delete from public.product_family_memberships; delete from public.product_families; commit;");
+  sqlDirectory = docker(["exec", container, "mktemp", "-d", "/tmp/helix-catalog-preflight.XXXXXXXXXX"]).stdout.trim();
+  for (const path of sqlFiles) docker(["cp", root + path, container + ":" + containerFile(path)]);
+  const devMarker = "insert into private.helix_environment(environment,project_ref) values ('development','zyfkunnpnlmgvrojmrbg');";
+  const prodMarker = "insert into private.helix_environment(environment,project_ref) values ('production','erasogmsqpgiirovubjh');";
+  // No caller-supplied ON_ERROR_STOP or transaction: ordinary psql -f defaults
+  // to continuing after a failed statement. Each entry must stop itself.
+  const fileMode = (db) => ["exec", "-i", container, "psql", "-X", "-qAt", "-U", "postgres", "-d", db];
+  const sentinel = `private-keyword-${randomBytes(8).toString("hex")}`;
+  docker(psql, `update public.products set search_keywords = array['${sentinel}'] where slug = 'super-serum';`);
+  // An older, unguarded helper can survive in an operator's open session.
+  const legacyHelper = `create function pg_temp.product_url_inventory(text) returns jsonb language sql as $$
+    select jsonb_build_object('activeProducts',(select jsonb_agg(search_keywords) from public.products),
+                              'reservations','[]'::jsonb);
+  $$;`;
+  function verifyRefusal(markerState, expectedError) {
+    for (const entry of [preflightPath, keywordPreflightPath]) {
+      const result = docker([...fileMode(database), "-c", legacyHelper,
+        "-f", containerFile(entry), "-c", "select 'unexpected-continuation';"], undefined, true);
+      assert.equal(result.status, 3, `${entry}: psql -f must halt on the ${markerState} marker error`);
+      assert.match(result.stderr, expectedError);
+      assert.equal(result.stdout.trim(), "", `${entry} printed output on a ${markerState} target`);
+      assert.ok(!result.stderr.includes(sentinel), `${entry} disclosed the ${markerState} row in an error`);
+    }
+    checks.push(`ordinary psql -f refuses both inventory scripts before output with ${markerState} marker`);
+  }
+  verifyRefusal("uninstalled", /read_helix_environment.*does not exist/);
+  docker(psql, read(markerPath));
+  verifyRefusal("empty", /verified development Catalog connection/i);
+  docker(["exec", container, "createdb", "-U", "postgres", "-T", database, developmentDatabase]);
+  createdDevelopment = true;
+  docker([...fileMode(developmentDatabase), "-c", devMarker]);
+  docker(psql, prodMarker);
+  verifyRefusal("opposite", /verified development Catalog connection/i);
+  const failureOnInstall = docker([...fileMode(developmentDatabase), "-c",
+    "create function pg_temp.product_url_inventory(text) returns text language sql as $$select 'stale-inventory'::text$$;",
+    "-f", containerFile(preflightPath), "-c", "select 'unexpected-continuation';"], undefined, true);
+  assert.equal(failureOnInstall.status, 3);
+  assert.match(failureOnInstall.stderr, /cannot change return type/);
+  assert.equal(failureOnInstall.stdout.trim(), "", "A helper installation error must stop before the stale helper runs");
+  assert.ok(!failureOnInstall.stderr.includes(sentinel));
+  const wrongHelperCall = docker([...fileMode(database), "-f", containerFile(inventoryPath),
+    "-c", "select pg_temp.product_url_inventory('development');"], undefined, true);
+  assert.match(wrongHelperCall.stderr, /does not match the requested inventory/);
+  assert.equal(wrongHelperCall.stdout.trim(), "", "The shared SQL helper must independently reject swapped targets");
+  assert.ok(!wrongHelperCall.stderr.includes(sentinel));
+  checks.push("stale helper installation and direct swapped-target SQL calls cannot return inventory");
+  const extraKeyword = "caller-rollback";
+  const updateInTransaction = `update public.products set search_keywords = array_append(search_keywords, '${extraKeyword}') where slug = 'super-serum';`;
+  const combined = docker([...fileMode(developmentDatabase), "-c", "begin;", "-c", updateInTransaction,
+    "-f", containerFile(preflightPath), "-f", containerFile(keywordPreflightPath), "-c", "rollback;"]);
+  const rows = combined.stdout.trim().split("\n").map((line) => JSON.parse(line));
+  assert.equal(rows.length, 2);
+  for (const row of rows) {
+    assert.ok(row.activeProducts.some((product) => product.searchKeywords.includes(sentinel)
+      && product.searchKeywords.includes(extraKeyword)));
+  }
+  assert.equal(rows[1].projectRef, "zyfkunnpnlmgvrojmrbg");
+  assert.deepEqual(rows[1].activeProducts, rows[0].activeProducts);
+  const rolledBack = docker([...fileMode(developmentDatabase), "-c",
+    `select exists(select 1 from public.products where '${extraKeyword}'=any(search_keywords));`]);
+  assert.equal(rolledBack.stdout.trim(), "f", "The preflights must preserve the caller's transaction");
+  const wrongContraction = docker([...fileMode(developmentDatabase), "-f", containerFile(historicalPreflightPath)], undefined, true);
+  assert.match(wrongContraction.stderr, /verified production Catalog connection/i);
+  assert.equal(wrongContraction.stdout.trim(), "");
+  checks.push("both inventories return the verified child's data; caller rollback is preserved and the historical contraction refuses the child");
+  // Historical contraction fixtures below retain their original verified parent target.
+  const preflight = `\\i ${containerFile(historicalPreflightPath)}\n`;
   const baseline = docker(psql, read(testPath), true);
   if (!baseline.stderr.includes("Public Product slug resolver still exists")) throw new Error(baseline.stderr);
   checks.push("red: unchanged public resolver fails the private boundary test");
   if (!existsSync(root + contractPath)) throw new Error("RED reproduced; contraction not implemented yet.");
-  const preflight = read(preflightPath);
   const contract = read(contractPath);
   const evidence = {
     projectRef: "erasogmsqpgiirovubjh", stage: "canonical-consumers-search-reconciled",
@@ -143,10 +219,15 @@ try {
   checks.push("repeat contraction verifies no-op");
   if (process.argv.includes("--verify-types")) verifyGeneratedTypes();
   console.log(JSON.stringify({ status: "passed", postgres: version, checks,
-    artifacts: [checkpoint,migration,preflightPath,contractPath,testPath].map((path) => ({
+    artifacts: [checkpoint,migration,markerPath,...sqlFiles,contractPath,testPath].map((path) => ({
       path, sha256: createHash("sha256").update(read(path)).digest("hex"),
     })), scope: "unique disposable synthetic database; no provider rows, Orders, or outbound HTTP",
   }, null, 2));
 } finally {
+  if (sqlDirectory) {
+    docker(["exec", container, "rm", "-f", ...sqlFiles.map(containerFile)]);
+    docker(["exec", container, "rmdir", sqlDirectory]);
+  }
+  if (createdDevelopment) docker(["exec", container, "dropdb", "-U", "postgres", developmentDatabase]);
   if (created) docker(["exec", container, "dropdb", "-U", "postgres", database]);
 }

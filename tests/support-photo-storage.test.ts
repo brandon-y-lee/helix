@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { describe, expect, it, vi } from "vitest";
 import { createPhotoStorage } from "@/lib/support/photo-storage";
 import { PHOTO_ORIGINAL_LIMIT } from "@/lib/support/photos";
@@ -6,7 +7,7 @@ import { PHOTO_ORIGINAL_LIMIT } from "@/lib/support/photos";
 const id = "4a31099b-9242-42fe-8210-775840277216";
 const host = "https://erasogmsqpgiirovubjh.supabase.co";
 const env = { HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "support-private", HELIX_EMAIL_ENVIRONMENT: "sandbox",
-  HELIX_EMAIL_MODE: "restricted", NEXT_PUBLIC_SUPABASE_URL: host, SUPABASE_SERVICE_ROLE_KEY: "test-service-credential" };
+  HELIX_EMAIL_MODE: "restricted", ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: host, SUPABASE_SERVICE_ROLE_KEY: syntheticSupabaseKey("production", "service_role") };
 const bucket = { public: false, file_size_limit: PHOTO_ORIGINAL_LIMIT, allowed_mime_types: ["image/jpeg", "image/png", "image/webp"] };
 const raw = `raw/${id}/${id}`;
 function fixture(override = {}) {
@@ -16,7 +17,7 @@ function fixture(override = {}) {
   return { fetcher, rpc, now, storage: createPhotoStorage({ env: { ...env, ...override }, fetch: fetcher, rpc, now }) };
 }
 describe("private photo storage boundary", () => {
-  it.each([{ HELIX_SUPPORT_PHOTOS_ENABLED: "false" }, { HELIX_SUPPORT_PHOTO_BUCKET: "" }, { NEXT_PUBLIC_SUPABASE_URL: "https://other.supabase.co" }])(
+  it.each([{ VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "dev" }, { SUPABASE_SERVICE_ROLE_KEY: syntheticSupabaseKey("development", "service_role") }, { HELIX_SUPPORT_PHOTOS_ENABLED: "false" }, { HELIX_SUPPORT_PHOTO_BUCKET: "" }, { NEXT_PUBLIC_SUPABASE_URL: "https://other.supabase.co" }])(
     "fails closed before calls for incomplete configuration %j", async (override) => {
       const { storage, fetcher } = fixture(override);
       await expect(storage.createUploadUrl(raw, new Date(30000).toISOString())).rejects.toThrow();

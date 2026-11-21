@@ -49,6 +49,8 @@ Existing browser suites directly cover all ten known retired Product slugs and a
 
 ## Complete Catalog evidence
 
+Fresh captures use the persistent development child `zyfkunnpnlmgvrojmrbg`. Offline comparisons also accept historical captures of the original project and require matching project identities on both sides.
+
 The anonymous browser Storefront snapshot remains useful for rendering/cache reconciliation but is not a full Catalog fingerprint. The current evidence command captures all current-format Product documents, active/draft/archived membership, complete source/PDP/offer/media/relationship/family sections, System metadata, private reservations, archived governed rows, draft/current-revision state, immutable history fingerprints and media-policy/evidence presence. Capture and comparison include exact source/extractor/project provenance.
 
 ```bash

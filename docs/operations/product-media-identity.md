@@ -1,12 +1,12 @@
 # Stable Product Media identity
 
-Spec #358 / Ticket #366 prepares current Product Media to use the owning Product UUID in its Storage path. Source integration does not perform this operation. Actual provider changes require a freshly verified target, a reviewed manifest, and recorded authority for that exact apply. Only the approved non-production project `erasogmsqpgiirovubjh` is supported.
+Spec #358 / Ticket #366 prepares current Product Media to use the owning Product UUID in its Storage path. Source integration does not perform this operation. Actual provider changes require a freshly verified target, a reviewed manifest, and recorded authority for that exact apply. The current operator command supports the persistent development child `zyfkunnpnlmgvrojmrbg`. Use development-owned objects and a fresh child manifest.
 
 The destination is `helix-catalog/products/<product-uuid>/<existing-suffix>`. The suffix, filename, image/video bytes, MIME type, dimensions, associations, and presentation roles stay the same. In particular, `primary/original/<sha256>.webp` remains on the original-delivery path to preserve approved colors. This procedure creates copies; it never moves, overwrites, regenerates, or deletes historical objects. Published Revisions and their source URLs remain immutable.
 
 ## Dated planning inventory
 
-Read-only inspection of the approved non-production environment on September 14, 2026 found:
+Read-only inspection of the original project `erasogmsqpgiirovubjh`, then used for development, produced the following counts on September 14, 2026.
 
 | Active Product | Current URL associations | Distinct assets |
 | --- | ---: | ---: |
@@ -48,7 +48,7 @@ Replace `OPERATION_UUID` and `MANIFEST_FILE_SHA256` in each command with the lit
 ```bash
 pnpm exec tsx scripts/catalog/media-identity.ts copy \
   --manifest /private/tmp/helix-media-manifest.json \
-  --expect-project erasogmsqpgiirovubjh \
+  --expect-project zyfkunnpnlmgvrojmrbg \
   --expect-operation OPERATION_UUID \
   --expect-manifest-sha256 MANIFEST_FILE_SHA256
 ```
@@ -61,7 +61,7 @@ Only the initial copy destination probe may recognize Storage's explicit missing
 pnpm exec tsx scripts/catalog/media-identity.ts verify \
   --state before \
   --manifest /private/tmp/helix-media-manifest.json \
-  --expect-project erasogmsqpgiirovubjh \
+  --expect-project zyfkunnpnlmgvrojmrbg \
   --expect-operation OPERATION_UUID \
   --expect-manifest-sha256 MANIFEST_FILE_SHA256
 ```
@@ -71,7 +71,7 @@ This read-only verification requires both source and destination objects; it nev
 ```bash
 pnpm exec tsx scripts/catalog/media-identity.ts cutover \
   --manifest /private/tmp/helix-media-manifest.json \
-  --expect-project erasogmsqpgiirovubjh \
+  --expect-project zyfkunnpnlmgvrojmrbg \
   --expect-operation OPERATION_UUID \
   --expect-manifest-sha256 MANIFEST_FILE_SHA256
 ```
@@ -95,7 +95,7 @@ The following flag is the operator's explicit attestation of that external deplo
 ```bash
 pnpm exec tsx scripts/catalog/media-identity.ts activate \
   --manifest /private/tmp/helix-media-manifest.json \
-  --expect-project erasogmsqpgiirovubjh \
+  --expect-project zyfkunnpnlmgvrojmrbg \
   --expect-operation OPERATION_UUID \
   --expect-manifest-sha256 MANIFEST_FILE_SHA256 \
   --deployment-sha VERIFIED_DEPLOYED_FULL_COMMIT_SHA \
@@ -112,7 +112,7 @@ After activation, reconcile affected Catalog cache entries and Product Search th
 pnpm exec tsx scripts/catalog/media-identity.ts verify \
   --state after \
   --manifest /private/tmp/helix-media-manifest.json \
-  --expect-project erasogmsqpgiirovubjh \
+  --expect-project zyfkunnpnlmgvrojmrbg \
   --expect-operation OPERATION_UUID \
   --expect-manifest-sha256 MANIFEST_FILE_SHA256
 ```

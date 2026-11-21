@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { assertEmailEnvironment, EmailConfigurationError, readEmailConfig, readEmailSender, type EmailEnvironment } from "../lib/email/config";
 
-const project = "erasogmsqpgiirovubjh";
+import { SUPABASE_PROJECT_REFS } from "../lib/supabase/project-safety";
+import { verifySupabaseCredential } from "../lib/supabase/key-binding";
+
+const project = SUPABASE_PROJECT_REFS.development;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Input = { command: "inspect" | "retry" | "marketing-status"; id: string | null; expectedUpdatedAt: string | null; apply: boolean };
 const importStates = ["admitted", "submitted", "uncertain", "retry_wait", "exhausted", "completed", "failed"] as const;
@@ -91,6 +94,7 @@ export async function runEmailDeliveryCommand(args: string[], env: EmailEnvironm
   if (env.NEXT_PUBLIC_SUPABASE_URL !== `https://${project}.supabase.co` || !env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("The approved non-production project and server credential are required.");
   }
+  verifySupabaseCredential(env.SUPABASE_SERVICE_ROLE_KEY, "development", "service_role", env);
   const client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   if (input.command === "marketing-status") {
     const { data, error } = await client.rpc("read_marketing_operations", { p_limit: 20 });

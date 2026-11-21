@@ -1,9 +1,11 @@
+import { HELIX_VERCEL_PROJECT_ID } from "../../lib/supabase/project-safety";
+
 export type VercelHelixAuditConfig = Readonly<{
   token: string;
   teamId: string | null;
 }>;
 
-export const APPROVED_VERCEL_PROJECT_ID = "prj_N9nyPL9SixJHOROIovS8PDQ9aKny";
+export const APPROVED_VERCEL_PROJECT_ID = HELIX_VERCEL_PROJECT_ID;
 const EXPECTED_PROJECT_NAME = "helix";
 const EXPECTED_REPOSITORY = "brandon-y-lee/helix";
 const EXPECTED_DOMAIN = "helixskin.vercel.app";

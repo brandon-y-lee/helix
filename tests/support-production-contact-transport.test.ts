@@ -20,7 +20,7 @@ it("canonical production never chooses legacy even without configuration", () =>
 });
 it("requires the exact server-selected bucket/inquiry/upload path and no foreign token parameters", () => {
   const binding = {
-    origin: "https://abcdefghijklmnopqrst.supabase.co",
+    origin: "https://erasogmsqpgiirovubjh.supabase.co",
     bucket: "support-production-private",
   };
   const id = "00000000-0000-4000-8000-000000000001";

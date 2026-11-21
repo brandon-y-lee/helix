@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { StorefrontSnapshot } from "@/test-support/storefront-baseline";
 import { createProductMediaContainment } from "@/test-support/product-media-containment";
 
-const mediaOrigin = "https://erasogmsqpgiirovubjh.supabase.co";
+const mediaOrigin = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
 const imageUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/card.webp`;
 const posterUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/poster.webp`;
 const videoUrl = `${mediaOrigin}/storage/v1/object/public/helix-catalog/routine.mp4`;

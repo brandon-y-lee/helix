@@ -3,10 +3,10 @@ import { productionMarketingEnrollmentEnabled } from "@/lib/production-marketing
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
-  return productionMarketingLanding("preferences", productionMarketingEnrollmentEnabled(process.env));
+export async function GET() {
+  return productionMarketingLanding("preferences", await productionMarketingEnrollmentEnabled(process.env));
 }
 
-export function HEAD() {
-  return productionMarketingLanding("preferences", productionMarketingEnrollmentEnabled(process.env), "HEAD");
+export async function HEAD() {
+  return productionMarketingLanding("preferences", await productionMarketingEnrollmentEnabled(process.env), "HEAD");
 }

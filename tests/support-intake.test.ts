@@ -1,3 +1,4 @@
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { describe, expect, it, vi } from "vitest";
 import { handleSupportIntakeRequest, type SupportIntakeDependencies } from "@/lib/support/intake";
 import { SupportError } from "@/lib/support/request";
@@ -99,7 +100,7 @@ describe("support intake", () => {
 
   it("binds photo admission to a private capability and the original message before accepting it", async () => {
     const dependencies = setup();
-    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
+    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
     const uploadCapability = Buffer.alloc(32, 7).toString("base64url");
     const photos = [{ uploadId: "c4f6ea1a-ac10-41e9-b924-8fbc634b5bdb", byteSize: 1024, contentType: "image/jpeg" }];
     const response = await handleSupportIntakeRequest(request({ ...input, uploadCapability, photos }), dependencies);
@@ -113,7 +114,7 @@ describe("support intake", () => {
 
   it("rejects excessive or ambiguous photo reservations without accepting the message", async () => {
     const dependencies = setup();
-    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
+    dependencies.env = { ...env, HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "helix-support-private", ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "synthetic-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "synthetic-photo-access-secret-32-characters" } as typeof env;
     const uploadCapability = Buffer.alloc(32, 7).toString("base64url");
     const photo = { uploadId: "c4f6ea1a-ac10-41e9-b924-8fbc634b5bdb", byteSize: 10 * 1024 * 1024, contentType: "image/png" };
     for (const extra of [
