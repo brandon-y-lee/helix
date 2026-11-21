@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { PRODUCTION_MARKETING_WORDING } from "@/lib/production-marketing/contract";
+import { useSignupReadiness, useSignupSite, welcomeSignupPaused, welcomeSubscription } from "./signup-readiness";
 import styles from "./EmailPreferences.module.css";
 
 type Submission =
@@ -20,6 +22,11 @@ export function EmailPreferences({
   reviews?: boolean;
 }) {
   const [email, setEmail] = useState("");
+  const site = useSignupSite();
+  const welcomeEntry = !confirmToken && !unsubscribeToken && site !== "legacy";
+  const readiness = useSignupReadiness(welcomeEntry ? site : "unavailable");
+  const entryPaused = welcomeEntry && readiness !== "welcome_only";
+  const issuedLinkPaused = Boolean(confirmToken || unsubscribeToken) && site !== "legacy" && site !== "canonical";
   lifecycle = lifecycle || reviews;
   const consentScope = reviews ? "lifecycle_reviews" : lifecycle ? "lifecycle" : "welcome";
   const lifecycleCopy = `I want helix welcome offers, cart and product reminders, skincare education${reviews ? ", post-purchase follow-ups, review invitations and next-purchase offers" : ""} emails. Helix may use my signed-in product visits and cart activity for these reminders. I can unsubscribe at any time.`;
@@ -44,7 +51,7 @@ export function EmailPreferences({
     body: Record<string, string | boolean>,
     successMessage: string,
   ) {
-    if (inFlight.current) return false;
+    if (inFlight.current || issuedLinkPaused) return false;
     inFlight.current = true;
     setSubmission({ kind: "pending", message: "" });
     try {
@@ -52,6 +59,7 @@ export function EmailPreferences({
         method: "POST",
         credentials: "same-origin",
         cache: "no-store",
+        ...(welcomeEntry && { redirect: "error" }),
         referrerPolicy: "no-referrer",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -118,7 +126,7 @@ export function EmailPreferences({
             <button
               type="button"
               className="btn btn--editorial-rounded btn--ghost"
-              disabled={pending}
+              disabled={pending || issuedLinkPaused}
               onClick={() => void withdraw("welcome")}
             >
               {lifecycle ? "Stop lifecycle emails" : "Stop welcome emails"}
@@ -128,7 +136,7 @@ export function EmailPreferences({
             <button
               type="button"
               className="btn btn--editorial-rounded"
-              disabled={pending}
+              disabled={pending || issuedLinkPaused}
               onClick={() => void withdraw("all")}
             >
               Unsubscribe from marketing
@@ -140,7 +148,7 @@ export function EmailPreferences({
             className={styles.result}
             role={submission.kind === "error" ? "alert" : "status"}
           >
-            {pending ? "Updating your email preferences…" : submission.message}
+            {issuedLinkPaused ? "Open the original link in your email to update your preferences." : pending ? "Updating your email preferences…" : submission.message}
           </p>
           <p className={styles.note}>
             A message already on its way may still arrive.
@@ -152,10 +160,10 @@ export function EmailPreferences({
 
   function subscribe(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!event.currentTarget.reportValidity() || !consent) return;
+    if (entryPaused || (welcomeEntry && submission.kind === "success") || !event.currentTarget.reportValidity() || !consent) return;
     void submit(
-      "/api/marketing/subscription",
-      { email, consent: true, ...(lifecycle ? { scope: consentScope } : {}) },
+      welcomeEntry ? welcomeSubscription : "/api/marketing/subscription",
+      { email: welcomeEntry ? email.trim() : email, consent: true, ...(!welcomeEntry && lifecycle ? { scope: consentScope } : {}) },
       "If this address is eligible, check your inbox to confirm.",
     );
   }
@@ -176,7 +184,7 @@ export function EmailPreferences({
             <button
               type="button"
               className="btn btn--editorial-rounded"
-              disabled={pending}
+              disabled={pending || issuedLinkPaused}
               onClick={() =>
                 void submit(
                   "/api/marketing/confirm",
@@ -194,7 +202,7 @@ export function EmailPreferences({
             className={styles.result}
             role={submission.kind === "error" ? "alert" : "status"}
           >
-            {submission.message}
+            {issuedLinkPaused ? "Open the original link in your email to confirm." : submission.message}
           </p>
           <p className={styles.note}>
             <Link href="/email-preferences">
@@ -212,9 +220,9 @@ export function EmailPreferences({
       aria-labelledby="email-preferences-heading"
     >
       <p className="eyebrow">helix emails</p>
-      <h1 id="email-preferences-heading">Stay in the know</h1>
+      <h1 id="email-preferences-heading">{welcomeEntry ? "Welcome emails" : "Stay in the know"}</h1>
       <p className={styles.intro}>
-        {lifecycle ? "Choose whether to receive helix lifecycle emails. You can unsubscribe at any time." : "Sign up for our welcome series and skincare education. You can unsubscribe at any time."}
+        {welcomeEntry ? "Sign up for a welcome email from Helix." : lifecycle ? "Choose whether to receive helix lifecycle emails. You can unsubscribe at any time." : "Sign up for our welcome series and skincare education. You can unsubscribe at any time."}
       </p>
       <form className={styles.form} onSubmit={subscribe}>
         <label className={styles.field}>
@@ -231,7 +239,7 @@ export function EmailPreferences({
               setEmail(event.target.value);
               setSubmission({ kind: "idle", message: "" });
             }}
-            disabled={pending}
+            disabled={entryPaused || pending}
           />
         </label>
         <label className={styles.consent}>
@@ -244,10 +252,10 @@ export function EmailPreferences({
               setConsent(event.target.checked);
               setSubmission({ kind: "idle", message: "" });
             }}
-            disabled={pending}
+            disabled={entryPaused || pending}
           />
           <span>
-            {lifecycle ? lifecycleCopy : "I want to receive helix marketing emails, including a welcome series and skincare education. I can unsubscribe at any time."}
+            {welcomeEntry ? PRODUCTION_MARKETING_WORDING : lifecycle ? lifecycleCopy : "I want to receive helix marketing emails, including a welcome series and skincare education. I can unsubscribe at any time."}
           </span>
         </label>
         <p className={styles.note}>
@@ -256,9 +264,9 @@ export function EmailPreferences({
         <button
           type="submit"
           className="btn btn--editorial-rounded"
-          disabled={pending}
+          disabled={pending || entryPaused || (welcomeEntry && (!consent || submission.kind === "success"))}
         >
-          {pending ? "Submitting…" : "Subscribe"}
+          {pending ? "Submitting…" : welcomeEntry ? "Request confirmation" : "Subscribe"}
         </button>
         <p
           ref={resultRef}
@@ -266,7 +274,7 @@ export function EmailPreferences({
           className={styles.result}
           role={submission.kind === "error" ? "alert" : "status"}
         >
-          {submission.message}
+          {entryPaused ? (readiness === "checking" ? "Checking email signup availability…" : welcomeSignupPaused) : submission.message}
         </p>
         <p className={styles.note}>
           Already subscribed? Use the preferences link in your most recent helix

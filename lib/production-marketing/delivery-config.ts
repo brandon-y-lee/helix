@@ -1,5 +1,6 @@
 import "server-only";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { readProductionMarketingCapabilityKey } from "./capabilities";
 import { readProductionMarketingConfiguration } from "./config";
 import { productionMarketingTemplateHash } from "./templates";
 import type { ProductionMarketingEnvironment } from "./contract";
@@ -7,10 +8,18 @@ export const productionMarketingUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 export type ProductionMarketingDeliveryContract = { version: "production_welcome_delivery_v1"; from: string; replyTo: string; topicId: string; postalAddress: string; templateHash: string };
 export const productionMarketingContractFingerprint = (text: string) => createHash("sha256").update(text).digest("hex");
 const invalid = () => new Error("Production marketing is unavailable.");
+export function productionMarketingWorkerToken(env: ProductionMarketingEnvironment): string | undefined {
+  const token = env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN;
+  if (!token || token.length < 32 || token.length > 256 ||
+    [env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY, env.HELIX_PRODUCTION_MARKETING_PROVIDER_KEY,
+      env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY, env.CRON_SECRET,
+      env.SUPABASE_SERVICE_ROLE_KEY, env.RESEND_API_KEY].includes(token)) return undefined;
+  return token;
+}
 export function productionMarketingWorkerAuthorized(request: Request, env: ProductionMarketingEnvironment): boolean {
-  const secret=env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN, supplied=request.headers.get("authorization");
-  if(!secret || secret.length<32 || secret.length>256 || !supplied || !supplied.startsWith("Bearer ")
-    || [env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY,env.HELIX_PRODUCTION_MARKETING_PROVIDER_KEY,env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY,env.CRON_SECRET,env.SUPABASE_SERVICE_ROLE_KEY,env.RESEND_API_KEY].includes(secret)) return false;
+  const secret = productionMarketingWorkerToken(env);
+  const supplied = request.headers.get("authorization");
+  if (!secret || !supplied || !supplied.startsWith("Bearer ")) return false;
   const a=Buffer.from(supplied), b=Buffer.from(`Bearer ${secret}`);
   return a.length===b.length && timingSafeEqual(a,b);
 }
@@ -30,4 +39,19 @@ export function readProductionMarketingDeliveryConfiguration(env: ProductionMark
     || typeof v.postalAddress!=="string" || v.postalAddress.trim()!==v.postalAddress || !v.postalAddress || v.postalAddress.length>500 || /[\r\n\x00]/.test(v.postalAddress)
     || v.templateHash!==productionMarketingTemplateHash) throw invalid();
   return {...base,providerKey,contractText,contractHash:productionMarketingContractFingerprint(contractText),contract:v as ProductionMarketingDeliveryContract};
+}
+
+/** The operator qualifies this configuration after verifying the scheduled confirmation worker.
+ * Ordinary deployments with identical credentials and content keep the same qualification. */
+export function confirmationWorkerQualification(env: ProductionMarketingEnvironment) {
+  const workerToken = productionMarketingWorkerToken(env);
+  if (!workerToken) throw invalid();
+  const config = readProductionMarketingDeliveryConfiguration(env);
+  const capability = readProductionMarketingCapabilityKey(env);
+  const workerBindingHash = createHmac("sha256", workerToken).update(JSON.stringify([
+    "helix:production-marketing:confirmation-worker:v1",
+    config.contractHash, env.VERCEL_PROJECT_ID, config.siteOrigin, config.supabaseUrl,
+    config.providerKey, config.serviceKey, capability.keyId, capability.key.toString("hex"),
+  ])).digest("hex");
+  return { p_contract_hash: config.contractHash, p_worker_binding_hash: workerBindingHash };
 }
