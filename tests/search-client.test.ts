@@ -62,6 +62,7 @@ describe("public Algolia configuration", () => {
       { ...search, NEXT_PUBLIC_ALGOLIA_INDEX_NAME: target === "production" ? "helix_products_dev" : "helix_products" },
       // Even a matching fingerprint cannot make a copied writer or admin key public.
       { ...search, ALGOLIA_WRITE_API_KEY: search.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY },
+      { ...search, HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY: search.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY },
       { ...search, ALGOLIA_ADMIN_API_KEY: search.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY },
     ]) {
       expect(() => verifyPublicSearchBinding(settings, target)).toThrowError(

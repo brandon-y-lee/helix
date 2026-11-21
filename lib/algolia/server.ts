@@ -1,9 +1,7 @@
-// Server-only Algolia WRITE client. Uses the admin/write key, which is a
-// non-NEXT_PUBLIC env var and therefore is never inlined into client bundles.
-// This module must only be imported from server code (route handlers).
+// Server-only Algolia writer for the deployment's qualified Catalog index.
 
 import { algoliasearch, type Algoliasearch } from "algoliasearch";
-import { catalogWriteApiKey } from "@/lib/algolia/credentials";
+import { catalogWebhookSecret, catalogWriteApiKey } from "@/lib/algolia/credentials";
 import { expectedSearchAppId, productsIndexForTarget } from "@/lib/algolia/index";
 import { runtimeSupabaseTarget } from "@/lib/supabase/project-safety";
 import { INDEX_SETTINGS, type AlgoliaProductRecord } from "@/lib/algolia/record";
@@ -20,13 +18,14 @@ type WriteConfig = { client: Algoliasearch; indexName: string };
 let cached: (WriteConfig & { appId: string; apiKey: string }) | null = null;
 
 function getWriteConfig(): WriteConfig {
+  const target = runtimeSupabaseTarget();
   const appId = process.env.ALGOLIA_APP_ID;
-  const apiKey = catalogWriteApiKey(process.env);
+  const apiKey = catalogWriteApiKey(process.env, target);
   const indexName = process.env.ALGOLIA_INDEX_NAME;
 
   const missing: string[] = [];
   if (!appId) missing.push("ALGOLIA_APP_ID");
-  if (!apiKey) missing.push("ALGOLIA_WRITE_API_KEY");
+  if (!apiKey) missing.push(target === "production" ? "HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY" : "ALGOLIA_WRITE_API_KEY");
   if (!indexName) missing.push("ALGOLIA_INDEX_NAME");
 
   if (missing.length > 0) {
@@ -37,9 +36,14 @@ function getWriteConfig(): WriteConfig {
     );
   }
 
-  const target = runtimeSupabaseTarget();
   if (appId !== expectedSearchAppId(process.env, target)) {
     throw new AlgoliaConfigError("Algolia application does not match the approved deployment target.");
+  }
+  if (target === "production") {
+    const signer = catalogWebhookSecret(process.env, target);
+    if (!signer || signer === catalogWebhookSecret(process.env, "development")) {
+      throw new AlgoliaConfigError("Production Search writes require an independent Catalog webhook signer.");
+    }
   }
   const expectedIndex = productsIndexForTarget(target);
   if (indexName !== expectedIndex) {

@@ -10,7 +10,7 @@ export function verifyPublicSearchBinding(env: Record<string, string | undefined
   if (!appId && !key && !index) return;
   const digest = env[`HELIX_${target.toUpperCase()}_ALGOLIA_SEARCH_KEY_SHA256`];
   if (!appId || !key || index !== productsIndexForTarget(target) || appId !== expectedSearchAppId(env, target)
-    || key === env.ALGOLIA_WRITE_API_KEY || key === env.ALGOLIA_ADMIN_API_KEY
+    || key === env.HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY || key === env.ALGOLIA_WRITE_API_KEY || key === env.ALGOLIA_ADMIN_API_KEY
     || !digest || createHash("sha256").update(key).digest("hex") !== digest) {
     throw new Error("Public Search settings do not match the deployment target.");
   }
