@@ -131,8 +131,7 @@ describe("global footer", () => {
     const checkout = within(footer).getByRole("region", {
       name: "Checkout methods",
     });
-    expect(checkout).toHaveTextContent("Stripe sandbox only — no live payments");
-    expect(within(checkout).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(checkout).getByRole("link", { name: "Payment options and availability" })).toHaveAttribute("href", "/checkout");
     expect(within(checkout).queryByRole("button")).not.toBeInTheDocument();
     expect(within(footer).getByText("EN · USD display only")).toBeInTheDocument();
 
@@ -317,7 +316,7 @@ describe("legal and support content", () => {
     const orderSummary = screen.getByText("Can I place an order right now?");
     const orderDetails = orderSummary.closest("details");
     expect(orderDetails).toHaveAttribute("open");
-    expect(screen.getByText(/Stripe-hosted Checkout in sandbox mode/i)).toBeInTheDocument();
+    expect(within(orderDetails as HTMLElement).getByRole("link", { name: "Check payment availability" })).toHaveAttribute("href", "/checkout");
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
@@ -326,22 +325,22 @@ describe("legal and support content", () => {
     expect(hero.querySelector("img")).toHaveAttribute("alt", "");
     expect(hero.querySelector("img")?.getAttribute("src")).toContain("13df364513afd448dd571acd4f8efd29084e59aff7956c7fd5d332549cd4b773.webp");
     const faqText = document.body.textContent ?? "";
-    expect(faqText).toContain("free standard shipping to delivery addresses within the United States");
-    expect(faqText).toContain("on orders of $50 or more after discounts and before taxes");
-    expect(faqText).toContain("Most orders ship 5–7 business days after being placed.");
+    const shipping = document.getElementById("shipping")!;
+    expect(shipping).toHaveTextContent("Your cart shows the shipping fee and any minimum for free shipping.");
+    expect(shipping).toHaveTextContent("Check the dispatch terms in your cart before checkout.");
+    expect(shipping).not.toHaveTextContent(/\$50|5–7 business days/);
     expect(faqText).toContain("within 2 business days");
     expect(faqText).toContain("7–12 business days after they are issued");
     expect(faqText).toContain("noon Pacific");
     expect(faqText).toContain("up to 7 years");
     expect(faqText).toContain("WCAG 2.1 Level AA");
-    const returnAnswer = faqCategories.find((category) => category.id === "returns")!
-      .items.find((item) => item.id === "return-window")!.answer;
+    const returnDetails = screen.getByText("What is the return policy?").closest("details")!;
+    await user.click(within(returnDetails).getByText("What is the return policy?"));
+    expect(returnDetails).toHaveTextContent("Review the return terms for your item in your cart before checkout.");
+    expect(within(returnDetails).getByRole("link", { name: "Terms & Conditions" })).toHaveAttribute("href", "/terms");
+    expect(returnDetails).not.toHaveTextContent(/free returns on all orders/i);
     const returnWindow = `Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt.`;
     expect(returnsPolicy.returnWindowDays).toBe(30);
-    expect(returnAnswer).toContain(returnWindow);
-    expect(returnAnswer).toContain(returnsPolicy.condition);
-    expect(returnAnswer).toContain("acceptance is not guaranteed");
-    expect(returnAnswer).not.toMatch(/unopened|unused|planning assumption|not in effect/i);
     const legalTerms = renderToStaticMarkup(termsOfService.content);
     expect(legalTerms).toContain(returnWindow);
     expect(legalTerms).toContain(returnsPolicy.condition);
@@ -351,7 +350,7 @@ describe("legal and support content", () => {
     expect(faqText).not.toMatch(
       /development storefront|development platform|test store|placeholder/i,
     );
-    expect(faqText).toMatch(/When development email is enabled, demo order confirmations can be sent to approved test recipients only/i);
+    expect(faqText).toMatch(/A checkout marked as a test takes no payment and creates no shipment/i);
   });
 
   it("renders preparation guidance while unavailable intake stays closed", async () => {

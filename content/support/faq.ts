@@ -1,7 +1,4 @@
-import {
-  returnsPolicy,
-  supportPolicy,
-} from "@/content/support/policy";
+import { supportPolicy } from "@/content/support/policy";
 
 type FAQItem = {
   id: string;
@@ -104,32 +101,34 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "orders",
     label: "Orders",
-    summary: "Sandbox checkout, order confirmation, and account order history.",
+    summary: "Placing an order, confirming payment, and finding your order history.",
     items: [
       {
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, or Trustpilot invitation. When development email is enabled, demo order confirmations can be sent to approved test recipients only.",
+          "The checkout page shows whether the store is taking orders. When an item is available for purchase, you can pay from your cart. A checkout marked as a test takes no payment and creates no shipment.",
+        links: [{ label: "Check payment availability", href: "/checkout" }],
       },
       {
         id: "cart-purpose",
         question: "What is the cart for?",
         answer:
-          "The cart lets you review products, variants, quantities, subtotals, estimated points, and eligible rewards before sandbox Checkout. Prices, discounts, availability, rewards, and shipping thresholds are revalidated on the server.",
+          "Use your cart to review items, change quantities, and see your subtotal. The store checks price and availability again when you start checkout.",
         links: [{ label: "View cart", href: "/cart" }],
       },
       {
         id: "order-history",
         question: "Where is my order history?",
         answer:
-          "Authenticated sandbox orders appear in the Account area. Guest sandbox orders can be viewed only through the immediate verified confirmation flow and do not earn rewards.",
+          "If you ordered while signed in, open your Account to see your orders. If you checked out as a guest, use the confirmation page in the browser you used to pay.",
       },
       {
         id: "edit-order",
         question: "Can I edit or cancel an order?",
         answer:
-          "A canceled or expired Stripe Checkout Session preserves the cart and releases reserved points. Sandbox orders do not create fulfillment, so shipment edits and tracking are not available.",
+          "Before you pay, return to your cart to see the options for your checkout. If you have already paid, contact Customer Care with your order details.",
+        links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
   },
@@ -140,27 +139,28 @@ export const faqCategories: FAQCategory[] = [
     items: [
       {
         id: "free-shipping",
-        question: "Is standard shipping available?",
+        question: "How much does shipping cost?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Available shipping options are shown at checkout.",
+          "Your cart shows the shipping fee and any minimum for free shipping. You can review the total at checkout before you pay.",
       },
       {
         id: "shipping-destinations",
         question: "Where is standard shipping available?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Check the available shipping options at checkout.",
+          "Enter your delivery address at checkout to see whether shipping is available to you.",
       },
       {
         id: "shipping-timing",
         question: "When will my order ship and tracking become available?",
         answer:
-          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Tracking information becomes available within 48 hours after a shipment is dispatched. Once tracking is available, Helix will email a link to track the package. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
+          "Check the dispatch terms in your cart before checkout. After your order ships, look for tracking information on your order.",
+        links: [{ label: "Terms & Conditions", href: "/terms" }],
       },
       {
         id: "shipping-address-changes",
         question: "Can I change my shipping address after checkout?",
         answer:
-          "Contact Customer Care about an address change. Orders may be canceled before they are processed for shipment, with a full refund to the original payment method. Once an order is processed for shipment, it must be returned in accordance with the Return Policy.",
+          "Contact Customer Care with your order details as soon as possible. They can check whether your shipping address can still be changed.",
         links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
@@ -173,8 +173,12 @@ export const faqCategories: FAQCategory[] = [
       {
         id: "return-window",
         question: "What is the return policy?",
-        answer: `Helix offers free returns on all orders. Return requests must be submitted within ${returnsPolicy.returnWindowDays} days of receipt. ${returnsPolicy.condition} Products must not otherwise be altered, marked or damaged. Return the product with its original packaging where available. When a return is approved, a prepaid return label will be sent by email. Expedited shipping fees are non-refundable. Rejected items may be held until a reshipment fee is paid; Customer Care will explain the available options.`,
-        links: [{ label: "Request a return", href: "/contact" }],
+        answer:
+          "Review the return terms for your item in your cart before checkout. For the full return policy, see the Terms & Conditions. Contact Customer Care to request a return.",
+        links: [
+          { label: "Terms & Conditions", href: "/terms" },
+          { label: "Request a return", href: "/contact" },
+        ],
       },
       {
         id: "damaged-missing",
@@ -202,7 +206,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-costs",
         question: "Are original shipping costs refundable?",
         answer:
-          "Helix offers free standard shipping to delivery addresses within the United States on orders of $50 or more after discounts and before taxes. Expedited shipping fees are non-refundable. See the Terms & Conditions or contact Customer Care about your order.",
+          "Review the return terms for your order and the shipping fee policy in the Terms & Conditions. Customer Care can help with questions about a specific charge.",
         links: [
           { label: "Terms & Conditions", href: "/terms" },
           { label: "Customer Care", href: "/contact" },
@@ -226,19 +230,19 @@ export const faqCategories: FAQCategory[] = [
         id: "promo-codes",
         question: "Can I stack Redemption Tiers or promo codes?",
         answer:
-          "No. Checkout applies at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
+          "Real purchases currently earn no points and accept no rewards or referral discounts. Eligible test checkouts apply at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
       },
       {
         id: "referrals",
         question: "How do referrals work?",
         answer:
-          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying Order of $50.00 or more. Self-referrals and stacking are blocked.",
+          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying rewards test order of $50.00 or more. Self-referrals and stacking are blocked.",
       },
       {
         id: "private-feedback-reward",
         question: "Does private feedback earn Points?",
         answer:
-          "Eligible Paid Orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
+          "Eligible rewards test orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
       },
       {
         id: "trustpilot-rewards",

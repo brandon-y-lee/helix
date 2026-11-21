@@ -2,7 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST as createCheckout } from "@/app/api/checkout/sessions/route";
 import { POST as cancelCheckout } from "@/app/cart/checkout-cancel/route";
 import { CheckoutAdmissionError } from "@/lib/checkout/admission";
-import { readCheckoutCancellationRequest, assertCheckoutRequestOrigin } from "@/lib/checkout/request";
+import { readCheckoutCancellationRequest, readCheckoutRequest, assertCheckoutRequestOrigin } from "@/lib/checkout/request";
+
+it("accepts an explicit resume of the original Checkout without changing its financial terms", async () => {
+  const parse = (body: object) => readCheckoutRequest(new Request("https://example.test", {
+    method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),
+  }));
+  await expect(parse({resumeOnly:true,rewardTierId:null})).resolves.toEqual({resumeOnly:true,rewardTierId:null});
+  for (const invalid of [{resumeOnly:false},{resumeOnly:"true"},{resumeOnly:true,rewardTierId:"points_200"},{resumeOnly:true,offerId:"new"}]) {
+    await expect(parse(invalid)).rejects.toThrow("Invalid checkout request");
+  }
+});
 
 const runtime = vi.hoisted(() => ({ cookies: vi.fn() }));
 vi.mock("next/headers", () => ({ cookies: runtime.cookies, headers: vi.fn() }));
