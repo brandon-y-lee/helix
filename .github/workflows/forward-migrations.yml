@@ -60,6 +60,7 @@ jobs:
     environment: ${{ needs.admit.outputs.environment }}
     concurrency:
       group: helix-db-migrations-${{ needs.admit.outputs.target }}
+      queue: max
       cancel-in-progress: false
     outputs:
       applied_sha: ${{ steps.apply.outputs.applied_sha }}

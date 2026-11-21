@@ -26,6 +26,15 @@ describe("protected migration source", () => {
     GITHUB_EVENT_NAME: "push", GITHUB_SHA: sha, PUSH_SHA: sha, GH_TOKEN: "test-read-token",
   };
 
+  it("retains pending migration jobs in a separate queue for each database target", async () => {
+    const workflow = await readFile(".github/workflows/forward-migrations.yml", "utf8");
+    const writer = workflow.split("\n  migrate:\n")[1];
+    const queue = writer.match(/^    concurrency:\n((?:      .+\n)+)/m)?.[1];
+    expect(queue?.trim().split("\n").map(line => line.trim()).sort()).toEqual([
+      "cancel-in-progress: false", "group: helix-db-migrations-${{ needs.admit.outputs.target }}", "queue: max",
+    ]);
+  });
+
   it("admits only enabled branch writers through their exact GitHub environment policy", async () => {
     const directory = await mkdtemp(join(tmpdir(), "helix-push-admission-"));
     onTestFinished(() => rm(directory, { recursive: true, force: true }));

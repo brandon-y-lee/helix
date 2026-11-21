@@ -14,6 +14,6 @@ If a public release breaks, use **Instant Rollback** in Vercel and select the la
 
 ## Switching from the former release controller
 
-Disable the old GitHub production release dispatcher and its `HELIX_RELEASE_CONTROLLER_ENABLED` switch during cutover. Retain the historical Supabase release records and compatibility RPC for older immutable builds. New release jobs and customer-domain routing use the workflow above.
+Disable the old GitHub production release dispatcher and its `HELIX_RELEASE_CONTROLLER_ENABLED` switch during cutover. Check in Vercel that automatic custom-domain assignment is off before merging. The retired premerge reporter used a short-lived integration token. Keep the historical Supabase release records and compatibility RPC for older immutable builds.
 
 After the new trusted workflow is on protected `main`, confirm its dedicated parent login and pending manifest, enable `HELIX_PRODUCTION_MIGRATIONS_ENABLED` for the automatic production runner, and rerun the current main-push job if it previously ran with the switch off. Verify the completed migration step and the staged deployment refer to the same commit. Development uses its existing `HELIX_DEV_MIGRATIONS_ENABLED` switch and child-only credentials.
