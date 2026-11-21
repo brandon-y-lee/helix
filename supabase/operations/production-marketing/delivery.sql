@@ -2,41 +2,41 @@ BEGIN;
 -- Manual package for the new production store. No hosted installation or scheduler.
 ALTER TABLE private.production_marketing_controls
   ADD COLUMN delivery_contract_text text CHECK(octet_length(delivery_contract_text)<=4096),
-  ADD COLUMN confirmation_worker_contract_hash text CHECK(confirmation_worker_contract_hash ~ '^[a-f0-9]{64}$'),
+  ADD COLUMN confirmation_worker_binding_hash text CHECK(confirmation_worker_binding_hash ~ '^[a-f0-9]{64}$'),
   ADD COLUMN daily_limit integer NOT NULL DEFAULT 0 CHECK(daily_limit BETWEEN 0 AND 100000),
   ADD COLUMN monthly_limit integer NOT NULL DEFAULT 0 CHECK(monthly_limit BETWEEN 0 AND 1000000);
 
--- The operator records this digest after qualifying the confirmation worker.
+-- The operator records the HMAC of the qualified worker's credentials, target and content contract.
 -- A contract edit must not carry that qualification forward, even on rollback.
 CREATE FUNCTION private.production_marketing_clear_worker_qualification() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
-  NEW.confirmation_worker_contract_hash := NULL;
+  NEW.confirmation_worker_binding_hash := NULL;
   RETURN NEW;
 END $$;
 CREATE TRIGGER production_marketing_contract_changed BEFORE UPDATE OF delivery_contract_text
   ON private.production_marketing_controls FOR EACH ROW
   WHEN (OLD.delivery_contract_text IS DISTINCT FROM NEW.delivery_contract_text
-    AND OLD.confirmation_worker_contract_hash IS NOT DISTINCT FROM NEW.confirmation_worker_contract_hash)
+    AND OLD.confirmation_worker_binding_hash IS NOT DISTINCT FROM NEW.confirmation_worker_binding_hash)
   EXECUTE FUNCTION private.production_marketing_clear_worker_qualification();
 
-CREATE FUNCTION public.production_marketing_enrollment_ready(p_contract_hash text) RETURNS boolean
+CREATE FUNCTION public.production_marketing_enrollment_ready(p_contract_hash text,p_worker_binding_hash text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp
 RETURN EXISTS (
   SELECT FROM private.production_marketing_controls AS c
   WHERE c.singleton AND c.enrollment_enabled AND c.dispatch_enabled AND c.daily_limit>0 AND c.monthly_limit>0
-    AND c.confirmation_worker_contract_hash=p_contract_hash
+    AND c.confirmation_worker_binding_hash=p_worker_binding_hash
     AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(c.delivery_contract_text,'UTF8')),'hex')=p_contract_hash
 );
 
 CREATE FUNCTION public.request_qualified_production_marketing_subscription(
-  p_contract_hash text,p_email text,p_confirmation_hash text,p_preference_hash text,p_requester_hash text,
+  p_contract_hash text,p_worker_binding_hash text,p_email text,p_confirmation_hash text,p_preference_hash text,p_requester_hash text,
   p_explicit_consent boolean,p_wording_version text,p_delivery_payload jsonb
 ) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 BEGIN
   -- Keep the verified controls fixed until the original consent transaction completes.
   PERFORM 1 FROM private.production_marketing_controls WHERE singleton FOR SHARE;
-  IF NOT FOUND OR NOT public.production_marketing_enrollment_ready(p_contract_hash) THEN
+  IF NOT FOUND OR NOT public.production_marketing_enrollment_ready(p_contract_hash,p_worker_binding_hash) THEN
     RAISE EXCEPTION 'Enrollment unavailable' USING ERRCODE='55000';
   END IF;
   RETURN public.request_production_marketing_subscription(
@@ -328,8 +328,8 @@ DO $$ DECLARE f record; BEGIN
   END LOOP;
   IF EXISTS (
     SELECT FROM pg_catalog.pg_proc p, LATERAL pg_catalog.aclexplode(p.proacl) acl
-    WHERE p.oid IN ('public.production_marketing_enrollment_ready(text)'::regprocedure,
-      'public.request_qualified_production_marketing_subscription(text,text,text,text,text,boolean,text,jsonb)'::regprocedure)
+    WHERE p.oid IN ('public.production_marketing_enrollment_ready(text,text)'::regprocedure,
+      'public.request_qualified_production_marketing_subscription(text,text,text,text,text,text,boolean,text,jsonb)'::regprocedure)
       AND acl.grantee NOT IN (p.proowner,'service_role'::regrole::oid)
   ) THEN RAISE EXCEPTION 'unexpected production enrollment function grant'; END IF;
 END $$;

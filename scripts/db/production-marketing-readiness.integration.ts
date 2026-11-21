@@ -7,6 +7,7 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { withProductionMarketingBrowser } from "../../tests/helpers/production-marketing-browser";
 import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
 import { productionMarketingEnrollmentEnabled } from "../../lib/production-marketing/config";
+import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
 import { createProductionMarketingStorage } from "../../lib/production-marketing/storage";
 import { handleProductionMarketingRequest,handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
@@ -54,7 +55,7 @@ const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit)=>{
 const requests=createProductionMarketingStorage(env),delivery=createProductionMarketingDeliveryStorage(env),events=createProductionMarketingEventStorage(env);
 const worker=()=>dispatchProductionMarketing(new Request(`${canonical}/api/internal/marketing/production/dispatch`,{method:"POST",headers:{authorization:`Bearer ${env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN}`}}),{env,storage:delivery,provider:productionMarketingProvider});
 const state=(email:string)=>sql(`SELECT state FROM private.production_marketing_subscribers WHERE normalized_email=${literal(email)};`);
-function switchFixture(on:boolean){env.HELIX_PRODUCTION_MARKETING_ENABLED=String(on);env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED=String(on);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=${on},dispatch_enabled=${on},events_enabled=true,status_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_contract_hash=encode(sha256(convert_to(delivery_contract_text,'UTF8')),'hex');`);}
+function switchFixture(on:boolean){env.HELIX_PRODUCTION_MARKETING_ENABLED=String(on);env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED=String(on);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=${on},dispatch_enabled=${on},events_enabled=true,status_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${on?literal(confirmationWorkerQualification(env).p_worker_binding_hash):'NULL'};`);}
 async function event(send:Captured,type:string){
  const id=`msg_${randomUUID()}`,timestamp=String(Math.floor(Date.now()/1000)),body=JSON.stringify({type,created_at:new Date().toISOString(),data:{email_id:send.provider,from:send.body.from,to:send.body.to,tags:Object.fromEntries(send.body.tags.map(t=>[t.name,t.value]))}});
  const signature=createHmac("sha256",Buffer.from(signing,"base64")).update(`${id}.${timestamp}.${body}`).digest("base64");

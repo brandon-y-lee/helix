@@ -79,8 +79,26 @@ it("shows verified storefront readiness and binds a new signup to the qualified 
     const [url,request] = network.mock.calls[3];
     expect(url).toBe(admit);
     const body=JSON.parse(request.body);
-    expect(Object.keys(body).sort()).toEqual(["p_confirmation_hash","p_contract_hash","p_delivery_payload","p_email","p_explicit_consent","p_preference_hash","p_requester_hash","p_wording_version"]);
+    expect(Object.keys(body).sort()).toEqual(["p_confirmation_hash","p_contract_hash","p_delivery_payload","p_email","p_explicit_consent","p_preference_hash","p_requester_hash","p_wording_version","p_worker_binding_hash"]);
     expect(body.p_contract_hash).toBe(JSON.parse(network.mock.calls[0][1].body).p_contract_hash);
+    const qualified = JSON.parse(network.mock.calls[0][1].body).p_worker_binding_hash;
+    expect(qualified).toMatch(/^[a-f0-9]{64}$/);
+    expect(body.p_worker_binding_hash).toBe(qualified);
+    network.mockImplementation((url: string, options: RequestInit) => {
+      const binding = JSON.parse(String(options.body)).p_worker_binding_hash;
+      if (url === read) return Promise.resolve(Response.json(binding === qualified));
+      return Promise.resolve(binding === qualified ? Response.json(true) : new Response(null, { status: 409 }));
+    });
+    for (const [name, replacement] of [
+      ["HELIX_PRODUCTION_MARKETING_WORKER_TOKEN", "x".repeat(48)],
+      ["HELIX_PRODUCTION_MARKETING_PROVIDER_KEY", "different-unqualified-sender-key"],
+    ]) {
+      const original = process.env[name];
+      vi.stubEnv(name, replacement);
+      expect(await (await GET(new Request(canonical))).json()).toEqual({production:true, enabled:false});
+      expect((await submit()).status).toBe(503);
+      vi.stubEnv(name, original);
+    }
     expect(body).toEqual(expect.objectContaining({p_email:"synthetic@example.invalid",p_explicit_consent:true,p_wording_version:"production_welcome_v1",p_confirmation_hash:expect.stringMatching(/^[a-f0-9]{64}$/),p_delivery_payload:expect.objectContaining({version:1,keyId:"synthetic-v1"})}));
   } finally { vi.unstubAllEnvs(); }
 });

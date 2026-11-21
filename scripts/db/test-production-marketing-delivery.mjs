@@ -141,17 +141,19 @@ try {
   // worker suites have finished. These identities belong only to this container.
   sql("DELETE FROM private.production_marketing_request_limits WHERE kind='global';");
   const contractDigest = "encode(sha256(convert_to(delivery_contract_text,'UTF8')),'hex')";
+  const binding = 'b'.repeat(64);
+  const rotatedBinding = 'c'.repeat(64);
   const qualifyEntry = `UPDATE private.production_marketing_controls SET enrollment_enabled=true,dispatch_enabled=true,
-    daily_limit=100,monthly_limit=1000,confirmation_worker_contract_hash=${contractDigest} WHERE singleton;`;
+    daily_limit=100,monthly_limit=1000,confirmation_worker_binding_hash='${binding}' WHERE singleton;`;
   const pauseEntry = "UPDATE private.production_marketing_controls SET dispatch_enabled=false WHERE singleton;";
-  const oldDigest = sql(qualifyEntry + 'SELECT confirmation_worker_contract_hash FROM private.production_marketing_controls WHERE singleton;');
+  const oldDigest = sql(qualifyEntry + `SELECT ${contractDigest} FROM private.production_marketing_controls WHERE singleton;`);
   assert.match(oldDigest, /^[a-f0-9]{64}$/);
-  function entryRequest(label, digest) {
+  function entryRequest(label, digest, workerBinding = binding) {
     const args = `p_email=>'${label}@example.invalid',p_confirmation_hash=>repeat(md5('${label}-confirm'),2),
       p_preference_hash=>repeat(md5('${label}-preference'),2),p_requester_hash=>repeat(md5('${label}-requester'),2),
       p_explicit_consent=>true,p_wording_version=>'production_welcome_v1',p_delivery_payload=>public.test_envelope()`;
     return digest === undefined ? `public.request_production_marketing_subscription(${args})`
-      : `public.request_qualified_production_marketing_subscription(p_contract_hash=>'${digest}',${args})`;
+      : `public.request_qualified_production_marketing_subscription(p_contract_hash=>'${digest}',p_worker_binding_hash=>'${workerBinding}',${args})`;
   }
   function expectEntryHeld(call) {
     return `DO $$ BEGIN PERFORM ${call}; RAISE EXCEPTION 'Unqualified request returned normally';
@@ -174,6 +176,13 @@ try {
   assert.equal(sql(`SELECT count(*) FROM private.production_marketing_confirmation_intents i
     JOIN private.production_marketing_subscribers s ON s.id=i.subscriber_id
     WHERE s.normalized_email='${acceptedLabel}@example.invalid';`), '1', 'ordinary duplicate creates no second intent');
+
+  const rotatedLabel = 'entry596-credential-change';
+  const rotated = entryRequest(rotatedLabel, oldDigest, rotatedBinding);
+  sql('SET ROLE service_role;' + expectEntryHeld(rotated));
+  assert.equal(subscriberCount(rotatedLabel), '0', 'changed worker credential cannot enroll against the old qualification');
+  sql(`UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash='${rotatedBinding}' WHERE singleton;`);
+  assert.equal(sql(`SET ROLE service_role; SELECT ${rotated};`), 't', 'explicit qualification admits the rotated worker');
 
   sql("UPDATE private.production_marketing_controls SET delivery_contract_text=delivery_contract_text || ' ' WHERE singleton;");
   sql(qualifyEntry);

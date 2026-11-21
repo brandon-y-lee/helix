@@ -1,5 +1,6 @@
 import "server-only";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { readProductionMarketingCapabilityKey } from "./capabilities";
 import { readProductionMarketingConfiguration } from "./config";
 import { productionMarketingTemplateHash } from "./templates";
 import type { ProductionMarketingEnvironment } from "./contract";
@@ -38,4 +39,19 @@ export function readProductionMarketingDeliveryConfiguration(env: ProductionMark
     || typeof v.postalAddress!=="string" || v.postalAddress.trim()!==v.postalAddress || !v.postalAddress || v.postalAddress.length>500 || /[\r\n\x00]/.test(v.postalAddress)
     || v.templateHash!==productionMarketingTemplateHash) throw invalid();
   return {...base,providerKey,contractText,contractHash:productionMarketingContractFingerprint(contractText),contract:v as ProductionMarketingDeliveryContract};
+}
+
+/** The operator qualifies this configuration after verifying the scheduled confirmation worker.
+ * Ordinary deployments with identical credentials and content keep the same qualification. */
+export function confirmationWorkerQualification(env: ProductionMarketingEnvironment) {
+  const workerToken = productionMarketingWorkerToken(env);
+  if (!workerToken) throw invalid();
+  const config = readProductionMarketingDeliveryConfiguration(env);
+  const capability = readProductionMarketingCapabilityKey(env);
+  const workerBindingHash = createHmac("sha256", workerToken).update(JSON.stringify([
+    "helix:production-marketing:confirmation-worker:v1",
+    config.contractHash, env.VERCEL_PROJECT_ID, config.siteOrigin, config.supabaseUrl,
+    config.providerKey, config.serviceKey, capability.keyId, capability.key.toString("hex"),
+  ])).digest("hex");
+  return { p_contract_hash: config.contractHash, p_worker_binding_hash: workerBindingHash };
 }
