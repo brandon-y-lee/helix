@@ -112,6 +112,10 @@ jobs:
       actions: read
       contents: read
     uses: ./.github/workflows/forward-migrations.yml
+    secrets:
+      HELIX_MIGRATION_TARGET: ${{ secrets.HELIX_MIGRATION_TARGET }}
+      HELIX_MIGRATION_PASSWORD: ${{ secrets.HELIX_MIGRATION_PASSWORD }}
+      HELIX_MIGRATION_CA: ${{ secrets.HELIX_MIGRATION_CA }}
     with:
       expected_main_sha: ${{ github.sha }}
       release_admission: ${{ needs.registry.outputs.admission }}
