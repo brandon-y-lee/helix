@@ -104,12 +104,17 @@ BEGIN
   RETURN NEW;
 END $$;
 
-CREATE FUNCTION private.production_marketing_on_native_parent() RETURNS boolean
-LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp RETURN EXISTS (
-  SELECT FROM ONLY private.helix_environment e JOIN pg_catalog.pg_class c ON c.oid=e.tableoid
-  WHERE e.singleton AND e.environment='production' AND e.project_ref='erasogmsqpgiirovubjh'
-    AND c.relowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='postgres') AND c.relrowsecurity
-);
+-- SECURITY DEFINER calls run as the owner; session_user still identifies the authenticated login.
+CREATE FUNCTION private.production_marketing_native_caller_authorized() RETURNS boolean
+LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp RETURN
+  session_user='helix_native_welcome_worker'
+  AND current_setting('role') IN ('none','helix_native_welcome_worker')
+  AND EXISTS (SELECT FROM pg_catalog.pg_roles r WHERE r.rolname=session_user AND r.rolcanlogin
+    AND NOT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)
+    AND NOT EXISTS (SELECT FROM pg_catalog.pg_auth_members a WHERE a.member=r.oid))
+  AND EXISTS (SELECT FROM ONLY private.helix_environment e JOIN pg_catalog.pg_class c ON c.oid=e.tableoid
+    WHERE e.singleton AND e.environment='production' AND e.project_ref='erasogmsqpgiirovubjh'
+      AND c.relowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='postgres') AND c.relrowsecurity);
 
 -- Count the same logical promotions and latest admissions as the installed #548 transaction,
 -- including legacy attempts from older generations. Locked admission always rechecks this predicate.
@@ -131,7 +136,7 @@ DECLARE
   scan_time timestamptz := clock_timestamp();
   admission_time timestamptz;
 BEGIN
-  IF NOT private.production_marketing_on_native_parent() THEN RETURN; END IF;
+  IF NOT private.production_marketing_native_caller_authorized() THEN RETURN; END IF;
   -- The published artifact and contract are operator-pinned after deployment. Neither the site nor
   -- the publisher has permission to set this tuple. A paused poll reads no subscriber addresses.
   IF NOT EXISTS (SELECT FROM private.production_marketing_controls c
@@ -145,7 +150,8 @@ BEGIN
   FOR candidate IN
     SELECT m.id,s.normalized_email FROM private.production_marketing_messages m
     JOIN private.production_marketing_subscribers s ON s.id=m.subscriber_id
-    WHERE m.state='native_queued' AND private.production_marketing_eligible(m,scan_time)
+    WHERE m.state='native_queued' AND m.created_at > scan_time - interval '24 hours'
+      AND private.production_marketing_eligible(m,scan_time)
       AND private.production_marketing_native_frequency_available(m.subscriber_id,scan_time)
     ORDER BY m.created_at,m.id
   LOOP
@@ -179,7 +185,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE
   outcome_state text;
 BEGIN
-  IF NOT private.production_marketing_on_native_parent() OR p_outcome IS NULL OR p_outcome NOT IN ('submitted','unknown')
+  IF NOT private.production_marketing_native_caller_authorized() OR p_outcome IS NULL OR p_outcome NOT IN ('submitted','unknown')
     THEN RETURN false; END IF;
   outcome_state := CASE p_outcome WHEN 'submitted' THEN 'native_submitted' ELSE 'native_unknown' END;
   UPDATE private.production_marketing_messages SET state=outcome_state
@@ -211,7 +217,7 @@ DECLARE result jsonb;BEGIN
   RETURN result;
 END $$;
 
-REVOKE ALL ON FUNCTION private.keep_production_marketing_transport(), private.production_marketing_on_native_parent(),
+REVOKE ALL ON FUNCTION private.keep_production_marketing_transport(), private.production_marketing_native_caller_authorized(),
   private.production_marketing_native_frequency_available(uuid,timestamptz) FROM PUBLIC,anon,authenticated,service_role,helix_native_welcome_worker;
 REVOKE ALL ON FUNCTION helix_welcome_worker.reserve(text,text,text,text),helix_welcome_worker.finish(uuid,uuid,text)
   FROM PUBLIC,anon,authenticated,service_role,helix_native_welcome_worker;
@@ -226,7 +232,7 @@ DO $$ BEGIN
   OR EXISTS (SELECT FROM pg_catalog.pg_class c, LATERAL pg_catalog.aclexplode(c.relacl) a
     WHERE c.oid='private.production_marketing_native_generations'::regclass AND a.grantee<>c.relowner)
   OR EXISTS (SELECT FROM pg_catalog.pg_proc p, LATERAL pg_catalog.aclexplode(p.proacl) a
-    WHERE p.oid IN ('private.keep_production_marketing_transport()'::regprocedure,'private.production_marketing_on_native_parent()'::regprocedure,
+    WHERE p.oid IN ('private.keep_production_marketing_transport()'::regprocedure,'private.production_marketing_native_caller_authorized()'::regprocedure,
       'private.production_marketing_native_frequency_available(uuid,timestamptz)'::regprocedure) AND a.grantee<>p.proowner)
   THEN RAISE EXCEPTION 'Unexpected native publisher grants'; END IF;
 END $$;
