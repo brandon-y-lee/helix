@@ -1,14 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   loadMigrations,
   migrationStatement,
   qualifiedMigrationConnection,
   releaseConnection,
   validateReleaseSources,
-  verifyForwardAdmission,
+  assertCurrentPush,
 } from "../scripts/db/forward-migrations.mjs";
 import { createHash } from "node:crypto";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,47 +19,100 @@ const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 const sidecar = { sourceSha256: hash(sql), verify: "SELECT true AS applied" };
 
-describe("production migration admission", () => {
-  const candidateSha = "a".repeat(40);
-  const expiresAt = "2026-11-21T10:00:00.000Z";
-  const deadline = Date.parse(expiresAt);
-  const receipt = {
-    version: 1, operation: "verify", candidateSha,
-    contextSha256: hash("context"), packetSha256: hash("packet"), expiresAt,
+describe("protected migration source", () => {
+  const sha = "a".repeat(40);
+  const env = {
+    GITHUB_REPOSITORY: "brandon-y-lee/helix", GITHUB_REF_PROTECTED: "true",
+    GITHUB_EVENT_NAME: "push", GITHUB_SHA: sha, PUSH_SHA: sha, GH_TOKEN: "test-read-token",
   };
-  const raw = JSON.stringify(receipt);
 
-  it("binds the exact protected receipt and candidate until the deadline", () => {
-    for (const operation of ["verify", "promote"]) {
-      const bytes = JSON.stringify({ ...receipt, operation });
-      expect(verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline - 1)).toBe(deadline);
-      expect(() => verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline)).toThrow(/expired/);
-    }
-    expect(() => verifyForwardAdmission(raw, hash("different bytes"), candidateSha, deadline - 1)).toThrow();
-    expect(() => verifyForwardAdmission(raw, hash(raw), "b".repeat(40), deadline - 1)).toThrow();
-    expect(() => verifyForwardAdmission(undefined, undefined, candidateSha, deadline - 1)).toThrow();
-    expect(() => verifyForwardAdmission(raw, hash(raw), candidateSha, NaN)).toThrow();
+  it("retains pending migration jobs in a separate queue for each database target", async () => {
+    const workflow = await readFile(".github/workflows/forward-migrations.yml", "utf8");
+    const writer = workflow.split("\n  migrate:\n")[1];
+    const queue = writer.match(/^    concurrency:\n((?:      .+\n)+)/m)?.[1];
+    expect(queue?.trim().split("\n").map(line => line.trim()).sort()).toEqual([
+      "cancel-in-progress: false", "group: helix-db-migrations-${{ needs.admit.outputs.target }}", "queue: max",
+    ]);
   });
 
-  it("rejects recovery operations and noncanonical or incomplete receipts, even with matching hashes", () => {
-    for (const bytes of [
-      JSON.stringify({ ...receipt, operation: "rollback" }),
-      JSON.stringify({ ...receipt, operation: "cancel" }),
-      JSON.stringify({ ...receipt, version: 2 }),
-      JSON.stringify({ ...receipt, extra: false }),
-      JSON.stringify({ ...receipt, candidateSha: "invalid" }),
-      JSON.stringify({ ...receipt, contextSha256: hash("context").toUpperCase() }),
-      JSON.stringify({ ...receipt, packetSha256: undefined }),
-      JSON.stringify({ ...receipt, expiresAt: "2026-11-21" }),
-      JSON.stringify({ ...receipt, expiresAt: "invalid" }),
-      raw + "\n",
-      raw.replace('"version":1', '"version":1,"version":1'),
-      JSON.stringify(Object.fromEntries(Object.entries(receipt).reverse())),
-      "not-json",
-      "null",
-    ]) {
-      expect(() => verifyForwardAdmission(bytes, hash(bytes), candidateSha, deadline - 1)).toThrow();
+  it("admits only enabled branch writers through their exact GitHub environment policy", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "helix-push-admission-"));
+    onTestFinished(() => rm(directory, { recursive: true, force: true }));
+    const workflow = await readFile(".github/workflows/forward-migrations.yml", "utf8");
+    const admission = workflow.split("\n  admit:\n")[1].split("\n  migrate:\n")[0];
+    // A skipped gate can report success when the writer is disabled.
+    expect(admission).not.toMatch(/^    if:/m);
+    const script = admission.split("        run: |\n")[1];
+    const gh = `gh() {
+      case "$2" in
+        "$ENV_PATH") echo "$ENVIRONMENT_JSON" ;;
+        "$ENV_PATH/deployment-branch-policies?per_page=100") echo "$POLICY_JSON" ;;
+        *) return 2 ;;
+      esac
+    }`;
+    function gate(branch: string, overrides: Record<string, string | undefined> = {}) {
+      const environment = "helix-db-" + (branch === "main" ? "production" : "development");
+      return spawnSync("bash", ["-c", gh + "\n" + script], {
+        encoding: "utf8",
+        env: { ...env, NODE_ENV: "test", PATH: process.env.PATH, GITHUB_REF: "refs/heads/" + branch,
+          GITHUB_REF_NAME: branch, DEVELOPMENT_ENABLED: "true", PRODUCTION_ENABLED: "true", GITHUB_OUTPUT: join(directory, branch),
+          ENV_PATH: "repos/brandon-y-lee/helix/environments/" + environment,
+          ENVIRONMENT_JSON: JSON.stringify({ name: environment,
+            deployment_branch_policy: { custom_branch_policies: true, protected_branches: false } }),
+          POLICY_JSON: JSON.stringify({ total_count: 1, branch_policies: [{ name: branch, type: "branch" }] }),
+          ...overrides },
+      });
     }
+    for (const [branch, target] of [["main", "production"], ["dev", "development"]]) {
+      const admitted = gate(branch);
+      expect(admitted.status, admitted.stderr + admitted.stdout).toBe(0);
+      expect(await readFile(join(directory, branch), "utf8")).toBe("environment=helix-db-" + target + "\ntarget=" + target + "\n");
+    }
+    const disabled = gate("main", { PRODUCTION_ENABLED: "false" });
+    expect(disabled.status).toBe(1);
+    expect(disabled.stdout).toContain("production database writer has not been enabled");
+    expect(gate("dev", { DEVELOPMENT_ENABLED: "" }).status).toBe(1);
+    for (const overrides of [
+      { GITHUB_EVENT_NAME: "workflow_dispatch" }, { GITHUB_REPOSITORY: "another/helix" },
+      { GITHUB_REF_PROTECTED: "false" }, { PUSH_SHA: "b".repeat(40) },
+      { POLICY_JSON: '{"total_count":1,"branch_policies":[{"name":"dev","type":"branch"}]}' },
+      { POLICY_JSON: '{"total_count":1,"branch_policies":[{"name":"main","type":"tag"}]}' },
+      { ENVIRONMENT_JSON: '{"name":"helix-db-production","deployment_branch_policy":null}' },
+    ]) expect(gate("main", overrides).status).not.toBe(0);
+  });
+
+  it("uses the current remote branch commit for the exact target on a protected push", async () => {
+    for (const [target, branch] of [["production", "main"], ["development", "dev"]]) {
+      const ref = "refs/heads/" + branch;
+      const read = vi.fn(async () => Response.json({ ref, object: { type: "commit", sha } }));
+      await assertCurrentPush(target, { ...env, GITHUB_REF: ref }, read);
+      expect(read).toHaveBeenCalledWith("https://api.github.com/repos/brandon-y-lee/helix/git/ref/heads/" + branch,
+        expect.objectContaining({ redirect: "error" }));
+    }
+  });
+
+  it("rejects a different source before reading GitHub", async () => {
+    const push = { ...env, GITHUB_REF: "refs/heads/main" };
+    const read = vi.fn();
+    for (const change of [
+      { GITHUB_REPOSITORY: "another/helix" }, { GITHUB_REF_PROTECTED: "false" },
+      { GITHUB_EVENT_NAME: "workflow_dispatch" }, { GITHUB_EVENT_NAME: "pull_request_target" },
+      { GITHUB_REF: "refs/heads/dev" }, { GITHUB_REF: "refs/tags/main" },
+      { PUSH_SHA: "b".repeat(40) }, { GITHUB_SHA: "invalid", PUSH_SHA: "invalid" }, { GH_TOKEN: "" },
+    ]) await expect(assertCurrentPush("production", { ...push, ...change }, read)).rejects.toThrow();
+    await expect(assertCurrentPush("development", push, read)).rejects.toThrow();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("refuses stale, unverified or unavailable branch heads", async () => {
+    const ref = "refs/heads/main";
+    const push = { ...env, GITHUB_REF: ref };
+    for (const response of [
+      Response.json({ ref, object: { type: "commit", sha: "b".repeat(40) } }),
+      Response.json({ ref: "refs/heads/dev", object: { type: "commit", sha } }),
+      Response.json({ ref, object: { type: "tag", sha } }),
+      new Response(null, { status: 403 }),
+    ]) await expect(assertCurrentPush("production", push, async () => response)).rejects.toThrow();
   });
 });
 

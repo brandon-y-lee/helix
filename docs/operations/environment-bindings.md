@@ -11,7 +11,7 @@ Ticket #560 implements the source boundary for Spec #558. Installing this source
 
 ## Build and runtime
 
-During the Spec #558 transition, `helixskin.vercel.app` still serves the earlier deployment. Existing unsubscribe links, support replies and scheduled jobs use that address and need the original database. The temporary Vercel Ignored Build Step skips Git builds of exactly `dev`. For development acceptance, use a separate protected Preview branch at the exact merged commit, verify the build's Git SHA and check its shop, media and Search against the child. Record its immutable URL for testers.
+The [stable dev Preview](https://helix-git-codex-558-verified-e87038-brandons-projects-5060bad5.vercel.app/collections/shop) follows protected `dev` using the isolated `codex/558-verified-dev-preview` branch. Confirm its Vercel Git SHA matches the dev commit under test. The Vercel Ignored Build Step still skips builds of the literal `dev` branch because `helixskin.vercel.app` is bound to its historical callback deployment.
 
 Signup and password recovery are paused on hosted development Previews while the parent owns the usual return hostname. Keep the server-only `HELIX_DEV_AUTH_RETURN_ORIGIN` unset. Existing links continue through the callback handlers on their issuing deployment.
 

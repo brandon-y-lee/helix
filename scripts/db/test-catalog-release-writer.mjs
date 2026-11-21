@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -132,11 +131,9 @@ export async function checkCatalogRelease({
       legacyDigest: before.legacy_digest, bootstrap: [] };
     const common = { client, connectionUrl, password: writerPassword, cli, target, migrations: [migration] };
     if (environment === "production") {
-      const expectedSha = "a".repeat(40);
-      const raw = JSON.stringify({ version: 1, operation: "verify", candidateSha: expectedSha,
-        contextSha256: "b".repeat(64), packetSha256: "c".repeat(64), expiresAt: "2031-01-01T00:01:00.000Z" });
-      common.admission = { raw, digest: createHash("sha256").update(raw).digest("hex"), expectedSha };
-      common.now = () => Date.parse("2031-01-01T00:00:00.000Z");
+      const push = { ref: "refs/heads/main", after: "a".repeat(40) };
+      const protectedHeads = new Map([["refs/heads/main", push.after]]);
+      common.assertCurrentSource = async () => assert.equal(protectedHeads.get(push.ref), push.after);
     }
     await assert.rejects(runForward({ ...common, apply: true, target: { ...target, projectRef: oppositeRef } }),
       /Database marker or writer identity mismatch/);
