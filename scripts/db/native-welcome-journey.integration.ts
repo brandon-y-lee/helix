@@ -157,4 +157,3 @@ it("takes one new customer from qualified signup to a native welcome and durable
   expect(eventAttempts).toBe(1);
   expect(inbox).toHaveLength(2);
 }, 30000);
-

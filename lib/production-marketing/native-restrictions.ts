@@ -125,4 +125,3 @@ export function nativeRestriction(
   // Even a sender-only observation reaches the DB, so a stale local identity cannot swallow a native denial.
   return result;
 }
-
