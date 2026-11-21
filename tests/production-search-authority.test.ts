@@ -39,7 +39,6 @@ beforeEach(() => {
   })) vi.stubEnv(name, value);
   vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
     const url = input instanceof Request ? input.url : String(input);
-    if (url === origin + "/rest/v1/rpc/read_helix_release_authorization") return Response.json(true);
     if (url === origin + "/rest/v1/rpc/read_helix_release_observations") {
       return Response.json({ environment: "production", projectRef: SUPABASE_PROJECT_REFS.production, catalogSchema: true });
     }
@@ -101,6 +100,6 @@ it.each([
   expect((await requestReindex(signer)).status).toBe(reindexStatus);
   expect(fetch).not.toHaveBeenCalled();
   expect((await status()).status).toBe(503);
-  expect(fetch).toHaveBeenCalledTimes(1); // Release authorization only.
+  expect(fetch).not.toHaveBeenCalled();
   expect(saveObjects).not.toHaveBeenCalled();
 });

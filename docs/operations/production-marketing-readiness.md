@@ -4,7 +4,7 @@ Spec #538 / Ticket #542. **BLOCKED; not activated; no real sends authorized.** T
 
 The three source packages remain disabled without dedicated runtime configuration and stored controls. The existing marketing sandbox, historical consent and Auth/support permissions remain separate. Do not import old contacts, infer marketing consent from Accounts/purchases, or substitute broad credentials when a required capability is unavailable. The parent Supabase project is the approved production destination in this Spec; a restored child owns development. The hosted development-child write hold remains until the coordinating database task explicitly clears it.
 
-Enabled runtime operations also require the release controller's authorization for the exact Production project, deployment ID and Git SHA. The server reads this decision through the retained parent's `read_helix_release_authorization` RPC using the existing target-validated public Supabase key. The previous deployment retains its own authorization through rollback. This check grants no consent, dispatch or provider permission. Keep the release authorization available for already-issued withdrawal capabilities even when enrollment is paused.
+Production marketing writes require the canonical customer origin and the Helix Production deployment and parent database bindings. Vercel assigns that origin to the promoted build. Consent, dispatch, event signatures and withdrawal keep their own controls. Older immutable builds retain their original database authorization reader.
 
 ## Qualification record
 
