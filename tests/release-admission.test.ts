@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -79,6 +80,58 @@ async function dispatch(operation: string, profile: object) {
   const applied = operation === "verify" || operation === "promote" ? migrate() : undefined;
   await run("execute", { ...env, RELEASE_APPLIED_SHA: applied });
 }
+
+function workflowBlock(source: string, heading: string) {
+  const lines = source.split("\n");
+  const start = lines.indexOf(heading);
+  if (start < 0) throw new Error("Missing workflow heading " + heading.trim());
+  const indent = heading.search(/\S/);
+  const end = lines.findIndex((line, index) => index > start && /\S/.test(line) && line.search(/\S/) <= indent);
+  return lines.slice(start + 1, end < 0 ? undefined : end).join("\n").trimEnd();
+}
+
+const writerCredentials = ["HELIX_MIGRATION_TARGET", "HELIX_MIGRATION_PASSWORD", "HELIX_MIGRATION_CA"];
+const forwardWorkflow = readFileSync(".github/workflows/forward-migrations.yml", "utf8");
+const writerJob = workflowBlock(forwardWorkflow, "  migrate:");
+const applyStep = workflowBlock(writerJob, "      - name: Apply and verify the selected forward migrations");
+
+it("passes exactly the named environment credentials to the reusable writer and preserves direct dev pushes", () => {
+  const staged = readFileSync(".github/workflows/staged-production.yml", "utf8");
+  const caller = workflowBlock(staged, "  migrate:");
+  expect(caller).toContain("uses: ./.github/workflows/forward-migrations.yml");
+  const bindings = writerCredentials.map(name => name + ": ${{ secrets." + name + " }}");
+  expect(workflowBlock(caller, "    secrets:").split("\n").map(line => line.trim()).sort()).toEqual([...bindings].sort());
+  const call = workflowBlock(forwardWorkflow, "  workflow_call:");
+  const declarations = workflowBlock(call, "    secrets:");
+  expect(declarations.match(/^      \S+:$/gm)?.map(line => line.trim().slice(0, -1)).sort()).toEqual([...writerCredentials].sort());
+  for (const name of writerCredentials) {
+    expect(workflowBlock(declarations, "      " + name + ":").trim()).toBe("required: true");
+  }
+  const stepEnv = workflowBlock(applyStep, "        env:").split("\n").map(line => line.trim());
+  expect(stepEnv).toEqual(expect.arrayContaining(bindings));
+  expect(writerJob).toContain("environment: ${{ needs.admit.outputs.environment }}");
+  expect(workflowBlock(forwardWorkflow, "  push:").trim()).toBe("branches: [dev]");
+});
+
+it("stops before launching the writer when any protected credential is empty", () => {
+  const script = workflowBlock(applyStep, "        run: |");
+  const values = Object.fromEntries(writerCredentials.map(name => [name, "synthetic-private-" + name]));
+  function execute(inputs: Record<string, string>) {
+    return spawnSync("bash", ["-c", "node() { echo writer-invoked; }\n" + script], {
+      encoding: "utf8",
+      env: { ...inputs, TARGET: "production", GITHUB_SHA: candidate.sha, GITHUB_OUTPUT: join(directory, "output") },
+    });
+  }
+  for (const name of writerCredentials) {
+    const result = execute({ ...values, [name]: "" });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(name);
+    expect(result.stdout + result.stderr).not.toMatch(/writer-invoked|synthetic-private-/);
+  }
+  const ready = execute(values);
+  expect(ready.status).toBe(0);
+  expect(ready.stdout.trim()).toBe("writer-invoked");
+});
 
 it("requires protected registry admission before the forward migration and execution", () => {
   const workflow = readFileSync(".github/workflows/staged-production.yml", "utf8");

@@ -4,6 +4,13 @@ on:
   push:
     branches: [dev]
   workflow_call:
+    secrets:
+      HELIX_MIGRATION_TARGET:
+        required: true
+      HELIX_MIGRATION_PASSWORD:
+        required: true
+      HELIX_MIGRATION_CA:
+        required: true
     inputs:
       expected_main_sha:
         description: Reviewed main commit whose Production build has been staged
@@ -129,5 +136,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          : "${HELIX_MIGRATION_TARGET:?Missing protected migration input HELIX_MIGRATION_TARGET}"
+          : "${HELIX_MIGRATION_PASSWORD:?Missing protected migration input HELIX_MIGRATION_PASSWORD}"
+          : "${HELIX_MIGRATION_CA:?Missing protected migration input HELIX_MIGRATION_CA}"
           node scripts/db/forward-migrations.mjs apply "$TARGET"
           printf 'applied_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
