@@ -21,7 +21,7 @@ export function productionEmailDelegates(env: GatewayEnvironment): Pick<GatewayD
     welcome: (request, secret) => {
       const dedicated = { ...env, HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET: secret };
       const storage = createProductionMarketingEventStorage(dedicated);
-      return receiveProductionMarketingEvent(request, { env: dedicated, record: async (event) => {
+      return receiveProductionMarketingEvent(request, { env: dedicated, hold: storage.hold, record: async (event) => {
         const result = await storage.record(event);
         return result === "recorded" ? "recorded" : "paused";
       } });

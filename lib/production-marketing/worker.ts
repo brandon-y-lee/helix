@@ -1,7 +1,7 @@
 import "server-only";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { productionMarketingWorkerAuthorized, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
+import { directProductionMarketingContract, productionMarketingWorkerAuthorized, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
 import { openProductionMarketingCapabilities } from "./open-capabilities";
 import { renderProductionMarketingMessage } from "./templates";
 import type { ProductionMarketingEnvironment } from "./contract";
@@ -16,12 +16,14 @@ export async function dispatchProductionMarketing(request:Request,deps:Productio
   if(!productionMarketingWorkerAuthorized(request,deps.env))return result(401,"unavailable");
   try {
     const config=readProductionMarketingDeliveryConfiguration(deps.env);
-    if(new URL(request.url).origin!==config.siteOrigin)return result(403,"unavailable");
+    if(request.url!==config.siteOrigin+"/api/internal/marketing/production/dispatch")return result(403,"unavailable");
+    if(request.body!==null)return result(400,"unavailable");
     if (!await productionDeploymentAuthorized(deps.env)) return result(503,"unavailable");
     await deps.storage.cleanup();
     const lease=randomUUID(),intent=await deps.storage.claim(lease);
     if(!intent)return result(200,"idle");
-    if(intent.purpose==="welcome") {
+    if(intent.direct && !directProductionMarketingContract(config.contract))return result(503,"unavailable");
+    if(!intent.direct && intent.purpose==="welcome") {
       let allowed=false;
       if(deps.env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY && deps.env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY!==config.providerKey
         && deps.env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY!==config.serviceKey) {

@@ -3,14 +3,12 @@ import { marketingSigningKey } from "./callback-config";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { Resend } from "resend";
 import { readProductionMarketingConfiguration } from "./config";
-import { productionMarketingUuid } from "./delivery-config";
 import type { ProductionMarketingEnvironment } from "./contract";
-import { nativeRestriction, type NativeRestriction, type NativeRestrictionResult } from "./native-restrictions";
+import { claimsMarketingReceipt, directPreference, negativeDelivery, object, sharedMarketingSender, uuid,
+  type DirectPreference, type DirectPreferenceResult, type DirectReceiptHold, type DirectReceiptHoldResult } from "./direct-restrictions";
 export type ProductionMarketingEvent={eventId:string;messageId:string;providerId:string;eventType:string;occurredAt:string;sender:string;recipient:string;purpose:"confirmation"|"welcome";contractVersion:"production_welcome_delivery_v1";environment:"production"};
 export type ProductionMarketingEventResult="recorded"|"rejected"|"paused";
 const types=new Set(["email.sent","email.delivered","email.delivery_delayed","email.failed","email.bounced","email.complained","email.suppressed"]);
-const object=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
-const uuid=(v:unknown):v is string=>typeof v==="string"&&v.length===36&&productionMarketingUuid.test(v);
 const response=(status:number,ok=false)=>Response.json({ok},{status,headers:{"Cache-Control":"private, no-store","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff"}});
 async function rawBody(request:Request) {
   const limit=128*1024;if(Number(request.headers.get("content-length"))>limit)throw new RangeError();
@@ -28,7 +26,8 @@ async function rawBody(request:Request) {
 type EventDependencies = {
   env: ProductionMarketingEnvironment;
   record: (event: ProductionMarketingEvent) => Promise<ProductionMarketingEventResult>;
-  restrict?: (event: NativeRestriction) => Promise<NativeRestrictionResult>;
+  preference?: (event: DirectPreference) => Promise<DirectPreferenceResult>;
+  hold?: (event: DirectReceiptHold) => Promise<DirectReceiptHoldResult>;
 };
 
 function occurrence(value: unknown) {
@@ -39,19 +38,24 @@ function occurrence(value: unknown) {
   return iso.slice(0, 19) === value.slice(0, 19) ? iso : null;
 }
 
-function claimsRawReceipt(data: unknown) {
-  if (!object(data) || !object(data.tags)) return false;
-  const tags = data.tags;
-  return tags.environment === "production" || tags.helix_contract !== undefined ||
-    (tags.helix_environment !== "sandbox" && (tags.helix_message_id !== undefined || tags.helix_purpose !== undefined));
-}
-
 async function recordRawReceipt(type: string, raw: unknown, occurredAt: string | null, id: string, deps: EventDependencies) {
-  if (!types.has(type) || !occurredAt || !object(raw)) return response(400);
+  if (!types.has(type) || !object(raw)) return response(400);
   const data = raw, tags = data.tags;
-  if(!object(tags)||tags.environment!=="production"||!uuid(tags.helix_message_id)||!["confirmation","welcome"].includes(String(tags.helix_purpose))||tags.helix_contract!=="production_welcome_delivery_v1"
-    ||!uuid(data.email_id)||typeof data.from!=="string"||!data.from||data.from.length>320||/[\r\n\x00]/.test(data.from)
-    ||!Array.isArray(data.to)||data.to.length!==1||typeof data.to[0]!=="string"||!data.to[0]||data.to[0].length>254||data.to[0]!==data.to[0].trim().toLowerCase())return response(400);
+  const direct = sharedMarketingSender(data.from);
+  // This RPC's new strict proof cannot be reconstructed by an older client which discarded extra tags/recipients.
+  const exactEnvelope = object(tags) && Object.keys(tags).length === 4 &&
+    [data.cc, data.bcc].every(value => value == null || (Array.isArray(value) && value.length === 0)) &&
+    data.template_id == null && data.broadcast_id == null;
+  if (!occurredAt || !object(tags) || tags.environment !== "production" || !uuid(tags.helix_message_id) ||
+      (tags.helix_purpose !== "confirmation" && tags.helix_purpose !== "welcome") || tags.helix_contract !== "production_welcome_delivery_v1" ||
+      !uuid(data.email_id) || typeof data.from !== "string" || !data.from || data.from.length > 320 || /[\r\n\x00]/.test(data.from) ||
+      !Array.isArray(data.to) || data.to.length !== 1 || typeof data.to[0] !== "string" || !data.to[0] || data.to[0].length > 254 ||
+      data.to[0] !== data.to[0].trim().toLowerCase() || ((direct || negativeDelivery.has(type)) && !exactEnvelope)) {
+    if (!deps.hold || !negativeDelivery.has(type) || !claimsMarketingReceipt(data)) return response(400);
+    const held = await deps.hold({ p_event_id: id, p_message_id: object(tags) && uuid(tags.helix_message_id) ? tags.helix_message_id : null,
+      p_provider_id: uuid(data.email_id) ? data.email_id : null });
+    return held === "held" || held === "duplicate" ? response(200, true) : response(503);
+  }
   const result=await deps.record({eventId:id,messageId:tags.helix_message_id,providerId:data.email_id,eventType:type,occurredAt,
     sender:data.from,recipient:data.to[0],purpose:tags.helix_purpose as "confirmation"|"welcome",contractVersion:tags.helix_contract,environment:"production"});
   return result==="recorded"?response(200,true):response(result==="paused"?503:400);
@@ -62,7 +66,7 @@ export async function receiveProductionMarketingEvent(request: Request, deps: Ev
   let secret:string;
   try {
     const config=readProductionMarketingConfiguration(deps.env);
-    secret = marketingSigningKey(deps.env, Boolean(deps.restrict));
+    secret = marketingSigningKey(deps.env, Boolean(deps.preference));
     if(new URL(request.url).origin!==config.siteOrigin)return response(403);
   }catch{return response(503);}
   let event:unknown;
@@ -77,21 +81,14 @@ export async function receiveProductionMarketingEvent(request: Request, deps: Ev
   try {
     if (!await productionDeploymentAuthorized(deps.env)) return response(503);
     const occurredAt = occurrence(event.created_at);
-    // The shared gateway continues to delegate only already-owned raw receipts.
-    if (!deps.restrict) return await recordRawReceipt(event.type, event.data, occurredAt, id, deps);
-    const observation = nativeRestriction(event.type, event.data, id, occurredAt, deps.env);
-    let restrictionUnavailable = false;
-    if (observation) {
-      try {
-        const result = await deps.restrict(observation);
-        restrictionUnavailable = !["applied", "duplicate", "ignored", "held"].includes(result);
-      } catch { restrictionUnavailable = true; }
+    if (deps.preference) {
+      const observation = directPreference(event.type, event.data, id, occurredAt);
+      if (observation) {
+        const result = await deps.preference(observation);
+        return ["applied", "duplicate", "ignored", "held"].includes(result) ? response(200, true) : response(503);
+      }
+      if (!types.has(event.type) || !claimsMarketingReceipt(event.data)) return response(200, true);
     }
-    // A signed collision may produce both an address-level hold and an existing
-    // prepared-message receipt. Each owner must durably acknowledge its own work.
-    const raw = types.has(event.type) && claimsRawReceipt(event.data)
-      ? await recordRawReceipt(event.type, event.data, occurredAt, id, deps)
-      : response(200, true);
-    return restrictionUnavailable ? response(503) : raw;
+    return await recordRawReceipt(event.type, event.data, occurredAt, id, deps);
   }catch{return response(503);}
 }

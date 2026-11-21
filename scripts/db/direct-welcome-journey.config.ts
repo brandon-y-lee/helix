@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["scripts/db/native-welcome-journey.integration.ts"],
+    include: ["scripts/db/direct-welcome-journey.integration.ts"],
     maxWorkers: 1,
     testTimeout: 60000,
   },

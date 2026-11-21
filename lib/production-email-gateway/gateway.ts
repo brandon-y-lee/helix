@@ -1,6 +1,7 @@
 import "server-only";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { Resend } from "resend";
+import { claimsMarketingReceipt, negativeDelivery, sharedMarketingSender } from "@/lib/production-marketing/direct-restrictions";
 import { HASH, UUID } from "@/lib/support/production/config";
 import { legacyInbound, legacyReceipt, parseLegacySnapshot, type LegacyDelegates } from "./legacy";
 export type GatewayEnvironment = Record<string, string | undefined>;
@@ -54,8 +55,21 @@ export async function receiveProductionEmail(request: Request, deps: GatewayDepe
   try { raw = await rawBody(request); event = new Resend("re_local_signature_verification_only").webhooks.verify({ payload: raw, webhookSecret: secret, headers: { id, timestamp, signature } }); }
   catch (error) { return response(error instanceof RangeError ? 413 : 400); }
   if (!await productionDeploymentAuthorized(deps.env)) return response(503);
-  if (!object(event) || !safe(event.type, 100) || !validTime(event.created_at) || !object(event.data)) return response(400);
+  if (!object(event) || !safe(event.type, 100) || !object(event.data)) return response(400);
+  // Never serialize a verified event back to JSON before existing signature verification.
+  const cloneRaw = () => new Request(request.url, { method: "POST", headers: request.headers, body: raw });
+  const delegate = async (fn: NonNullable<GatewayDependencies["support"]>) => {
+    const result = await fn(cloneRaw(), secret);
+    return response([200, 400, 403, 405, 413].includes(result.status) ? result.status : 503);
+  };
   const data = event.data, tags = data.tags === undefined ? {} : data.tags;
+  // Preserve a disputed marketing claim from the shared mailbox before the generic
+  // support/sandbox router discards malformed or mixed ownership markers.
+  if (negativeDelivery.has(event.type) && sharedMarketingSender(data.from) && claimsMarketingReceipt(data)) {
+    try { return deps.welcome ? await delegate(deps.welcome) : response(503); }
+    catch { return response(503); }
+  }
+  if (!validTime(event.created_at)) return response(400);
   if (!object(tags) || Object.keys(tags).length > 20 || Object.entries(tags).some(([k, v]) => !/^[A-Za-z0-9_-]{1,64}$/.test(k) || !safe(v, 256))) return response(400);
   const support = Object.keys(tags).some((key) => key === "helix_support" || key.startsWith("helix_support_"));
   const legacy = tags.helix_environment === "sandbox";
@@ -68,12 +82,6 @@ export async function receiveProductionEmail(request: Request, deps: GatewayDepe
   const type = event.type, occurredAt = event.created_at;
   if ((outgoing.has(type) || type === "email.received") && (!uuid(data.email_id) || !safe(data.from, 512)
     || !Array.isArray(data.to) || data.to.length < 1 || data.to.length > 100 || data.to.some((to) => !safe(to, 512)))) return response(400);
-  // Never serialize a verified event back to JSON before existing signature verification.
-  const cloneRaw = () => new Request(request.url, { method: "POST", headers: request.headers, body: raw });
-  const delegate = async (fn: NonNullable<GatewayDependencies["support"]>) => {
-    const result = await fn(cloneRaw(), secret);
-    return response([200, 400, 403, 405, 413].includes(result.status) ? result.status : 503);
-  };
   try {
     if (support) return type === "email.sent" && deps.support ? await delegate(deps.support) : response(503);
     if (welcome) return outgoing.has(type) && deps.welcome ? await delegate(deps.welcome) : response(503);

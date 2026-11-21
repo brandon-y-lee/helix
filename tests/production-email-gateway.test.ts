@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { createHash, createHmac } from "node:crypto";
 import { afterEach, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
@@ -116,9 +117,9 @@ it("requires full inbound ownership proof and a durable queue ID, excluding nati
  expect(fetch).not.toHaveBeenCalled();
 });
 it("runs real support/welcome delegates with unchanged signatures, keeping existing gates and unknown ownership retryable",async()=>{
- const full={...env,VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",VERCEL_GIT_COMMIT_REF:"main",HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
+ const full={...env,HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_SUPPORT_ORIGIN:origin,HELIX_PRODUCTION_SUPPORT_PROJECT_REF:"erasogmsqpgiirovubjh",HELIX_PRODUCTION_SUPPORT_PROJECT_URL:"https://erasogmsqpgiirovubjh.supabase.co",
  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID:id,HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:"synthetic-only-service-key-32-characters",HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET:"synthetic-only-abuse-secret-32-characters",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"prj_N9nyPL9SixJHOROIovS8PDQ9aKny",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-only-welcome-key",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true"};
+ HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",...productionMarketingTestTarget};
  let supportResult="matched",welcomeResult="recorded";
  const fetch=vi.fn(async(input:unknown,init?:RequestInit)=>{const url=String(input);expect(url.startsWith("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/")).toBe(true);
  expect(init?.redirect).toBe("error");
@@ -134,4 +135,28 @@ it("runs real support/welcome delegates with unchanged signatures, keeping exist
  const before=fetch.mock.calls.length,paused={...full,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"false"};
  expect((await receiveProductionEmail(signed(event(welcomeTags)),{env:paused,...productionEmailDelegates(paused)})).status).toBe(503);expect(fetch.mock.calls.length).toBe(before);
  expect((await receiveProductionEmail(signed(event({helix_environment:"sandbox",helix_message_id:id})),{env:full,...productionEmailDelegates(full)})).status).toBe(503);expect(fetch.mock.calls.length).toBe(before);
+});
+
+it("retains mixed signed marketing claims from the shared hello mailbox while native human and support custody stay separate",async()=>{
+ const full={...env,...productionMarketingTestTarget,HELIX_PRODUCTION_EMAIL_GATEWAY_PROJECT_ID:productionMarketingTestTarget.VERCEL_PROJECT_ID,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true"};
+ const ledger:{name:string;args:Record<string,unknown>}[]=[];
+ let hold="held";
+ vi.stubGlobal("fetch",async (url:string,init:RequestInit)=>{
+   const name=url.slice(url.lastIndexOf("/")+1);
+   ledger.push({name,args:JSON.parse(String(init.body))});
+   if(name==="hold_direct_production_marketing_receipt")return Response.json(hold);
+   if(name==="record_direct_production_marketing_event")return Response.json("recorded");
+   throw new Error("Unexpected transport");
+ });
+ const check=async(tags:Record<string,unknown>)=>{
+   const input=event(tags,"email.complained");input.data.from="hello@helixskin.us";
+   return receiveProductionEmail(signed(input),{env:full,...productionEmailDelegates(full)});
+ };
+ expect((await check({})).status).toBe(200);expect(ledger).toEqual([]);
+ expect((await check(supportTags)).status).toBe(503);expect(ledger).toEqual([]);
+ expect((await check({...welcomeTags,helix_support_outbox:id})).status).toBe(200);
+ expect(ledger).toEqual([{name:"hold_direct_production_marketing_receipt",args:{p_event_id:"msg_synthetic",p_message_id:id,p_provider_id:provider}}]);
+ hold="paused";expect((await check({helix_message_id:id})).status).toBe(503);
+ expect((await check(welcomeTags)).status).toBe(200);
+ expect(ledger.at(-1)?.name).toBe("record_direct_production_marketing_event");
 });

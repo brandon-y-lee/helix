@@ -1,3 +1,4 @@
+import { productionMarketingTestTarget } from "../../tests/helpers/production-marketing-target";
 import { execFileSync } from "node:child_process";
 import { createHmac,randomUUID } from "node:crypto";
 import { expect,it,vi } from "vitest";
@@ -7,7 +8,8 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { withProductionMarketingBrowser } from "../../tests/helpers/production-marketing-browser";
 import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
 import { productionMarketingEnrollmentEnabled } from "../../lib/production-marketing/config";
-import { createProductionMarketingStorage, productionSignupQualification } from "../../lib/production-marketing/storage";
+import { retainedMarketingSignup } from "./retained-marketing-signup";
+import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
 import { handleProductionMarketingRequest,handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
 import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
@@ -25,11 +27,9 @@ const literal=(v:unknown)=>v===null?"NULL":typeof v==="boolean"?String(v):`'${(t
 const canonical="https://www.helixskin.us",topic="11111111-1111-4111-8111-111111111111",admin="22222222-2222-4222-8222-222222222222";
 const signing=Buffer.from("synthetic-readiness-signing-secret").toString("base64");
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:topic,postalAddress:"Synthetic test address only",templateHash:productionMarketingTemplateHash};
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"synthetic",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:canonical,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"synthetic",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-db-only",
+const env={...productionMarketingTestTarget,
  HELIX_PRODUCTION_MARKETING_ENABLED:"false",HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"false",HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",
  HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"a".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",
- HELIX_PRODUCTION_MARKETING_NATIVE_SENDER:"welcome@helixskin.us",HELIX_PRODUCTION_MARKETING_NATIVE_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222",HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256:"e".repeat(64),
   HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-send-only",HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY:"synthetic-read-only",
  HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify(contract),HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`};
 const rpcNames=new Set(["production_marketing_enrollment_ready","request_qualified_production_marketing_subscription","confirm_production_marketing_subscription","withdraw_production_marketing_subscription","cleanup_production_marketing_delivery","claim_production_marketing_message","prepare_production_marketing_message","retry_production_marketing_message","finish_production_marketing_message","defer_production_marketing_message","record_production_marketing_event","read_production_marketing_status"]);
@@ -38,7 +38,7 @@ const sends:Captured[]=[];let posts=0,serverFault=false;
 const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit)=>{
  const url=String(input),headers=init?.headers as Record<string,string>;
  if(url.startsWith(`${env.HELIX_PRODUCTION_MARKETING_SUPABASE_URL}/rest/v1/rpc/`)){
-  const name=url.split("/").at(-1)!;if(!rpcNames.has(name)||init?.method!=="POST"||headers.apikey!==env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY||headers.Authorization!==`Bearer ${env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY}`)throw new Error("Unexpected synthetic RPC.");
+  const name=url.split("/").at(-1)!;if(!rpcNames.has(name)||init?.method!=="POST"||headers.apikey!==env.SUPABASE_SERVICE_ROLE_KEY||headers.Authorization!==undefined)throw new Error("Unexpected synthetic RPC.");
   const args=JSON.parse(String(init.body)) as Record<string,unknown>;if(Object.keys(args).some(k=>!/^p_[a-z_]+$/.test(k)))throw new Error("Unexpected argument.");
   const raw=sql(`SET ROLE service_role;SELECT to_jsonb(public.${name}(${Object.entries(args).map(([k,v])=>`${k}=>${literal(v)}`).join(",")}));`);return Response.json(raw?JSON.parse(raw):null);
  }
@@ -52,10 +52,10 @@ const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit)=>{
  }
  throw new Error("External network forbidden.");
 });
-const requests=createProductionMarketingStorage(env),delivery=createProductionMarketingDeliveryStorage(env),events=createProductionMarketingEventStorage(env);
+const requests=retainedMarketingSignup(env, sql),delivery=createProductionMarketingDeliveryStorage(env),events=createProductionMarketingEventStorage(env);
 const worker=()=>dispatchProductionMarketing(new Request(`${canonical}/api/internal/marketing/production/dispatch`,{method:"POST",headers:{authorization:`Bearer ${env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN}`}}),{env,storage:delivery,provider:productionMarketingProvider});
 const state=(email:string)=>sql(`SELECT state FROM private.production_marketing_subscribers WHERE normalized_email=${literal(email)};`);
-function switchFixture(on:boolean){env.HELIX_PRODUCTION_MARKETING_ENABLED=String(on);env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED=String(on);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=${on},dispatch_enabled=${on},events_enabled=true,status_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${on?literal(productionSignupQualification(env).p_worker_binding_hash):'NULL'};`);}
+function switchFixture(on:boolean){env.HELIX_PRODUCTION_MARKETING_ENABLED=String(on);env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED=String(on);sql(`UPDATE private.production_marketing_controls SET enrollment_enabled=${on},dispatch_enabled=${on},events_enabled=true,status_enabled=true,daily_limit=100,monthly_limit=1000,delivery_contract_text=${literal(JSON.stringify(contract))}; UPDATE private.production_marketing_controls SET confirmation_worker_binding_hash=${on?literal(confirmationWorkerQualification(env).p_worker_binding_hash):'NULL'};`);}
 async function event(send:Captured,type:string){
  const id=`msg_${randomUUID()}`,timestamp=String(Math.floor(Date.now()/1000)),body=JSON.stringify({type,created_at:new Date().toISOString(),data:{email_id:send.provider,from:send.body.from,to:send.body.to,tags:Object.fromEntries(send.body.tags.map(t=>[t.name,t.value]))}});
  const signature=createHmac("sha256",Buffer.from(signing,"base64")).update(`${id}.${timestamp}.${body}`).digest("base64");

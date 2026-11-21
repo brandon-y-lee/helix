@@ -1,28 +1,14 @@
 import "server-only";
-import { createHmac } from "node:crypto";
-import { marketingSigningKey } from "./callback-config";
-import { nativeCallbackIdentity } from "./native-restrictions";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { readBoundedBody } from "@/lib/email/provider";
-import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "./config";
-import { confirmationWorkerQualification } from "./delivery-config";
+import { productionMarketingEnrollmentEnabled, productionMarketingRpcHeaders, readProductionMarketingConfiguration } from "./config";
+import { productionSignupQualification } from "./delivery-config";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingRequestStorage } from "./requests";
 
-/** A changed callback destination, signer or native contract pauses new admission until verified again. */
-export function productionSignupQualification(env: ProductionMarketingEnvironment) {
-  const worker = confirmationWorkerQualification(env);
-  const identity = nativeCallbackIdentity(env);
-  const signer = marketingSigningKey(env, true);
-  if (!identity) throw new Error("Production marketing is unavailable.");
-  const binding = createHmac("sha256", Buffer.from(worker.p_worker_binding_hash, "hex")).update(JSON.stringify([
-    "helix:production-marketing:signup:v2", identity.digest, identity.sender, identity.template, signer,
-  ])).digest("hex");
-  return { p_contract_hash: worker.p_contract_hash, p_worker_binding_hash: binding };
-}
+export { productionSignupQualification };
 
-// Dedicated bounded RPC-only transport. Never constructs the sandbox admin client,
-// accepts a caller-selected URL, logs failures, or retries an ambiguous write.
+// Only these fixed RPCs receive the verified parent credential. Unknown writes are never replayed.
 export function createProductionMarketingStorage(env: ProductionMarketingEnvironment): ProductionMarketingRequestStorage & { enrollmentReady(): Promise<boolean> } {
   async function rpc(name: string, args: Record<string, unknown>): Promise<boolean> {
     const controller = new AbortController();
@@ -34,7 +20,7 @@ export function createProductionMarketingStorage(env: ProductionMarketingEnviron
       });
       return await Promise.race([(async () => {
         const result = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${name}`, {
-          method: "POST", headers: { "Content-Type": "application/json", apikey: config.serviceKey, Authorization: `Bearer ${config.serviceKey}` },
+          method: "POST", headers: productionMarketingRpcHeaders(config.serviceKey),
           body: JSON.stringify(args), signal: controller.signal, cache: "no-store", redirect: "error",
         });
         if (!result.ok) { await result.body?.cancel(); throw new Error(); }
@@ -46,7 +32,8 @@ export function createProductionMarketingStorage(env: ProductionMarketingEnviron
     finally { clearTimeout(timer); controller.abort(); }
   }
   async function qualifiedWorker() {
-    if (!await productionMarketingEnrollmentEnabled(env)) {
+    if (env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED !== "true" ||
+        env.HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED !== "true" || !await productionMarketingEnrollmentEnabled(env)) {
       throw new Error("Production marketing is unavailable.");
     }
     return productionSignupQualification(env);

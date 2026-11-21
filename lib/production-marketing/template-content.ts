@@ -42,15 +42,3 @@ export function renderMarketingBody(
     text: substitute(textTemplate, false),
   };
 }
-
-/** Public template content only. Resend injects each contact's own preference URL at delivery. */
-export function nativeWelcomeTemplate() {
-  const content = renderMarketingBody(
-    "welcome",
-    "https://www.helixskin.us",
-    "{{{RESEND_UNSUBSCRIBE_URL}}}",
-    "Helix Labs LLC, 2747 Haste Street, Berkeley, CA 94704",
-  );
-  const contentSha256 = createHash("sha256").update(JSON.stringify(content)).digest("hex");
-  return { content, contentSha256 };
-}
