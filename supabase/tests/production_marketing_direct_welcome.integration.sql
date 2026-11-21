@@ -139,7 +139,8 @@ DO $$ DECLARE role_name text; fn regprocedure; BEGIN
     'public.prepare_direct_production_marketing_message(uuid,uuid,text,text,text,text)'::regprocedure,
     'public.retry_direct_production_marketing_message(uuid,uuid,text,text)'::regprocedure,
     'public.record_direct_production_marketing_preference(text,text,timestamptz,text,boolean,uuid[],boolean)'::regprocedure,
-    'public.hold_direct_production_marketing_receipt(text,uuid,uuid)'::regprocedure
+    'public.hold_direct_production_marketing_receipt(text,uuid,uuid)'::regprocedure,
+    'public.read_direct_production_marketing_status(uuid)'::regprocedure
   ] LOOP
     PERFORM proof.check(has_function_privilege('service_role',fn,'EXECUTE'),'dedicated service grant missing');
     FOREACH role_name IN ARRAY ARRAY['anon','authenticated','unexpected'] LOOP
@@ -257,16 +258,97 @@ DO $$ DECLARE observed timestamptz:=clock_timestamp(); BEGIN
 END $$;
 ROLLBACK;
 
-CREATE FUNCTION proof.raw_event(event_id text,id uuid,provider uuid,kind text,label text,prior_client boolean DEFAULT false)
+CREATE FUNCTION proof.raw_event(event_id text,id uuid,provider uuid,kind text,label text,prior_client boolean DEFAULT false,observed timestamptz DEFAULT clock_timestamp())
 RETURNS text LANGUAGE plpgsql AS $$
 BEGIN
   IF prior_client THEN
-    RETURN public.record_production_marketing_event(event_id,id,provider,kind,clock_timestamp(),'hello@helixskin.us',label||'@example.invalid',
+    RETURN public.record_production_marketing_event(event_id,id,provider,kind,observed,'hello@helixskin.us',label||'@example.invalid',
       'welcome','production_welcome_delivery_v1','production');
   END IF;
-  RETURN public.record_direct_production_marketing_event(event_id,id,provider,kind,clock_timestamp(),'hello@helixskin.us',label||'@example.invalid',
+  RETURN public.record_direct_production_marketing_event(event_id,id,provider,kind,observed,'hello@helixskin.us',label||'@example.invalid',
     'welcome','production_welcome_delivery_v1','production');
 END $$;
+
+-- Delivery callbacks can beat the provider's asynchronous HTTP response. Only
+-- the worker's matching response can turn their proposed ID into a binding.
+BEGIN;
+DO $$ DECLARE
+  msg uuid; lease_id uuid; observed_id uuid:=gen_random_uuid(); returned_id uuid; observed timestamptz; sample text;
+BEGIN
+  FOREACH sample IN ARRAY ARRAY['positive-matched','positive-mismatched'] LOOP
+    msg:=proof.seed_lease(sample,'first');
+    SELECT r.lease INTO STRICT lease_id FROM proof.races r WHERE r.id=msg;
+    PERFORM proof.check(proof.handoff(msg,sample,'first') IS NOT NULL,'prepare before provider callback');
+    observed:=clock_timestamp(); observed_id:=gen_random_uuid();
+    PERFORM proof.check(proof.raw_event(sample||'-sent',msg,observed_id,'email.sent',sample,sample='positive-matched',observed)='recorded','early sent durably acknowledged');
+    PERFORM proof.check(proof.raw_event(sample||'-delivered',msg,observed_id,'email.delivered',sample,false,observed)='recorded','early delivery durably acknowledged');
+    PERFORM proof.check(proof.raw_event(sample||'-sent',msg,observed_id,'email.sent',sample,sample='positive-matched',observed)='recorded','exact early positive replay acknowledged');
+    PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.provider_id IS NULL
+      AND m.state='prepared' AND NOT m.reconciliation_required AND m.delivery_status='pending'
+      AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
+      'early positive observations keep the active lease open without attributing delivery or suppression');
+    returned_id:=CASE WHEN sample='positive-matched' THEN observed_id ELSE gen_random_uuid() END;
+    PERFORM proof.check(public.finish_production_marketing_message(msg,lease_id,'accepted',returned_id),'record independent HTTP response');
+    IF returned_id=observed_id THEN
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.provider_id=returned_id
+        AND m.state='accepted' AND NOT m.reconciliation_required AND m.delivery_status='delivered'),'matching HTTP identity resolves early sent/delivered facts');
+      PERFORM proof.check(proof.raw_event(sample||'-complaint',msg,observed_id,'email.complained',sample)='recorded','later strict complaint acknowledged');
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m JOIN private.production_marketing_suppressions s ON m.subscriber_id=s.subscriber_id
+        WHERE m.id=msg AND m.provider_id=returned_id AND m.delivery_status='suppressed' AND s.reason='complained'),'matching identity authorizes the later complaint');
+    ELSE
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.reconciliation_required
+        AND m.provider_id IS DISTINCT FROM observed_id AND m.delivery_status='pending'
+        AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
+        'different HTTP identity isolates only that message without positive attribution or suppression');
+      PERFORM proof.check(proof.raw_event(sample||'-complaint',msg,observed_id,'email.complained',sample)='recorded','later conflicting complaint durably held');
+      PERFORM proof.check(EXISTS (SELECT FROM private.production_marketing_messages m WHERE m.id=msg AND m.reconciliation_required
+        AND m.delivery_status='pending' AND NOT EXISTS (SELECT FROM private.production_marketing_suppressions s WHERE s.subscriber_id=m.subscriber_id)),
+        'complaint for the conflicting proposed ID does not suppress');
+      PERFORM proof.check(proof.ready() AND public.claim_direct_production_marketing_message(gen_random_uuid(),proof.hash(proof.contract()),repeat('b',64)) IS NULL,
+        'an isolated ambiguous attempt cannot be replayed or block unrelated enrollments');
+    END IF;
+  END LOOP;
+END $$;
+ROLLBACK;
+
+-- An account-level ambiguity can have no corresponding customer or message.
+-- The direct report counts it independently; retained callers keep the P3 JSON.
+BEGIN;
+INSERT INTO public.admin_memberships VALUES
+  ('00000000-0000-4000-8000-000000000611','admin',true),
+  ('00000000-0000-4000-8000-000000000612','admin',false);
+DO $$ DECLARE
+  actor uuid:='00000000-0000-4000-8000-000000000611'; old_status jsonb; current_status jsonb; event_name text;
+BEGIN
+  SET LOCAL ROLE service_role;
+  PERFORM proof.check(public.read_direct_production_marketing_status(actor) IS NULL,'stored status pause hides direct report');
+  RESET ROLE;
+  UPDATE private.production_marketing_controls SET status_enabled=true;
+  SET LOCAL ROLE service_role;
+  PERFORM proof.check(public.read_direct_production_marketing_status(NULL) IS NULL
+    AND public.read_direct_production_marketing_status('00000000-0000-4000-8000-000000000612') IS NULL
+    AND public.read_direct_production_marketing_status(gen_random_uuid()) IS NULL,'only current active admins can obtain direct aggregates');
+  old_status:=public.read_production_marketing_status(actor);
+  current_status:=public.read_direct_production_marketing_status(actor);
+  PERFORM proof.check((SELECT count(*)=11 FROM jsonb_object_keys(old_status)) AND NOT old_status?'unresolvedPreferenceHolds'
+    AND (SELECT count(*)=12 FROM jsonb_object_keys(current_status)) AND current_status-'unresolvedPreferenceHolds'=old_status
+    AND current_status->'unresolvedPreferenceHolds'='0'::jsonb,'new aggregate extends the unchanged P3 contract by one integer');
+  FOREACH event_name IN ARRAY ARRAY['unattributed-one','unattributed-two'] LOOP
+    PERFORM proof.check(public.record_direct_production_marketing_preference(event_name,'contact.updated',NULL,NULL,true,'{}',true)='held',
+      'signed unidentifiable preference is retained for coverage review');
+  END LOOP;
+  current_status:=public.read_direct_production_marketing_status(actor);
+  PERFORM proof.check(current_status=old_status||'{"unresolvedPreferenceHolds":2}'::jsonb
+    AND public.read_production_marketing_status(actor)=old_status,'message-free denials are visible without manufacturing uncertain messages');
+  RESET ROLE;
+  UPDATE private.production_marketing_direct_receipts SET resolved_at=clock_timestamp(),resolution_evidence_sha256=repeat('d',64)
+    WHERE event_id='unattributed-one' AND coverage_hold;
+  SET LOCAL ROLE service_role;
+  PERFORM proof.check(public.read_direct_production_marketing_status(actor)=old_status||'{"unresolvedPreferenceHolds":1}'::jsonb,
+    'resolving exactly one receipt reduces the preference hold count exactly once');
+  RESET ROLE;
+END $$;
+ROLLBACK;
 
 -- Keep this collection of deliberately ambiguous messages separate from the
 -- independent admission races. All claims, preparations and responses use real RPCs.

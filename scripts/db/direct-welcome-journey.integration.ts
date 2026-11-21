@@ -9,10 +9,18 @@ import { POST as scheduledDispatch } from "@/app/api/internal/marketing/producti
 import { POST as callback } from "@/app/api/webhooks/marketing-production/route";
 import { GET as confirmationPage } from "@/app/marketing/production/confirm/route";
 import { GET as preferencePage } from "@/app/marketing/production/preferences/route";
+import { GET as readOperatorStatus } from "@/app/api/internal/marketing/production/status/route";
 import { productionSignupQualification } from "@/lib/production-marketing/storage";
 import { directMarketingDeliveryContract } from "@/lib/production-marketing/delivery-config";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 import { journeyServiceKey, rpcFixture, sql } from "./direct-welcome-journey-pg";
+
+// Only the already-authenticated identity is synthetic. PostgreSQL decides active Operator membership.
+const currentUser = vi.hoisted(() => vi.fn<() => Promise<{ id: string } | null>>());
+vi.mock("@/lib/auth/session", async (original) => ({
+  ...(await original<typeof import("@/lib/auth/session")>()),
+  getCurrentUser: currentUser,
+}));
 
 const origin = "https://www.helixskin.us";
 const topic = "aca091c7-8da7-440e-8761-e6a549c60aa5";
@@ -113,12 +121,12 @@ async function customerClick(url: URL, kind: "confirm" | "preferences") {
   }
 }
 
-function signed(id: string, email: Customer): Request {
+function signedContact(id: string, data: Record<string, unknown>): Request {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const body = JSON.stringify({
     type: "contact.updated",
     created_at: occurredAt,
-    data: { email, unsubscribed: true },
+    data,
   });
   const signature = createHmac("sha256", signing).update([id, timestamp, body].join(".")).digest("base64");
   return new Request(origin + "/api/webhooks/marketing-production", {
@@ -188,6 +196,60 @@ it("confirms two new customers, sends one direct welcome each and enforces both 
 
   const ready = () => status(new Request(origin + signup)).then((value) => value.json());
   expect(await ready()).toEqual({ production: true, enabled: true });
+
+  // An ambiguous account callback can stop new enrollment before there is even a message to reconcile.
+  const adminId = randomUUID();
+  sql(`INSERT INTO public.admin_memberships(user_id,role,active) VALUES('${adminId}','admin',true);
+       UPDATE private.production_marketing_controls SET status_enabled=true WHERE singleton;`);
+  const operatorStatus = (actorId: string | null) => {
+    currentUser.mockResolvedValue(actorId ? { id: actorId } : null);
+    return readOperatorStatus(new Request(origin + "/api/internal/marketing/production/status"));
+  };
+  const noCustomersOrMessages = () =>
+    sql(
+      "SELECT NOT EXISTS(SELECT FROM private.production_marketing_subscribers) AND NOT EXISTS(SELECT FROM private.production_marketing_messages);",
+    );
+  expect(noCustomersOrMessages()).toBe("t");
+  const ambiguous = signedContact("direct_unresolved", { email: visible, unsubscribed: "unknown" });
+  expect(await (await callback(ambiguous)).json()).toEqual({ ok: true });
+  expect(await ready()).toEqual({ production: true, enabled: false });
+  expect((await enroll(visible)).status).toBe(503);
+  expect(noCustomersOrMessages()).toBe("t");
+  expect(mail.length).toBe(0);
+
+  vi.stubEnv("HELIX_PRODUCTION_MARKETING_STATUS_ENABLED", "false");
+  expect((await operatorStatus(adminId)).status).toBe(503);
+  vi.stubEnv("HELIX_PRODUCTION_MARKETING_STATUS_ENABLED", "true");
+  expect((await operatorStatus(null)).status).toBe(401);
+  expect((await operatorStatus(randomUUID())).status).toBe(403);
+  const report = await operatorStatus(adminId);
+  expect(report.status).toBe(200);
+  expect(report.headers.get("cache-control")).toBe("private, no-store");
+  expect(await report.json()).toEqual({
+    unresolvedPreferenceHolds: 1,
+    uncertainMessages: 0,
+    pendingSubscribers: 0,
+    confirmedSubscribers: 0,
+    withdrawnSubscribers: 0,
+    suppressedSubscribers: 0,
+    queuedMessages: 0,
+    preparedMessages: 0,
+    acceptedMessages: 0,
+    deliveredMessages: 0,
+    suppressedMessages: 0,
+    failedMessages: 0,
+  });
+
+  // The owner records its inspection evidence for this exact, synthetic receipt.
+  const resolution = digest("Synthetic operator inspected the ambiguous direct_unresolved callback.");
+  expect(
+    sql(`UPDATE private.production_marketing_direct_receipts
+    SET resolved_at=clock_timestamp(), resolution_evidence_sha256='${resolution}'
+    WHERE event_id='direct_unresolved' AND coverage_hold AND held AND resolved_at IS NULL RETURNING 1;`),
+  ).toBe("1");
+  expect((await (await operatorStatus(adminId)).json()).unresolvedPreferenceHolds).toBe(0);
+  expect(await ready()).toEqual({ production: true, enabled: true });
+
   async function arrive(email: Customer, purpose: "confirmation" | "welcome") {
     const before = mail.length;
     expect(await tick()).toBe("accepted");
@@ -257,7 +319,8 @@ it("confirms two new customers, sends one direct welcome each and enforces both 
     ["direct_unseen", previouslyDenied],
     ["direct_existing", mailbox],
   ] as const) {
-    for (let attempt = 0; attempt < 2; attempt++) expect((await callback(signed(id, email))).status).toBe(200);
+    for (let attempt = 0; attempt < 2; attempt++)
+      expect((await callback(signedContact(id, { email, unsubscribed: true }))).status).toBe(200);
   }
   // On resume, a pre-signup denial survives its replay. No signup can silently reinstate permission.
   sql(

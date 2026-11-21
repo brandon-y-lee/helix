@@ -134,6 +134,20 @@ try {
     sql("SELECT count(*) FROM private.production_marketing_direct_denials;", "postgres", "proof_child"),
     "0",
   );
+  sql(
+    "INSERT INTO public.admin_memberships VALUES('00000000-0000-4000-8000-000000000611','admin',true); UPDATE private.production_marketing_controls SET status_enabled=true;",
+    "postgres",
+    "proof_child",
+  );
+  assert.equal(
+    sql(
+      "SELECT public.read_direct_production_marketing_status('00000000-0000-4000-8000-000000000611') IS NULL;",
+      "service_role",
+      "proof_child",
+    ),
+    "t",
+    "a marked development child never serves a production operator report",
+  );
   sql(direct(), "postgres", "proof_journey");
   sql(direct());
   fixture("direct");
@@ -151,6 +165,44 @@ try {
       );
       sql("SELECT proof.verify_race('" + id + "','" + label + "','" + phase + "'," + denyFirst + ");");
     }
+  }
+  // Race two real service transactions on the same prepared intent. Both
+  // commit orders must independently establish the same accepted provider ID.
+  for (const receiptFirst of [true, false]) {
+    const name = receiptFirst ? "positive-first" : "finish-first";
+    const message = sql("SELECT proof.seed_lease('" + name + "','first');");
+    const lease = sql("SELECT lease FROM proof.races WHERE id='" + message + "';");
+    const provider = randomUUID();
+    assert.equal(
+      sql("SELECT proof.handoff('" + message + "','" + name + "','first') IS NOT NULL;", "service_role"),
+      "t",
+    );
+    const receipt =
+      "SELECT proof.raw_event('" + name + "','" + message + "','" + provider + "','email.delivered','" + name + "');";
+    const finish =
+      "SELECT public.finish_production_marketing_message('" +
+      message +
+      "','" +
+      lease +
+      "','accepted','" +
+      provider +
+      "');";
+    assert.deepEqual(
+      await ordered(receiptFirst ? receipt : finish, receiptFirst ? finish : receipt),
+      receiptFirst ? ["recorded", "t"] : ["t", "recorded"],
+      name,
+    );
+    assert.equal(
+      sql(
+        "SELECT state='accepted' AND NOT reconciliation_required AND delivery_status='delivered' AND provider_id='" +
+          provider +
+          "' FROM private.production_marketing_messages WHERE id='" +
+          message +
+          "';",
+      ),
+      "t",
+      name,
+    );
   }
   console.log(
     "PASS PostgreSQL 17 direct welcome storage, receipt ownership, retained consent and first/retry handoff races.",

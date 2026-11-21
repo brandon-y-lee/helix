@@ -79,12 +79,14 @@ const rpcNames = new Set([
   "defer_production_marketing_message",
   "record_direct_production_marketing_preference",
   "record_direct_production_marketing_event",
+  "read_direct_production_marketing_status",
 ]);
 
 // PostgREST coerces JSON arguments using the declared SQL parameter type. The other named inputs here are text.
 const argumentTypes: Record<string, string> = {
   p_lease: "uuid",
   p_id: "uuid",
+  p_actor_id: "uuid",
   p_provider_id: "uuid",
   p_message_id: "uuid",
   p_event_id: "text",

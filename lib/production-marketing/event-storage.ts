@@ -1,7 +1,7 @@
 import "server-only";
 import { readBoundedBody } from "@/lib/email/provider";
 import { productionMarketingRpcHeaders, readProductionMarketingConfiguration } from "./config";
-import { parseProductionMarketingStatus } from "./status-contract";
+import { parseDirectMarketingStatus, parseRetainedMarketingStatus } from "./status-contract";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingEvent,ProductionMarketingEventResult } from "./events";
 import { sharedMarketingSender, type DirectPreference, type DirectPreferenceResult, type DirectReceiptHold, type DirectReceiptHoldResult } from "./direct-restrictions";
@@ -35,6 +35,7 @@ export function createProductionMarketingEventStorage(env:ProductionMarketingEnv
         p_occurred_at:event.occurredAt,p_sender:event.sender,p_recipient:event.recipient,p_purpose:event.purpose,p_contract_version:event.contractVersion,p_environment:event.environment});
       if(value!=="recorded"&&value!=="rejected"&&value!=="paused")throw new Error("Production marketing is unavailable.");return value;
     },
-    status:async(actor:string)=>parseProductionMarketingStatus(await rpc("read_production_marketing_status",{p_actor_id:actor})),
+    directStatus: async (actor: string) => parseDirectMarketingStatus(await rpc("read_direct_production_marketing_status", {p_actor_id: actor})),
+    status:async(actor:string)=>parseRetainedMarketingStatus(await rpc("read_production_marketing_status",{p_actor_id:actor})),
   };
 }

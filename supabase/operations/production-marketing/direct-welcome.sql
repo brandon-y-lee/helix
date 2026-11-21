@@ -522,6 +522,20 @@ BEGIN
         private.production_marketing_iso(p_occurred_at),p_sender,p_recipient,p_purpose,p_contract_version,p_environment)::text,'UTF8')),'hex');
       SELECT fingerprint INTO previous FROM private.production_marketing_events WHERE event_id=p_event_id;
       IF previous=observed THEN RETURN 'recorded'; END IF;
+      -- A genuine positive receipt can precede the sender's HTTP response.
+      -- The event ledger records that observation. Only finish can bind the ID.
+      IF previous IS NULL AND p_event_type IN ('email.sent','email.delivered')
+        AND m.state='prepared' AND m.provider_id IS NULL AND NOT m.reconciliation_required
+        AND NOT EXISTS (SELECT FROM private.production_marketing_direct_receipts WHERE event_id=p_event_id)
+        AND NOT EXISTS (SELECT FROM private.production_marketing_events WHERE message_id=p_message_id AND provider_id<>p_provider_id)
+        AND NOT EXISTS (SELECT FROM private.production_marketing_messages WHERE provider_id=p_provider_id AND id<>p_message_id) THEN
+        INSERT INTO private.production_marketing_events(event_id,message_id,provider_id,event_type,occurred_at,fingerprint,binding_conflict)
+          VALUES(p_event_id,p_message_id,p_provider_id,p_event_type,p_occurred_at,observed,false);
+        -- Version the locked message without attributing delivery. A finish using
+        -- an older repeatable-read snapshot must retry to see this observation.
+        UPDATE private.production_marketing_messages SET last_event_at=last_event_at WHERE id=p_message_id;
+        RETURN 'recorded';
+      END IF;
       IF previous IS NULL AND m.state='accepted' AND NOT m.reconciliation_required AND m.provider_id=p_provider_id
         AND (p_strict OR p_event_type NOT IN ('email.bounced','email.complained','email.suppressed'))
         AND NOT EXISTS (SELECT FROM private.production_marketing_direct_receipts WHERE event_id=p_event_id) THEN
@@ -550,6 +564,45 @@ CREATE FUNCTION public.record_production_marketing_event(
   private.production_marketing_record_signed_event(false,p_event_id,p_message_id,p_provider_id,p_event_type,p_occurred_at,
     p_sender,p_recipient,p_purpose,p_contract_version,p_environment);
 
+-- The P3 finish already holds the address, message and accepted provider-ID
+-- locks. Reconcile any earlier positives inside that same accepted HTTP update.
+CREATE FUNCTION private.production_marketing_finish_observed_delivery() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE conflict boolean; delivered boolean; latest timestamptz; status text;
+BEGIN
+  SELECT bool_or(e.binding_conflict OR e.provider_id<>NEW.provider_id),bool_or(e.event_type='email.delivered'),max(e.occurred_at)
+    INTO conflict,delivered,latest FROM private.production_marketing_events e
+    WHERE e.message_id=NEW.id AND e.event_type IN ('email.sent','email.delivered');
+  IF conflict THEN
+    INSERT INTO private.production_marketing_identity_conflicts(message_id,provider_id,source)
+      VALUES(NEW.id,NEW.provider_id,'response') ON CONFLICT DO NOTHING;
+    NEW.reconciliation_required:=true;
+    NEW.state:='uncertain';
+  ELSIF latest IS NOT NULL THEN
+    status:=CASE WHEN delivered THEN 'delivered' ELSE 'sent' END;
+    IF private.production_marketing_event_rank(status)>private.production_marketing_event_rank(NEW.delivery_status) THEN
+      NEW.delivery_status:=status;
+    END IF;
+    NEW.last_event_at:=greatest(NEW.last_event_at,latest);
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER finish_observed_direct_delivery BEFORE UPDATE OF state,provider_id ON private.production_marketing_messages
+  FOR EACH ROW WHEN (OLD.sender='hello@helixskin.us' AND OLD.state='prepared' AND OLD.lease_token IS NOT NULL
+    AND OLD.provider_id IS NULL AND NEW.provider_id IS NOT NULL AND NEW.state='accepted' AND NEW.lease_token IS NULL
+    AND NOT NEW.reconciliation_required) EXECUTE FUNCTION private.production_marketing_finish_observed_delivery();
+
+CREATE FUNCTION public.read_direct_production_marketing_status(p_actor_id uuid) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE summary jsonb;
+BEGIN
+  IF NOT private.production_marketing_direct_parent() THEN RETURN NULL; END IF;
+  summary:=public.read_production_marketing_status(p_actor_id);
+  IF summary IS NULL THEN RETURN NULL; END IF;
+  RETURN summary||jsonb_build_object('unresolvedPreferenceHolds',(SELECT count(*) FROM private.production_marketing_direct_receipts
+    WHERE coverage_hold AND resolved_at IS NULL));
+END $$;
+
 -- A stopped receiver may have missed signed denials. Re-enabling receipt
 -- processing works immediately; send admission resumes after coverage is proven.
 CREATE FUNCTION private.production_marketing_direct_pause_order() RETURNS trigger
@@ -575,12 +628,12 @@ DO $$ DECLARE f record; service oid:='service_role'::regrole; BEGIN
       'production_marketing_direct_ready','production_marketing_p1_request','production_marketing_apply_direct_denial',
       'production_marketing_import_direct_denial','production_marketing_claim_generation','production_marketing_admit_generation',
       'production_marketing_record_legacy_event','production_marketing_record_signed_event','production_marketing_direct_pause_order',
-      'production_marketing_invalidate_direct_coverage'))
+      'production_marketing_invalidate_direct_coverage','production_marketing_finish_observed_delivery'))
     OR (n.nspname='public' AND p.proname IN ('production_marketing_enrollment_ready','request_production_marketing_subscription',
       'request_qualified_production_marketing_subscription','claim_production_marketing_message','prepare_production_marketing_message',
       'retry_production_marketing_message','claim_direct_production_marketing_message','prepare_direct_production_marketing_message',
       'retry_direct_production_marketing_message','record_production_marketing_event','record_direct_production_marketing_event',
-      'hold_direct_production_marketing_receipt','record_direct_production_marketing_preference')) LOOP
+      'hold_direct_production_marketing_receipt','record_direct_production_marketing_preference','read_direct_production_marketing_status')) LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,anon,authenticated,service_role',f.oid::regprocedure);
     IF f.nspname='public' THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',f.oid::regprocedure); END IF;
     IF EXISTS (SELECT FROM pg_proc p,LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a

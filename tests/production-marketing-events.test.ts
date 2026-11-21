@@ -5,6 +5,7 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
 import { receiveProductionMarketingEvent } from "@/lib/production-marketing/events";
+import { createProductionMarketingEventStorage } from "@/lib/production-marketing/event-storage";
 import { handleProductionMarketingStatus } from "@/lib/production-marketing/operator-status";
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-p3-signing-secret-only").toString("base64");
 const env={...productionMarketingTestTarget,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",
@@ -77,6 +78,24 @@ describe("production-bound Operator visibility",()=>{
     expect((await handleProductionMarketingStatus(request(),{env,getUser,read})).status).toBe(401);expect(read).not.toHaveBeenCalled();
     getUser.mockResolvedValue(user);expect((await handleProductionMarketingStatus(request(),{env,getUser,read})).status).toBe(403);
     expect(read).toHaveBeenCalledWith(user.id);
+  });
+  it("requires the authenticated direct target to report unresolved preference holds even with zero uncertain mail",async()=>{
+    const admin = createProductionMarketingEventStorage(env);
+    const expected = {...counts,uncertainMessages:0,unresolvedPreferenceHolds:2};
+    let reply: unknown = expected;
+    const endpoint = productionMarketingTestTarget.NEXT_PUBLIC_SUPABASE_URL+"/rest/v1/rpc/read_direct_production_marketing_status";
+    const fetch = vi.fn(async (url:string, options:RequestInit) => {
+      expect(url).toBe(endpoint); expect(JSON.parse(String(options.body))).toEqual({p_actor_id:user.id});
+      return Response.json(reply);
+    });
+    vi.stubGlobal("fetch", fetch);
+    const get = () => handleProductionMarketingStatus(request(),{env,getUser:async()=>user,read:admin.directStatus});
+    expect(await (await get()).json()).toEqual(expected);
+    for (reply of [counts,{...expected,unresolvedPreferenceHolds:-1},{...expected,unresolvedPreferenceHolds:null},
+      {...expected,unresolvedPreferenceHolds:0.5},{...expected,email:"PRIVATE@example.invalid"}]) {
+      const response = await get(); expect(response.status).toBe(503); expect(await response.json()).toEqual({ok:false});
+    }
+    expect(fetch).toHaveBeenCalledTimes(6);
   });
   it("returns only finite private counts and generic errors without actor, provider or subscriber data",async()=>{
     const getUser=vi.fn().mockResolvedValue(user),read=vi.fn().mockResolvedValue(counts);
