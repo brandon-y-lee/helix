@@ -59,7 +59,7 @@ describe("checkout cancellation routing", () => {
         credentials: "same-origin",
       }),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(refreshCart).toHaveBeenCalledOnce();
   });
 
@@ -81,7 +81,7 @@ describe("checkout cancellation routing", () => {
     expect(screen.getByRole("button")).toBeEnabled();
     expect(refreshCart).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button"));
-    expect(await screen.findByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(await screen.findByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(screen.getByRole("button")).toBeDisabled();
     expect(fetchRequest).toHaveBeenCalledTimes(2);
     expect(refreshCart).toHaveBeenCalledOnce();
@@ -120,7 +120,7 @@ describe("checkout cancellation routing", () => {
     expect(refreshCart).not.toHaveBeenCalled();
 
     await act(async () => { finishRequest(Response.json({ status: "cancelled" })); });
-    expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(screen.getByRole("status")).toHaveTextContent("Checkout was cancelled.");
     expect(refreshCart).toHaveBeenCalledOnce();
   });
 
@@ -157,6 +157,6 @@ describe("explicit origin recovery UI", () => {
     }));
     expect(recovered).toHaveBeenCalledOnce();
     expect(refreshCart).toHaveBeenCalledOnce();
-    expect(screen.getByRole("status")).toHaveTextContent("Sandbox checkout was cancelled.");
+    expect(screen.getByRole("status")).toHaveTextContent("Checkout was cancelled.");
   });
 });

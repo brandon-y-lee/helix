@@ -3,8 +3,11 @@ import { CheckoutConfigError, assertSandboxStripeObject } from "@/lib/checkout/c
 import { processStripeWebhookEvent } from "@/lib/stripe/webhook";
 import { constructStripeWebhookEvent } from "@/lib/stripe/server";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
-import { hasLivePaymentConfiguration, readLiveStripeBinding, type LiveStripeBinding } from "@/lib/stripe/live-provider";
-import { processLiveStripeEvent } from "@/lib/stripe/live-webhook";
+import { BUSINESS_SANDBOX_WEBHOOK_ORIGIN, LIVE_CHECKOUT_ORIGIN, isBusinessSandboxDeployment } from "@/lib/checkout/business-origin";
+import {
+  hasBusinessSandboxPaymentConfiguration, hasLivePaymentConfiguration, readBusinessStripeBinding, type BusinessStripeBinding,
+} from "@/lib/stripe/live-provider";
+import { processBusinessStripeEvent } from "@/lib/stripe/live-webhook";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,21 +36,30 @@ async function readBody(request: Request): Promise<Buffer> {
 
 export async function POST(request: Request): Promise<NextResponse> {
   const signature = request.headers.get("stripe-signature");
-  let live: LiveStripeBinding | undefined;
+  let binding: BusinessStripeBinding | undefined;
   let event;
 
   try {
-    if (hasLivePaymentConfiguration(process.env)) {
-      if (new URL(request.url).origin !== "https://www.helixskin.us" || !await productionDeploymentAuthorized(process.env)) {
+    const origin = new URL(request.url).origin;
+    const live = hasLivePaymentConfiguration(process.env);
+    if (origin === BUSINESS_SANDBOX_WEBHOOK_ORIGIN || hasBusinessSandboxPaymentConfiguration(process.env)) {
+      if (origin !== BUSINESS_SANDBOX_WEBHOOK_ORIGIN || live || !isBusinessSandboxDeployment(process.env)) {
         return NextResponse.json({ error: "invalid Stripe webhook" }, { status: 403, headers });
       }
-      live = readLiveStripeBinding();
-      if (!live.webhookSecret) throw new CheckoutConfigError("checkout_misconfigured", "Live destination is unavailable.");
+      binding = readBusinessStripeBinding("business_sandbox");
+    } else if (live) {
+      if (origin !== LIVE_CHECKOUT_ORIGIN || !await productionDeploymentAuthorized(process.env)) {
+        return NextResponse.json({ error: "invalid Stripe webhook" }, { status: 403, headers });
+      }
+      binding = readBusinessStripeBinding("live");
+    } else if (process.env.VERCEL === "1" && origin !== "https://helixskin.vercel.app") {
+      return NextResponse.json({ error: "invalid Stripe webhook" }, { status: 403, headers });
     }
+    if (binding && !binding.webhookSecret) throw new CheckoutConfigError("checkout_misconfigured", "Stripe destination is unavailable.");
     const rawBody = await readBody(request);
-    if (live) {
+    if (binding) {
       if (!signature || signature.length > 4096) throw new Error("Invalid Stripe signature.");
-      event = live.stripe.webhooks.constructEvent(rawBody, signature, live.webhookSecret);
+      event = binding.stripe.webhooks.constructEvent(rawBody, signature, binding.webhookSecret);
     } else {
       event = constructStripeWebhookEvent({ rawBody, signature });
       assertSandboxStripeObject(event);
@@ -58,13 +70,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const result = live ? await processLiveStripeEvent(event, live) : await processStripeWebhookEvent(event);
+    const result = binding ? await processBusinessStripeEvent(event, binding) : await processStripeWebhookEvent(event);
     return NextResponse.json({ ok: true, ...result }, { headers });
   } catch {
     return NextResponse.json({ error: "webhook processing failed" }, { status: 500, headers });
   }
 }
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
+  if (new URL(request.url).origin === BUSINESS_SANDBOX_WEBHOOK_ORIGIN) {
+    return NextResponse.json({ error: "method not allowed" }, { status: 405, headers: { ...headers, Allow: "POST" } });
+  }
   return NextResponse.json({ ok: true, endpoint: "stripe" }, { headers });
 }

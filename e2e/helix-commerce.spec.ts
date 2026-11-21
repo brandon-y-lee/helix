@@ -45,7 +45,7 @@ test("Account, Cart, Checkout, and privacy choices use the helix identity", asyn
   await page.goto("/checkout");
   await expect(page).toHaveTitle("Checkout | helix");
   await expect(
-    page.getByText(/no real charge, shipment, fulfillment/i),
+    page.getByText("Checkout is currently closed."),
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Your Privacy Choices" }).click();
@@ -62,7 +62,7 @@ test("Checkout cancellation returns to the intact Cart", async ({ page }) => {
   await expect(page.getByText("You returned from checkout. Your cart is still here.")).toBeVisible();
   await page.getByRole("button", { name: "Cancel pending checkout" }).click();
   await expect(page).toHaveURL(/\/cart\?checkout=cancelled$/);
-  await expect(page.getByRole("status").filter({ hasText: "Sandbox checkout was cancelled." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Checkout was cancelled." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Cancel pending checkout" })).toBeDisabled();
   await expect(
     page.locator("#content").getByText("Your cart is empty."),

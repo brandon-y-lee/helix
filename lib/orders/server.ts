@@ -64,7 +64,9 @@ import {
 } from "@/content/support/policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/stripe/server";
-import { hasLivePaymentConfiguration } from "@/lib/stripe/live-provider";
+import { configuredBusinessStripeReceiptScope, hasBusinessSandboxPaymentConfiguration, hasLivePaymentConfiguration } from "@/lib/stripe/live-provider";
+import { selectedBusinessCheckout } from "@/lib/checkout/storefront";
+import { createBusinessCheckout, BusinessCheckoutError } from "@/lib/orders/business-checkout";
 import {
   expireCheckoutPaymentProviderSession,
   retrieveCheckoutPaymentProviderBundle,
@@ -87,7 +89,7 @@ import {
 } from "@/lib/orders/payment-contracts";
 import { authorizeCheckoutReceipt, ensureGuestReceiptBinding } from "@/lib/orders/receipt-access";
 import type { OrderConfirmationDisplay } from "@/lib/orders/confirmation";
-import { readLiveOrderConfirmation, readLiveOrderHistory, type AccountOrderHistoryEntry } from "@/lib/orders/live-receipts";
+import { readBusinessOrderConfirmation, readBusinessOrderHistory, type AccountOrderHistoryEntry } from "@/lib/orders/live-receipts";
 import { readSimulatedTracking } from "@/lib/tracking/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { REFERRAL_COOKIE } from "@/lib/referrals/constants";
@@ -619,7 +621,9 @@ async function markAttemptFailed(
 export async function createStripeCheckoutSession(
   input: CreateCheckoutInput = {},
 ): Promise<CreateCheckoutResult> {
-  if (hasLivePaymentConfiguration(process.env)) {
+  const businessMode = selectedBusinessCheckout(process.env);
+  if (businessMode) return createBusinessCheckout(businessMode, input);
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
     throw new CheckoutError("live_admission_closed", "The store is not accepting new payments yet.");
   }
   const origin = resolveCheckoutOrigin({ requestOrigin: input.requestOrigin });
@@ -1220,7 +1224,9 @@ export async function getOrderConfirmationBySession(
   sessionId: string,
 ): Promise<OrderConfirmation | null> {
   if (!/^cs_[A-Za-z0-9_]{1,200}$/.test(sessionId)) return null;
-  if (sessionId.startsWith("cs_live_")) return readLiveOrderConfirmation(sessionId);
+  if (sessionId.startsWith("cs_live_") || hasBusinessSandboxPaymentConfiguration(process.env)) {
+    return readBusinessOrderConfirmation(sessionId, configuredBusinessStripeReceiptScope());
+  }
   // Inspect only the local binding before authorization; provider reads and the
   // private Order/line records are unavailable to a Session-ID bearer alone.
   const admin = createSupabaseAdminClient();
@@ -1301,20 +1307,25 @@ export async function getOrdersForCurrentUser(): Promise<AccountOrderHistoryEntr
   if (!user) return [];
   const admin = createSupabaseAdminClient();
   const limit = 10;
-  const [sandbox, live] = await Promise.all([admin
+  const scope = configuredBusinessStripeReceiptScope();
+  if (scope?.environment === "business_sandbox" || hasBusinessSandboxPaymentConfiguration(process.env)) {
+    return readBusinessOrderHistory(user.id, limit, scope);
+  }
+  const [sandbox, business] = await Promise.all([admin
     .from("orders")
     .select("id, order_number, status, total_cents, reward_points_earned, reward_points_redeemed, created_at")
     .eq("user_id", user.id)
     .eq("checkout_environment", CHECKOUT_ENVIRONMENT)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(limit), readLiveOrderHistory(user.id, limit)]);
+    .limit(limit), readBusinessOrderHistory(user.id, limit, scope)]);
   if (sandbox.error) throw new Error("[orders] Failed to load account orders.");
   const stored = (sandbox.data ?? []).map(row => ({ ...row, providerMode: "sandbox" as const }));
-  return [...stored, ...live].sort(compareAccountOrderHistory).slice(0, limit);
+  return [...stored, ...business].sort(compareAccountOrderHistory).slice(0, limit);
 }
 
-export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number; code?: "CHECKOUT_ORIGIN_CHANGED" } {
+export function checkoutErrorResponseMessage(error: unknown): { message: string; status: number; retryAfterSeconds?: number; code?: "CHECKOUT_ORIGIN_CHANGED" | "CHECKOUT_RECEIPT_PREPARED" } {
+  if (error instanceof BusinessCheckoutError) return { message: error.message, status: error.status, ...(error.code ? { code:error.code } : {}) };
   if (error instanceof CheckoutError && error.code === "live_admission_closed") {
     return { message: error.message, status: 503 };
   }
@@ -1328,7 +1339,8 @@ export function checkoutErrorResponseMessage(error: unknown): { message: string;
     return { message: error.message, status: 400 };
   }
   return {
-    message: "Sandbox checkout is temporarily unavailable. Try again in a moment.",
+    message: selectedBusinessCheckout(process.env) ? "Checkout is temporarily unavailable. Try again in a moment." :
+      "Sandbox checkout is temporarily unavailable. Try again in a moment.",
     status: 503,
   };
 }

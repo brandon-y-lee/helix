@@ -7,6 +7,7 @@ import { useCart, useCartMutations } from "@/components/cart/useCart";
 import type { CartState } from "@/lib/cart/types";
 
 const knownCart: CartState = {
+  checkout: { mode: "historical_sandbox", admissionOpen: true },
   lines: [
     {
       key: "line-1",
@@ -119,6 +120,24 @@ describe("cart client outage recovery", () => {
     expect(summary).toHaveTextContent(message);
     expect(summary).toHaveTextContent("Free standard US shipping applies at $50.00+ after discounts and before taxes.");
     expect(within(summary).queryByRole("heading", { name: "Summary" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["biotic-reset", "default", 2200, true],
+    ["other-product", "default", 2200, false],
+    ["biotic-reset", "different-size", 2200, false],
+    ["biotic-reset", "default", 4400, false],
+  ] as const)("allows checkout only for the available product, variant and price (%s, %s, %i)", async (productSlug, variantId, unitPriceCents, eligible) => {
+    vi.stubGlobal("fetch", vi.fn(() => response({
+      ...knownCart,
+      checkout: { mode: "live", admissionOpen: true, offer: { productSlug, variantId, unitPriceCents } },
+    })));
+    render(<CartProvider><CartView /></CartProvider>);
+    const pay = await screen.findByRole("button", { name: "Checkout $44.00" });
+    if (eligible) expect(pay).toBeEnabled();
+    else expect(pay).toBeDisabled();
+    expect(screen.queryByText(/test checkout/i)).not.toBeInTheDocument();
+    expect(Boolean(screen.queryByText(/unavailable for checkout at their listed price/i))).toBe(!eligible);
   });
 
   it("lets keyboard users reach drawer items independently from the order summary", async () => {

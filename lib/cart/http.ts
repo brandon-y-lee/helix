@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { CartError } from "@/lib/cart/types";
+import { readCheckoutStorefrontForOrigin } from "@/lib/checkout/storefront";
+import { CartError, type CartState } from "@/lib/cart/types";
 import {
   isSupabaseNetworkError,
   logSupabaseUnavailable,
@@ -8,6 +9,17 @@ import {
 const CART_SERVICE_UNAVAILABLE_CODE = "CART_SERVICE_UNAVAILABLE";
 const CART_SERVICE_UNAVAILABLE_MESSAGE =
   "Your cart is temporarily unavailable.";
+
+export async function cartResponse(request: Request, cart: CartState) {
+  // A completed cart mutation stays successful if checkout availability cannot be read.
+  const checkout = await readCheckoutStorefrontForOrigin(new URL(request.url).origin).catch(() => ({
+    mode: "closed" as const,
+    admissionOpen: false,
+  }));
+  return NextResponse.json({ ...cart, checkout }, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
+}
 
 function requestId(request: Request): string {
   return request.headers.get("x-request-id") ?? crypto.randomUUID();

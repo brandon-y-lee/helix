@@ -95,13 +95,20 @@ async function boundedBytes(response, max) {
 
 /** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
  *  expectedSettlementConfigured?: boolean, bypassToken?: string, vercelToken?: string, fetchImpl?: typeof fetch }} options */
-export async function verifyClosedLiveCheckout({
-  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, bypassToken = "",
+export function verifyClosedLiveCheckout(options) {
+  return verifyLiveCheckout({ ...options, expectedAdmissionOpen: false });
+}
+
+/** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
+ *  expectedAdmissionOpen: boolean, expectedSettlementConfigured?: boolean, bypassToken?: string,
+ *  vercelToken?: string, fetchImpl?: typeof fetch }} options */
+export async function verifyLiveCheckout({
+  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, expectedAdmissionOpen, bypassToken = "",
   vercelToken = process.env.HELIX_RELEASE_VERCEL_TOKEN, fetchImpl = fetch,
 }) {
   requireValue((origin === canonical || immutable.test(origin)) && /^dpl_[A-Za-z0-9]{1,96}$/.test(deploymentId) &&
     /^[a-f0-9]{40}$/.test(sha) && typeof statusToken === "string" && allowedToken.test(statusToken) &&
-    (expectedSettlementConfigured === undefined || typeof expectedSettlementConfigured === "boolean"),
+    typeof expectedAdmissionOpen === "boolean" && (expectedSettlementConfigured === undefined || typeof expectedSettlementConfigured === "boolean"),
     "untrusted Checkout diagnostic target");
   let destination = canonical;
   if (origin !== canonical) {
@@ -125,12 +132,14 @@ export async function verifyClosedLiveCheckout({
     const checkout = status?.checkout;
     requireValue(typeof checkout?.chargesEnabled === "boolean" && typeof checkout.payoutsEnabled === "boolean" &&
       typeof checkout.settlementConfigured === "boolean", "invalid Checkout readiness observation");
+    requireValue(!expectedAdmissionOpen || (checkout.chargesEnabled && checkout.payoutsEnabled && checkout.settlementConfigured),
+      "enabled Checkout requires a qualified live merchant and signer");
     const expected = { version: 2, deploymentId, sha, checkout: {
       providerMode: "live", merchantVerified: true,
       chargesEnabled: checkout.chargesEnabled, payoutsEnabled: checkout.payoutsEnabled,
-      settlementConfigured: expectedSettlementConfigured ?? checkout.settlementConfigured, admissionOpen: false,
+      settlementConfigured: expectedSettlementConfigured ?? checkout.settlementConfigured, admissionOpen: expectedAdmissionOpen,
     } };
-    requireValue(isDeepStrictEqual(status, expected), "Checkout diagnostic differs from the closed live contract");
+    requireValue(isDeepStrictEqual(status, expected), "Checkout diagnostic differs from the expected live contract");
     return expected;
   } finally { if (!response.bodyUsed) await response.body?.cancel(); }
 }

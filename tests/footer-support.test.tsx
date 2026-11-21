@@ -131,8 +131,7 @@ describe("global footer", () => {
     const checkout = within(footer).getByRole("region", {
       name: "Checkout methods",
     });
-    expect(checkout).toHaveTextContent("Stripe sandbox only — no live payments");
-    expect(within(checkout).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(checkout).getByRole("link", { name: "Payment options and availability" })).toHaveAttribute("href", "/checkout");
     expect(within(checkout).queryByRole("button")).not.toBeInTheDocument();
     expect(within(footer).getByText("EN · USD display only")).toBeInTheDocument();
 
@@ -317,7 +316,7 @@ describe("legal and support content", () => {
     const orderSummary = screen.getByText("Can I place an order right now?");
     const orderDetails = orderSummary.closest("details");
     expect(orderDetails).toHaveAttribute("open");
-    expect(screen.getByText(/Stripe-hosted Checkout in sandbox mode/i)).toBeInTheDocument();
+    expect(within(orderDetails as HTMLElement).getByRole("link", { name: "Check payment availability" })).toHaveAttribute("href", "/checkout");
     await user.click(orderSummary);
     expect(orderDetails).not.toHaveAttribute("open");
 
@@ -351,7 +350,7 @@ describe("legal and support content", () => {
     expect(faqText).not.toMatch(
       /development storefront|development platform|test store|placeholder/i,
     );
-    expect(faqText).toMatch(/When development email is enabled, demo order confirmations can be sent to approved test recipients only/i);
+    expect(faqText).toMatch(/A checkout marked as a test takes no payment and creates no shipment/i);
   });
 
   it("renders preparation guidance while unavailable intake stays closed", async () => {

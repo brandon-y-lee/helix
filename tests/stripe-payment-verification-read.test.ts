@@ -339,6 +339,25 @@ describe("live Checkout evidence retrieval", () => {
     expect(list).toHaveBeenCalledTimes(1);
   });
 
+  it("binds a business sandbox test Session to its own merchant without invoking the personal sandbox reader", async () => {
+    const { binding: live, ownAccount, source, retrieve, list } = fixture();
+    const binding = { ...live, environment: "business_sandbox" as const, accountId: "acct_BusinessDev" };
+    ownAccount.mockResolvedValue({ ...account(binding.accountId), charges_enabled: true, payouts_enabled: true });
+    const session = { ...source, id: "cs_test_same", livemode: false };
+    retrieve.mockResolvedValue(session);
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: source.id, binding })).rejects.toMatchObject({ code: "invalid_session" });
+    expect(ownAccount).not.toHaveBeenCalled();
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: session.id, binding })).resolves.toMatchObject({
+      environment: "business_sandbox", accountId: binding.accountId, session, lineItemsComplete: true,
+    });
+    retrieve.mockResolvedValue({ ...session, livemode: true });
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: session.id, binding })).rejects.toMatchObject({ code: "invalid_session" });
+    expect(list).toHaveBeenCalledTimes(1);
+    ownAccount.mockResolvedValue(account());
+    await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: session.id, binding })).rejects.toThrow("Development payment merchant could not be verified.");
+    expect(retrieve).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects a test Session reference before checking the live account and rejects a false live flag before line reads", async () => {
     const { binding, source, ownAccount, retrieve, list } = fixture();
     await expect(retrieveCheckoutPaymentProviderBundle({ sessionId: "cs_test_accepted", binding })).rejects.toMatchObject({ code: "invalid_live_session" });

@@ -2,7 +2,12 @@ import "server-only";
 import { getCurrentUser } from "@/lib/auth/session";
 import type { OrderConfirmationDisplay, OrderConfirmationState } from "@/lib/orders/confirmation";
 import { readCheckoutReceiptTokenHash } from "@/lib/orders/receipt-access";
-import { readLiveStripeReceiptAccountId } from "@/lib/stripe/live-provider";
+import { readBusinessReceiptTokenHash } from "./business-receipt-cookie";
+import { matchesBusinessCheckoutSessionId, type CheckoutEnvironment } from "@/lib/checkout/payment-verification";
+import { SANDBOX_CHECKOUT_NOTICE } from "@/lib/checkout/config";
+import type { BusinessStripeScope } from "@/lib/stripe/live-provider";
+import { readBusinessOrderShipments } from "@/lib/shipments/server";
+import { isUuid, type ManualShipments } from "@/lib/shipments/contract";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type AccountOrderHistoryEntry = {
@@ -13,7 +18,7 @@ export type AccountOrderHistoryEntry = {
   reward_points_earned: number;
   reward_points_redeemed: number;
   created_at: string;
-  providerMode: "sandbox" | "live";
+  providerMode: CheckoutEnvironment;
 };
 
 const receiptStates = {
@@ -22,7 +27,7 @@ const receiptStates = {
 } satisfies Record<string, OrderConfirmationState>;
 
 function invalidProjection(): never {
-  throw new Error("[orders] Invalid stored live Order projection.");
+  throw new Error("[orders] Invalid stored Order projection.");
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -38,7 +43,7 @@ function cents(value: unknown): number {
 function summary(row: Record<string, unknown>) {
   const { orderId, orderNumber, createdAt, status } = row;
   const total = cents(row.totalCents), refunded = cents(row.refundedCents);
-  if (typeof orderId !== "string" || typeof orderNumber !== "string" || !orderNumber ||
+  if (!isUuid(orderId) || typeof orderNumber !== "string" || !orderNumber ||
       typeof createdAt !== "string" || !Number.isFinite(Date.parse(createdAt)) ||
       typeof status !== "string" || !Object.hasOwn(receiptStates, status) || row.currency !== "USD" || refunded > total) {
     return invalidProjection();
@@ -47,22 +52,42 @@ function summary(row: Record<string, unknown>) {
   return { orderId, orderNumber, createdAt, status: paymentStatus as keyof typeof receiptStates, total, refunded };
 }
 
-export async function readLiveOrderConfirmation(sessionId: string): Promise<OrderConfirmationDisplay | null> {
-  if (!/^cs_live_[A-Za-z0-9_]{1,200}$/.test(sessionId) || !process.env.HELIX_STRIPE_LIVE_ACCOUNT_ID) return null;
-  const account = readLiveStripeReceiptAccountId();
-  const [user, receiptHash] = await Promise.all([getCurrentUser(), readCheckoutReceiptTokenHash()]);
-  if (!user && !receiptHash) return null;
-  const { data, error } = await createSupabaseAdminClient().rpc("read_live_checkout_receipt", {
-    p_account_id: account, p_order_id: null, p_session_id: sessionId,
-    p_user_id: user?.id ?? null, p_receipt_token_hash: receiptHash,
-  });
-  if (error) throw new Error("[orders] Failed to read live receipt.");
+export async function readBusinessOrderConfirmation(sessionId: string, scope: BusinessStripeScope | null): Promise<OrderConfirmationDisplay | null> {
+  if (!scope || !matchesBusinessCheckoutSessionId(sessionId, scope.environment)) return null;
+  const [user, hash] = await Promise.all([getCurrentUser(), readBusinessReceiptTokenHash(sessionId)]);
+  const oldHash = scope.environment === "live" && !hash ? await readCheckoutReceiptTokenHash() : null;
+  if (!user && !hash && !oldHash) return null;
+  const admin = createSupabaseAdminClient();
+  const access = { p_environment: scope.environment, p_account_id: scope.accountId, p_session_id: sessionId,
+    p_user_id: user?.id ?? null, p_receipt_token_hash: hash };
+  const receipt = user || hash ? await admin.rpc("read_business_checkout_receipt", { ...access, p_order_id: null }) : null;
+  if (receipt?.error) throw new Error("[orders] Failed to read the Order receipt.");
+  let data: unknown = receipt?.data ?? null;
+  let archived = false;
+  if (data === null && oldHash) {
+    const prior = await admin.rpc("read_archived_live_checkout_receipt", { p_account_id: scope.accountId,
+      p_session_id: sessionId, p_receipt_token_hash: oldHash });
+    if (prior.error) throw new Error("[orders] Failed to read the archived Order receipt.");
+    data = prior.data;
+    archived = true;
+  }
   if (data === null) return null;
   const row = record(data);
   const order = summary(row);
+  let manualShipments: ManualShipments | null = null;
+  let manualShipmentsUnavailable = false;
+  if (!archived && ["paid", "partially_refunded", "refunded"].includes(order.status)) {
+    try { manualShipments = await readBusinessOrderShipments(scope, order.orderId, sessionId, user?.id ?? null, hash); }
+    catch { manualShipmentsUnavailable = true; }
+    const authorized = await admin.rpc("authorize_business_checkout_receipt", { ...access, p_order_id: order.orderId });
+    if (authorized.error) throw new Error("[orders] Failed to verify the receipt owner.");
+    if (authorized.data !== true) return null;
+  }
   if (!Array.isArray(row.items)) return invalidProjection();
   return {
-    providerMode: "live", state: receiptStates[order.status], notice: "", retryAfterSeconds: 5, shipping: null,
+    providerMode: scope.environment, state: receiptStates[order.status],
+    notice: scope.environment === "business_sandbox" ? SANDBOX_CHECKOUT_NOTICE : "", retryAfterSeconds: 5, shipping: null,
+    ...(manualShipments ? { manualShipments } : {}), ...(manualShipmentsUnavailable ? { manualShipmentsUnavailable: true } : {}),
     order: {
       order_number: order.orderNumber, status: order.status, reward_points_earned: 0, reward_points_redeemed: 0,
       merchandise_subtotal_cents: cents(row.merchandiseSubtotalCents), discount_cents: cents(row.discountCents),
@@ -78,17 +103,16 @@ export async function readLiveOrderConfirmation(sessionId: string): Promise<Orde
   };
 }
 
-export async function readLiveOrderHistory(verifiedUserId: string, limit: number): Promise<AccountOrderHistoryEntry[]> {
-  if (!process.env.HELIX_STRIPE_LIVE_ACCOUNT_ID) return [];
-  const account = readLiveStripeReceiptAccountId();
-  const { data, error } = await createSupabaseAdminClient().rpc("read_live_checkout_order_history", {
-    p_account_id: account, p_user_id: verifiedUserId, p_limit: limit,
+export async function readBusinessOrderHistory(verifiedUserId: string, limit: number, scope: BusinessStripeScope | null): Promise<AccountOrderHistoryEntry[]> {
+  if (!scope) return [];
+  const { data, error } = await createSupabaseAdminClient().rpc("read_business_checkout_order_history", {
+    p_environment: scope.environment, p_account_id: scope.accountId, p_user_id: verifiedUserId, p_limit: limit,
     p_before_created_at: null, p_before_id: null,
   });
-  if (error || !Array.isArray(data)) throw new Error("[orders] Failed to load live account orders.");
+  if (error || !Array.isArray(data)) throw new Error("[orders] Failed to load account orders.");
   return data.map((value: unknown) => {
     const order = summary(record(value));
     return { id: order.orderId, order_number: order.orderNumber, status: order.status, total_cents: order.total,
-      created_at: order.createdAt, reward_points_earned: 0, reward_points_redeemed: 0, providerMode: "live" };
+      created_at: order.createdAt, reward_points_earned: 0, reward_points_redeemed: 0, providerMode: scope.environment };
   });
 }

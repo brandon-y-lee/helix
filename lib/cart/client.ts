@@ -153,8 +153,8 @@ function isCheckoutSession(value: unknown): value is CheckoutSession {
   );
 }
 
-export function createCheckoutSession(rewardTierId: string | null, offerId?: string) {
-  return requestJson(
+export async function createCheckoutSession(rewardTierId: string | null, offerId?: string) {
+  const request = () => requestJson(
     "/api/checkout/sessions",
     {
       method: "POST",
@@ -162,8 +162,14 @@ export function createCheckoutSession(rewardTierId: string | null, offerId?: str
       body: JSON.stringify({ rewardTierId, ...(offerId ? { offerId } : {}) }),
     },
     isCheckoutSession,
-    "Sandbox checkout is temporarily unavailable.",
+    "Checkout is temporarily unavailable.",
   );
+  try {
+    return await request();
+  } catch (error) {
+    if (error instanceof CartApiError && error.outcome === "confirmed" && error.code === "CHECKOUT_RECEIPT_PREPARED") return request();
+    throw error;
+  }
 }
 
 export function cartQueryOptions() {

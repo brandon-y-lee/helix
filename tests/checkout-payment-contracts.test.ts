@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const storage = vi.hoisted(() => ({ rpc: vi.fn(), maybeSingle: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: storage.rpc }) }));
 import {
-  bindCheckoutPaymentSession, CheckoutPaymentStorageError, finalizeVerifiedCheckoutPayment,
+  isStoredCheckoutPaymentContract, bindCheckoutPaymentSession, CheckoutPaymentStorageError, finalizeVerifiedCheckoutPayment,
   getCheckoutPaymentException, isLegacyCheckoutOrder, readVerifiedCheckoutDelivery, loadCheckoutPaymentContract, prepareCheckoutPaymentContract,
   recordCheckoutPaymentException, resolveCheckoutPaymentExceptions, type CheckoutContractTerms,
 } from "@/lib/orders/payment-contracts";
@@ -99,5 +99,21 @@ describe("immutable checkout payment storage", () => {
     storage.rpc.mockResolvedValue({ data: true, error: null });
     await resolveCheckoutPaymentExceptions({ orderId: "order-a", sessionId: "cs_test_a", code: "full_refund_reconciliation_failed" });
     expect(storage.rpc).toHaveBeenCalledWith("resolve_checkout_payment_exceptions", { p_order_id: "order-a", p_session_id: "cs_test_a", p_code: "full_refund_reconciliation_failed" });
+  });
+});
+
+describe("business merchant contract parsing", () => {
+  it("requires original business scope, nonce and complete immutable terms for a child test-mode Contract", () => {
+    const scope = { environment: "business_sandbox" as const, accountId: "acct_BusinessDev" };
+    const contract = { ...accepted, ...scope, sessionId: "cs_test_owned", offerId: null, taxBehavior: "exclusive",
+      bindingNonce: "94869861-e485-45c1-957a-83c3afddf118", lines: [{ ...accepted.lines[0], lineId: "line-owned" }] };
+    expect(isStoredCheckoutPaymentContract(contract, false, scope)).toBe(true);
+    expect(isStoredCheckoutPaymentContract({ ...contract, sessionId: null }, true, scope)).toBe(true);
+    expect(isStoredCheckoutPaymentContract(contract)).toBe(false);
+    for (const change of [{ accountId: "acct_Other" }, { sessionId: "cs_live_owned" },
+      { bindingNonce: undefined }, { couponId: "coupon_dev" }, { offerId: "unexpected" },
+      { taxBehavior: "inclusive" }, { lines: accepted.lines }, { version: "checkout_v1", legacyEligible: true }]) {
+      expect(isStoredCheckoutPaymentContract({ ...contract, ...change }, false, scope)).toBe(false);
+    }
   });
 });

@@ -64,7 +64,7 @@ export function CheckoutCancellationCleanup({ active, recoverOriginChange = fals
       </button>
       <p role="status" aria-live="polite">
         {state === "pending" && "Checking pending checkout…"}
-        {state === "cancelled" && "Sandbox checkout was cancelled."}
+        {state === "cancelled" && "Checkout was cancelled."}
         {state === "paid" && "This checkout has already completed."}
         {state === "processing" && (recoverOriginChange
           ? "This checkout still needs verification. Try again shortly; contact support if it remains blocked."

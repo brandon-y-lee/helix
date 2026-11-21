@@ -104,32 +104,34 @@ export const faqCategories: FAQCategory[] = [
   {
     id: "orders",
     label: "Orders",
-    summary: "Sandbox checkout, order confirmation, and account order history.",
+    summary: "Placing an order, confirming payment, and finding your order history.",
     items: [
       {
         id: "checkout-availability",
         question: "Can I place an order right now?",
         answer:
-          "You can complete Stripe-hosted Checkout in sandbox mode only. It can collect sandbox checkout details and create sandbox order records, but it does not create a real charge, shipment, fulfillment, or Trustpilot invitation. When development email is enabled, demo order confirmations can be sent to approved test recipients only.",
+          "The checkout page shows whether the store is taking orders. When an item is available for purchase, you can pay from your cart. A checkout marked as a test takes no payment and creates no shipment.",
+        links: [{ label: "Check payment availability", href: "/checkout" }],
       },
       {
         id: "cart-purpose",
         question: "What is the cart for?",
         answer:
-          "The cart lets you review products, variants, quantities, subtotals, estimated points, and eligible rewards before sandbox Checkout. Prices, discounts, availability, rewards, and shipping thresholds are revalidated on the server.",
+          "Use your cart to review items, change quantities, and see your subtotal. The store checks price and availability again when you start checkout.",
         links: [{ label: "View cart", href: "/cart" }],
       },
       {
         id: "order-history",
         question: "Where is my order history?",
         answer:
-          "Authenticated sandbox orders appear in the Account area. Guest sandbox orders can be viewed only through the immediate verified confirmation flow and do not earn rewards.",
+          "If you ordered while signed in, open your Account to see your orders. If you checked out as a guest, use the confirmation page in the browser you used to pay.",
       },
       {
         id: "edit-order",
         question: "Can I edit or cancel an order?",
         answer:
-          "A canceled or expired Stripe Checkout Session preserves the cart and releases reserved points. Sandbox orders do not create fulfillment, so shipment edits and tracking are not available.",
+          "You can return to your cart and cancel a pending checkout. If you have already paid, contact Customer Care with your order details.",
+        links: [{ label: "Customer Care", href: "/contact" }],
       },
     ],
   },
@@ -154,7 +156,7 @@ export const faqCategories: FAQCategory[] = [
         id: "shipping-timing",
         question: "When will my order ship and tracking become available?",
         answer:
-          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Tracking information becomes available within 48 hours after a shipment is dispatched. Once tracking is available, Helix will email a link to track the package. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
+          "Most orders ship 5–7 business days after being placed. Processing time may vary depending on the items in your order and their source location. Look for tracking information on your order after dispatch. For orders fulfilled by international merchants, tracking may not update until the package reaches the United States. Tracking may occasionally be delayed or replaced.",
       },
       {
         id: "shipping-address-changes",
@@ -226,19 +228,19 @@ export const faqCategories: FAQCategory[] = [
         id: "promo-codes",
         question: "Can I stack Redemption Tiers or promo codes?",
         answer:
-          "No. Checkout applies at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
+          "Real purchases currently earn no points and accept no rewards or referral discounts. Eligible test checkouts apply at most one Redemption Tier or one Referral Offer. Stripe promotion-code entry is disabled so Points, Referral Offers, and free-shipping calculations stay server-authoritative.",
       },
       {
         id: "referrals",
         question: "How do referrals work?",
         answer:
-          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying Order of $50.00 or more. Self-referrals and stacking are blocked.",
+          "An email-confirmed Account Holder can share a Referral Code. A referred Customer must sign in with a confirmed account and can use a 15% Referral Offer on a first qualifying rewards test order of $50.00 or more. Self-referrals and stacking are blocked.",
       },
       {
         id: "private-feedback-reward",
         question: "Does private feedback earn Points?",
         answer:
-          "Eligible Paid Orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
+          "Eligible rewards test orders can unlock one private first-party feedback request with a 300-Point Award. The Points Award is the same for positive, neutral, or negative sentiment. This is not a Trustpilot review and is not published publicly.",
       },
       {
         id: "trustpilot-rewards",

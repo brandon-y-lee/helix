@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { STRIPE_API_VERSION } from "@/lib/checkout/config";
-import { hasLivePaymentConfiguration, observeClosedLivePaymentProvider, readLiveStripeBinding, readLiveStripeReceiptAccountId, verifyLiveStripeAccount } from "@/lib/stripe/live-provider";
+import { hasBusinessSandboxPaymentConfiguration, readBusinessStripeBinding, readBusinessStripeReceiptScope, verifyBusinessStripeAccount, hasLivePaymentConfiguration, observeClosedLivePaymentProvider, readLiveStripeBinding, readLiveStripeReceiptAccountId, verifyLiveStripeAccount } from "@/lib/stripe/live-provider";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 
 const { client, retrieve } = vi.hoisted(() => ({
@@ -152,5 +152,61 @@ describe("live provider binding before signature validation", () => {
     expect(() => readLiveStripeReceiptAccountId({ ...env, NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("development") })).toThrow();
     expect(client).not.toHaveBeenCalled();
     expect(retrieve).not.toHaveBeenCalled();
+  });
+});
+
+function development(): NodeJS.ProcessEnv {
+  return {
+    ...production(),
+    VERCEL_ENV: "preview",
+    VERCEL_GIT_COMMIT_REF: "codex/558-verified-dev-preview",
+    NEXT_PUBLIC_SITE_URL: "https://helixskin.vercel.app",
+    NEXT_PUBLIC_HELIX_SUPABASE_TARGET: "development",
+    NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("development"),
+    HELIX_STRIPE_LIVE_ACCOUNT_ID: undefined,
+    HELIX_STRIPE_LIVE_SECRET_KEY: undefined,
+    HELIX_STRIPE_LIVE_WEBHOOK_SECRET: undefined,
+    CHECKOUT_MODE: "business_sandbox",
+    HELIX_STRIPE_DEV_ACCOUNT_ID: "acct_DevMerchant",
+    HELIX_STRIPE_DEV_SECRET_KEY: "rk_test_DevMerchant",
+    HELIX_STRIPE_DEV_WEBHOOK_SECRET: "whsec_DevMerchant",
+  };
+}
+
+describe("business Stripe sandbox qualification", () => {
+  it("selects the independently configured child test account and authenticates only on demand", async () => {
+    const binding = readBusinessStripeBinding("business_sandbox", development());
+    expect(binding).toMatchObject({ environment: "business_sandbox", accountId: "acct_DevMerchant" });
+    expect(retrieve).not.toHaveBeenCalled();
+    await expect(verifyBusinessStripeAccount(binding)).rejects.toThrow();
+    retrieve.mockResolvedValue({ object: "account", id: "acct_DevMerchant", charges_enabled: true, payouts_enabled: false });
+    await expect(verifyBusinessStripeAccount(binding)).resolves.toEqual({ accountId: "acct_DevMerchant", chargesEnabled: true, payoutsEnabled: false });
+  });
+
+  it("preserves the scoped receipt reader when checkout is closed after key rotation", () => {
+    const env = { ...development(), CHECKOUT_MODE: "disabled", HELIX_STRIPE_DEV_SECRET_KEY: undefined,
+      HELIX_STRIPE_DEV_WEBHOOK_SECRET: undefined };
+    expect(readBusinessStripeReceiptScope("business_sandbox", env)).toEqual({ environment: "business_sandbox", accountId: "acct_DevMerchant" });
+    expect(client).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { VERCEL_GIT_COMMIT_REF: "dev" }, { VERCEL_GIT_COMMIT_REF: "feature" }, { VERCEL_ENV: "development" },
+    { VERCEL_PROJECT_ID: "prj_other" }, { NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production") },
+    { NEXT_PUBLIC_HELIX_SUPABASE_TARGET: "production" }, { HELIX_STRIPE_DEV_ACCOUNT_ID: "acct_1Tm9WRFEzyaKzdmq" },
+    { HELIX_STRIPE_DEV_SECRET_KEY: "rk_live_other" }, { HELIX_STRIPE_DEV_SECRET_KEY: "sk_test_" },
+    { HELIX_STRIPE_DEV_SECRET_KEY: "rk_test_DevMerchant", STRIPE_SECRET_KEY: "rk_test_DevMerchant" },
+    { STRIPE_WEBHOOK_SECRET: "whsec_DevMerchant" }, { HELIX_STRIPE_LIVE_WEBHOOK_SECRET: "whsec_DevMerchant" },
+    { CHECKOUT_MODE: "sandbox" },
+  ])("fails before provider I/O for a crossed target or credential %j", (change) => {
+    expect(() => readBusinessStripeBinding("business_sandbox", { ...development(), ...change })).toThrow();
+    expect(client).not.toHaveBeenCalled();
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("recognizes partial enrollment without accepting historical settings", () => {
+    expect(hasBusinessSandboxPaymentConfiguration({ HELIX_STRIPE_DEV_ACCOUNT_ID: "acct_partial" })).toBe(true);
+    expect(hasBusinessSandboxPaymentConfiguration({ CHECKOUT_MODE: "business_sandbox" })).toBe(true);
+    expect(hasBusinessSandboxPaymentConfiguration({ CHECKOUT_MODE: "sandbox", STRIPE_SECRET_KEY: "sk_test_historical" })).toBe(false);
   });
 });

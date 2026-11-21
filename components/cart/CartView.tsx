@@ -22,6 +22,7 @@ export function CartView({
     lines,
     subtotal,
     count,
+    checkout: storefront,
     dataUpdatedAt,
     loading,
     hasLoadedCart,
@@ -45,8 +46,13 @@ export function CartView({
   const isDrawer = mode === "drawer";
   const subtotalThresholdReached = qualifiesForFreeStandardShipping(subtotal);
   const freeShippingRemaining = remainingForFreeStandardShipping(subtotal);
-  const checkoutDisabled = loading || isMutating || lines.some((line) => !line.available || line.quantity <= 0);
-  const checkout = <CheckoutPanel disabled={checkoutDisabled} subtotal={subtotal} cartUpdatedAt={dataUpdatedAt} />;
+  const isLimitedOffer = storefront?.mode === "live" || storefront?.mode === "business_sandbox";
+  const offer = storefront?.offer;
+  const unavailableOffer = isLimitedOffer && storefront.admissionOpen && (!offer || lines.length !== 1 || lines.some(
+    (line) => line.slug !== offer.productSlug || line.variantId !== offer.variantId || line.price !== offer.unitPriceCents,
+  ));
+  const checkoutDisabled = loading || isMutating || unavailableOffer || lines.some((line) => !line.available || line.quantity <= 0);
+  const checkout = <CheckoutPanel storefront={storefront} disabled={checkoutDisabled} subtotal={subtotal} cartUpdatedAt={dataUpdatedAt} />;
 
   async function retryCart() {
     resetErrors();
@@ -236,7 +242,7 @@ export function CartView({
         className={isDrawer ? "cart-summary cart-summary--drawer" : "cart-summary"}
         aria-label="Order summary"
       >
-        <div className="cart-shipping">
+        {storefront?.mode === "historical_sandbox" && <div className="cart-shipping">
           <progress
             className="cart-shipping__progress"
             aria-label="Merchandise subtotal before discounts"
@@ -250,7 +256,9 @@ export function CartView({
               : <>Add <strong>{formatPrice(freeShippingRemaining)}</strong> to reach {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)} before discounts.</>}
             {" "}Free standard US shipping applies at {formatPrice(FREE_STANDARD_SHIPPING_THRESHOLD_CENTS)}+ after discounts and before taxes.
           </p>
-        </div>
+        </div>}
+        {isLimitedOffer && storefront.admissionOpen && <p>Shipping and any tax are shown before payment.</p>}
+        {unavailableOffer && <p role="status">Some items in your cart are unavailable for checkout at their listed price.</p>}
         <div className="summary-row">
           <span>Subtotal</span>
           <span>{formatPrice(subtotal)}</span>
