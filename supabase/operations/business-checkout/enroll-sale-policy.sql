@@ -20,6 +20,7 @@ DECLARE
   desired private.live_checkout_sale_policy;
   existing private.live_checkout_sale_policy;
   row_version text;
+  policy_snapshot record;
 BEGIN
   IF current_user<>'postgres' OR session_user<>current_user THEN
     RAISE EXCEPTION 'Sale policy requires the directly authenticated database owner';
@@ -62,9 +63,10 @@ BEGIN
 
   -- Serialize initial enrollment and concurrent owners. Admission also locks the
   -- one policy row, so an accepted send has a clear order relative to a pause.
-  LOCK TABLE private.live_checkout_sale_policy IN EXCLUSIVE MODE;
-  SELECT * INTO existing FROM private.live_checkout_sale_policy WHERE singleton;
-  SELECT xmin::text INTO row_version FROM private.live_checkout_sale_policy WHERE singleton;
+  IF action_<>'inspect' THEN LOCK TABLE private.live_checkout_sale_policy IN EXCLUSIVE MODE; END IF;
+  SELECT p AS configuration,p.xmin::text AS version INTO policy_snapshot
+    FROM private.live_checkout_sale_policy p WHERE p.singleton;
+  IF FOUND THEN existing:=policy_snapshot.configuration; row_version:=policy_snapshot.version; END IF;
   IF existing.singleton THEN
     IF (existing.project_ref,existing.provider_environment,existing.account_id,existing.variant_id,existing.sku)
       IS DISTINCT FROM (desired.project_ref,desired.provider_environment,desired.account_id,desired.variant_id,desired.sku)
