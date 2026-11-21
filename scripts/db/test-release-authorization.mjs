@@ -38,6 +38,71 @@ const retry = (previous, candidate, requestedAt) => 'select helix_release_contro
 const deny = (run, reason) => assert.throws(run, error => String(error.stderr).includes(reason));
 const concurrently = async sql => (await promisify(execFile)('docker', [...psql('helix_release_controller'), '-c', sql], { env, timeout: 20_000 })).stdout.trim();
 
+function verifyManagedOwnerEnrollment(install) {
+  // The preceding tests used a controller created by the bootstrap superuser.
+  // Keep that registry and its grants attached to their original role OID.
+  owner('alter role helix_release_controller rename to prior_fixture_controller;');
+  owner('create role registry_owner login createrole;');
+  owner('create database managed_registry owner registry_owner;');
+  const connect = (role, sql) => docker(psql(role).with(-1, 'managed_registry'), sql);
+  const admin = sql => connect('postgres', sql);
+  const installAsOwner = sql => connect('registry_owner', sql);
+  installAsOwner('create schema private; create schema supabase_migrations; create role helix_release_controller login;');
+  installAsOwner(readFileSync(marker, 'utf8'));
+  installAsOwner("insert into private.helix_environment values(true,'production','erasogmsqpgiirovubjh');");
+  assert.equal(installAsOwner(`select session_user,current_user,r.rolsuper,r.rolcreaterole,r.oid<>10,
+    (select relowner=r.oid from pg_class where relname='helix_environment' and relnamespace='private'::regnamespace)
+    from pg_roles r where r.rolname=current_user;`), 'registry_owner|registry_owner|f|t|t|t');
+  const membership = `select roleid::regrole,member::regrole,grantor::regrole,grantor=10,
+    admin_option,inherit_option,set_option from pg_auth_members
+    where 'helix_release_controller'::regrole in (roleid,member);`;
+  const stock = 'helix_release_controller|registry_owner|postgres|t|t|f|f';
+  assert.equal(admin(membership), stock);
+  const denyEnrollment = () => deny(() => installAsOwner(install), 'independent release login');
+  admin('alter role registry_owner nocreaterole;');
+  denyEnrollment();
+  admin('alter role registry_owner createrole;');
+  const rejectGrant = (grant, undo) => {
+    admin(grant);
+    denyEnrollment();
+    admin(undo);
+  };
+  rejectGrant('grant helix_release_controller to authenticated with inherit false, set false;',
+    'revoke helix_release_controller from authenticated;');
+  rejectGrant('grant authenticated to helix_release_controller with inherit false, set false;',
+    'revoke authenticated from helix_release_controller;');
+  const toOwner = 'grant helix_release_controller to registry_owner with ';
+  for (const [altered, original] of [['admin false', 'admin true'], ['inherit true', 'inherit false'], ['set true', 'set false']]) {
+    rejectGrant(toOwner + altered, toOwner + original);
+    assert.equal(admin(membership), stock);
+  }
+  // A genuine foreign-grantor row with the same options also requires the
+  // grantor's own ADMIN membership. Verify both the row and refusal of the graph.
+  admin('grant helix_release_controller to unexpected_reader with admin true, inherit false, set false;');
+  admin('set role unexpected_reader;' + toOwner + 'admin true, inherit false, set false;');
+  assert.ok(admin(membership).split('\n').includes('helix_release_controller|registry_owner|unexpected_reader|f|t|f|f'));
+  denyEnrollment();
+  admin('set role unexpected_reader; revoke helix_release_controller from registry_owner;');
+  admin('revoke helix_release_controller from unexpected_reader;');
+  assert.equal(admin(membership), stock);
+  for (const target of ['database managed_registry', 'schema public', 'schema private', 'schema supabase_migrations']) {
+    rejectGrant('grant create on ' + target + ' to helix_release_controller;',
+      'revoke create on ' + target + ' from helix_release_controller;');
+  }
+  installAsOwner('create table private.restricted_fixture (id int);');
+  for (const right of ['truncate', 'insert (id)']) {
+    rejectGrant('grant ' + right + ' on private.restricted_fixture to helix_release_controller;',
+      'revoke ' + right + ' on private.restricted_fixture from helix_release_controller;');
+  }
+  deny(() => admin('set role registry_owner;' + install), 'independent owner');
+  assert.equal(admin("select to_regnamespace('helix_release_control') is null;"), 't');
+  installAsOwner(install);
+  assert.equal(installAsOwner('select count(*) from helix_release_control.transitions;'), '0');
+  assert.equal(connect('anon', 'select public.read_helix_release_authorization(' + args([project, ...A]) + ');'), 'f');
+  assert.equal(connect('helix_release_controller', 'select * from helix_release_control.read_environment();'),
+    'production|erasogmsqpgiirovubjh');
+}
+
 try {
   for (let i = 0; ; i++) {
     try {
@@ -52,6 +117,10 @@ try {
   const install = readFileSync(enrollment, 'utf8');
   deny(() => owner(install), 'production environment marker');
   owner("insert into private.helix_environment values(true,'production','erasogmsqpgiirovubjh');");
+  // A superuser creator receives no automatic membership.
+  owner('grant helix_release_controller to postgres with admin true, inherit false, set false;');
+  deny(() => owner(install), 'independent release login');
+  owner('revoke helix_release_controller from postgres;');
   owner('grant helix_release_controller to service_role;');
   deny(() => owner(install), 'independent release login');
   owner('revoke helix_release_controller from service_role;');
@@ -216,6 +285,7 @@ try {
   assert.equal(writer(transition('failed_promotion', B, failedCandidate)), 't');
   assert.equal(read(failedCandidate), 'f'); assert.equal(read(B), 't');
   assert.equal(writer(transition('prepare', B, build(6))), 't');
+  verifyManagedOwnerEnrollment(install);
   console.log('PASS PostgreSQL 17 release authorization and observations: exact grants, capability states, concurrency, staged promotion and old-build rollback on expanded schema.');
 } finally {
   assert.equal(docker(['inspect', '--format', '{{index .Config.Labels "helix.release-auth"}}', container]), nonce);

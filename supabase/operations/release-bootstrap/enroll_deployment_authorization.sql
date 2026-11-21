@@ -6,6 +6,7 @@ set local search_path = pg_catalog, pg_temp;
 do $enrollment$
 declare
   writer oid;
+  bootstrap_superuser constant oid := 10; -- PostgreSQL BOOTSTRAP_SUPERUSERID
 begin
   if current_user <> session_user
      or (select relowner from pg_class where oid='private.helix_environment'::regclass) <> current_user::regrole
@@ -16,7 +17,17 @@ begin
   select oid into writer from pg_roles where rolname='helix_release_controller' and rolcanlogin
     and oid <> current_user::regrole and not rolsuper and not rolbypassrls and not rolcreaterole
     and not rolcreatedb and not rolreplication;
-  if writer is null or exists (select from pg_auth_members where member=writer or roleid=writer)
+  -- PostgreSQL 17 grants a nonsuperuser creator ADMIN on its new login. Only
+  -- the bootstrap-issued creator grant to the authenticated owner is expected.
+  if writer is null or exists (
+       select from pg_auth_members m where m.member=writer
+         or (m.roleid=writer and not (
+           m.member=current_user::regrole and m.grantor=bootstrap_superuser
+           and m.admin_option and not m.inherit_option and not m.set_option
+           and exists (select from pg_roles creator where creator.oid=m.member
+             and creator.rolcreaterole and not creator.rolsuper)
+         ))
+     )
      or has_database_privilege(writer,current_database(),'CREATE')
      or exists (select from pg_namespace n where n.nspname in ('public','private','supabase_migrations')
        and has_schema_privilege(writer,n.oid,'CREATE'))
@@ -24,7 +35,7 @@ begin
        where n.nspname in ('public','private','supabase_migrations') and c.relkind in ('r','p','v','m','f')
          and (has_table_privilege(writer,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
            or has_any_column_privilege(writer,c.oid,'INSERT,UPDATE'))) then
-    raise exception 'A restricted independent release login with no role memberships is required';
+    raise exception 'A restricted independent release login with only the expected privileges and memberships is required';
   end if;
 end;
 $enrollment$;
