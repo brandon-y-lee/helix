@@ -1043,7 +1043,10 @@ describe("Codex workflow task helper", () => {
     }
   });
 
-  it("rejects a direct dev merge even after the recorded target incorporated dev", () => {
+  it.each([
+    { source: "dev", allowed: false },
+    { source: "codex/spec-45-checkout", allowed: true },
+  ])("checks the Ticket's direct merge from $source after its recorded Spec incorporated dev", ({ source, allowed }) => {
     const { root, tempRoot } = initialiseRemoteRepository();
     try {
       expectSuccess(git(root, "push", "origin", "dev"));
@@ -1072,19 +1075,23 @@ describe("Codex workflow task helper", () => {
           worktree!,
           "merge",
           "--no-ff",
-          "dev",
+          source,
           "-m",
-          "Merge the wrong source",
+          "Synchronize the checkout Ticket",
           "-m",
           "Ticket-Sync-Reason: combined-test",
         ),
       );
 
       const prepared = run(taskHelper, ["prepare", worktree!], root);
-      expect(prepared.status).not.toBe(0);
-      expect(prepared.stderr).toContain(
-        "Ticket synchronization source is not on the recorded Spec Branch first-parent history",
-      );
+      if (allowed) {
+        expectSuccess(prepared);
+      } else {
+        expect(prepared.status).not.toBe(0);
+        expect(prepared.stderr).toContain(
+          "Ticket synchronization source is not on the recorded Spec Branch first-parent history",
+        );
+      }
     } finally {
       cleanupFixture(tempRoot);
     }

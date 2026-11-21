@@ -109,7 +109,8 @@ validate_ticket_sync_reasons() {
   sync_repository=$1
   sync_base=$2
   sync_target=$3
-  merge_commits=$(git -C "$sync_repository" rev-list --merges "$sync_base"..HEAD)
+  # Only the Ticket's own merges synchronize it. The recorded Spec can already contain accepted upstream merges.
+  merge_commits=$(git -C "$sync_repository" rev-list --first-parent --merges "$sync_base"..HEAD)
   for merge_commit in $merge_commits; do
     sync_reasons=$(
       git -C "$sync_repository" show -s --format=%B "$merge_commit" |
