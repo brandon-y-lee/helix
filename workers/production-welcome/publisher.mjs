@@ -6,7 +6,7 @@ const storefrontRepo = "1280166759";
 const status = (code, value) =>
   Response.json({ status: value }, { status: code, headers: { "cache-control": "private, no-store" } });
 
-function authorized(request, token) {
+export function authorized(request, token) {
   if (typeof token !== "string" || !/^[!-~]{32,256}$/.test(token)) return false;
   const incoming = request.headers.get("authorization");
   if (!incoming || incoming.length !== token.length + 7) return false;
@@ -15,7 +15,7 @@ function authorized(request, token) {
   return got.length === expected.length && timingSafeEqual(got, expected);
 }
 
-async function emptyWake(request) {
+export async function emptyWake(request) {
   const length = request.headers.get("content-length");
   if (length !== null && length !== "0") return false;
   if (!request.body) return true;
@@ -40,14 +40,12 @@ async function emptyWake(request) {
   }
 }
 
-function qualifiedBinding(request, env) {
+export function publisherTarget(request, env, path) {
   const origin = env.HELIX_NATIVE_WELCOME_ORIGIN;
   const projectId = env.VERCEL_PROJECT_ID;
   const deploymentId = env.VERCEL_DEPLOYMENT_ID;
   const gitSha = env.VERCEL_GIT_COMMIT_SHA;
-  const contractHash = env.HELIX_NATIVE_WELCOME_CONTRACT_SHA256;
   if (
-    env.HELIX_NATIVE_WELCOME_ENABLED !== "true" ||
     env.VERCEL !== "1" ||
     env.VERCEL_ENV !== "production" ||
     (env.VERCEL_TARGET_ENV !== undefined && env.VERCEL_TARGET_ENV !== "production") ||
@@ -60,28 +58,31 @@ function qualifiedBinding(request, env) {
     projectId === storefrontProject ||
     projectId !== env.HELIX_NATIVE_WELCOME_PROJECT_ID ||
     !/^dpl_[A-Za-z0-9]{1,96}$/.test(deploymentId) ||
-    !/^[0-9a-f]{40}$/.test(gitSha) ||
-    !/^[0-9a-f]{64}$/.test(contractHash) ||
-    !validProviderKey(env.HELIX_NATIVE_WELCOME_RESEND_KEY) ||
-    !env.HELIX_NATIVE_WELCOME_DB_PASSWORD ||
-    new Set([
-      env.HELIX_NATIVE_WELCOME_WAKE_TOKEN,
-      env.HELIX_NATIVE_WELCOME_RESEND_KEY,
-      env.HELIX_NATIVE_WELCOME_DB_PASSWORD,
-    ]).size !== 3
+    !/^[0-9a-f]{40}$/.test(gitSha)
   )
     return null;
   const url = new URL(request.url);
   if (
     url.protocol !== "https:" ||
     url.origin !== origin ||
-    request.url !== origin + "/api/wake" ||
+    request.url !== origin + path ||
     origin !== "https://" + env.VERCEL_PROJECT_PRODUCTION_URL ||
     !env.VERCEL_URL ||
     env.VERCEL_PROJECT_PRODUCTION_URL === env.VERCEL_URL
   )
     return null;
-  return { contractHash, projectId, deploymentId, gitSha };
+  return { projectId, deploymentId, gitSha };
+}
+
+function qualifiedBinding(request, env) {
+  const target = publisherTarget(request, env, "/api/wake");
+  const contractHash = env.HELIX_NATIVE_WELCOME_CONTRACT_SHA256;
+  if (!target || env.HELIX_NATIVE_WELCOME_ENABLED !== "true" ||
+    !/^[0-9a-f]{64}$/.test(contractHash) || !validProviderKey(env.HELIX_NATIVE_WELCOME_RESEND_KEY) ||
+    !env.HELIX_NATIVE_WELCOME_DB_PASSWORD || new Set([
+      env.HELIX_NATIVE_WELCOME_WAKE_TOKEN, env.HELIX_NATIVE_WELCOME_RESEND_KEY, env.HELIX_NATIVE_WELCOME_DB_PASSWORD,
+    ]).size !== 3) return null;
+  return { ...target, contractHash };
 }
 
 export async function handleWake(request, env, { withDatabase, fetchImpl = fetch }) {

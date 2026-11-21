@@ -44,6 +44,11 @@ it("shows verified storefront readiness and binds a new signup to the qualified 
     HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_publishable_synthetic").digest("hex"),
     HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",
     HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-confirmation-sender",
+    HELIX_PRODUCTION_MARKETING_NATIVE_SENDER:"welcome@helixskin.us",
+    HELIX_PRODUCTION_MARKETING_NATIVE_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222",
+    HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256:"e".repeat(64),
+    HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",
+    HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:"whsec_"+Buffer.from("local-only-confirmation-webhook").toString("base64"),
     HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),
     HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify({version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:"11111111-1111-4111-8111-111111111111",postalAddress:"Synthetic test address",templateHash:productionMarketingTemplateHash}),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
@@ -92,6 +97,9 @@ it("shows verified storefront readiness and binds a new signup to the qualified 
     for (const [name, replacement] of [
       ["HELIX_PRODUCTION_MARKETING_WORKER_TOKEN", "x".repeat(48)],
       ["HELIX_PRODUCTION_MARKETING_PROVIDER_KEY", "different-unqualified-sender-key"],
+      ["HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET", "whsec_" + Buffer.from("replacement-signing-key").toString("base64")],
+      ["HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256", "9".repeat(64)],
+      ["HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED", "false"],
     ]) {
       const original = process.env[name];
       vi.stubEnv(name, replacement);
