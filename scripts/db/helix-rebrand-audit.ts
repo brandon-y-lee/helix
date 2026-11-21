@@ -1,6 +1,7 @@
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS, assertSupabaseTargetRef } from "../../lib/supabase/project-safety";
 
-export { APPROVED_SUPABASE_PROJECT_REF };
+// Preserves the identity of the historical Helix rebrand evidence.
+export const APPROVED_SUPABASE_PROJECT_REF = SUPABASE_PROJECT_REFS.production;
 
 export const HELIX_DATABASE_AUDIT_SQL = `
 with object_findings as (
@@ -338,14 +339,7 @@ async function requestJson(
     throw new Error("[helix-database-audit] Supabase Management API is unavailable.");
   }
   if (!response.ok) {
-    const failure = await response.json().catch(() => null);
-    const detail =
-      failure && typeof failure === "object" && !Array.isArray(failure)
-        ? (failure as Record<string, unknown>).message
-        : null;
-    throw new Error(
-      `[helix-database-audit] Supabase Management API failed (${response.status})${typeof detail === "string" ? `: ${detail.slice(0, 400)}` : "."}`,
-    );
+    throw new Error(`[helix-database-audit] Supabase Management API failed (${response.status}).`);
   }
   return response.json();
 }
@@ -353,9 +347,9 @@ async function requestJson(
 export function buildHelixDatabaseAuditReport(
   input: HelixDatabaseAuditInput,
 ): HelixDatabaseAuditReport {
-  const projectVerified =
-    input.project.id === APPROVED_SUPABASE_PROJECT_REF &&
-    input.project.name === "helix";
+  const projectVerified = input.project.id === SUPABASE_PROJECT_REFS.development
+    ? Boolean(input.project.name.trim()) && !new RegExp(FORMER_BRAND_DATABASE_PATTERN, "i").test(input.project.name)
+    : input.project.id === APPROVED_SUPABASE_PROJECT_REF && input.project.name === "helix";
   const findings = [...input.rows];
 
   return {
@@ -373,31 +367,19 @@ export async function runHelixDatabaseAudit(
   fetchImpl: Fetch = fetch,
 ): Promise<HelixDatabaseAuditReport> {
   const projectRef = requiredEnv(env, "SUPABASE_PROJECT_REF");
-  if (projectRef !== APPROVED_SUPABASE_PROJECT_REF) {
-    throw new Error(
-      `[helix-database-audit] Refusing project ${projectRef}; expected ${APPROVED_SUPABASE_PROJECT_REF}.`,
-    );
-  }
+  assertSupabaseTargetRef(projectRef, "development");
   const accessToken = requiredEnv(env, "SUPABASE_ACCESS_TOKEN");
-  const [projectValue, queryValue] = await Promise.all([
-    requestJson(fetchImpl, accessToken, `/v1/projects/${projectRef}`),
-    requestJson(
-      fetchImpl,
-      accessToken,
-      `/v1/projects/${projectRef}/database/query/read-only`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          query: HELIX_DATABASE_AUDIT_SQL,
-          parameters: [
-            FORMER_BRAND_DATABASE_PATTERN,
-            LEGACY_REWARDS_DATABASE_PATTERN,
-          ],
-        }),
-      },
-    ),
-  ]);
-  const project = object(projectValue);
+  const project = object(await requestJson(fetchImpl, accessToken, `/v1/projects/${projectRef}`));
+  if ((project.ref ?? project.id) !== projectRef) {
+    throw new Error("[helix-database-audit] Provider returned a different project.");
+  }
+  const queryValue = await requestJson(fetchImpl, accessToken, `/v1/projects/${projectRef}/database/query/read-only`, {
+    method: "POST",
+    body: JSON.stringify({
+      query: HELIX_DATABASE_AUDIT_SQL,
+      parameters: [FORMER_BRAND_DATABASE_PATTERN, LEGACY_REWARDS_DATABASE_PATTERN],
+    }),
+  });
   const findings = rows(queryValue).map((value) => {
     const finding = object(value);
     const matches = Number(finding.matches);
@@ -418,13 +400,13 @@ export async function runHelixDatabaseAudit(
 
   const report = buildHelixDatabaseAuditReport({
     project: {
-      id: String(project.id ?? ""),
+      id: projectRef,
       name: String(project.name ?? ""),
     },
     rows: findings,
   });
   if (!report.project.verified) {
-    throw new Error("[helix-database-audit] Approved project identity did not match helix.");
+    throw new Error("[helix-database-audit] Development project identity or display name did not match the Helix audit.");
   }
   return report;
 }

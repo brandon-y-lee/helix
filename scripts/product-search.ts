@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { config as loadDotEnv } from "dotenv";
+import { assertSupabaseTargetUrl, runtimeSupabaseTarget } from "../lib/supabase/project-safety";
 import {
   AlgoliaProductSearchControlPlane,
   loadProductSearchVerificationConfig,
@@ -41,6 +42,8 @@ export async function runProductSearchCli(
   env: NodeJS.ProcessEnv,
 ) {
   assertVerifyMode(argv);
+  if (runtimeSupabaseTarget() !== "development") throw new Error("[product-search] A development runtime is required.");
+  assertSupabaseTargetUrl(env.NEXT_PUBLIC_SUPABASE_URL ?? "", "development");
   const config = loadProductSearchVerificationConfig(env);
   const { fetchAllSearchRecords } = await import("../lib/algolia/source");
   const canonicalRecords =

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { APPROVED_SUPABASE_PROJECT_REF } from "../../lib/supabase/project-safety";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
 import { isRetiredProductIdentity } from "./product-search-identity";
 
 type ProductKeywordSnapshot = {
@@ -23,7 +23,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Produces reviewed field diffs only. Publication uses the current Catalog workflow. */
 export function planProductSearchKeywordCleanup(input: unknown) {
   const inventory = input as KeywordInventory | null;
-  if (!inventory || inventory.projectRef !== APPROVED_SUPABASE_PROJECT_REF
+  if (!inventory || !Object.values(SUPABASE_PROJECT_REFS).some(ref => ref === inventory.projectRef)
       || typeof inventory.capturedAt !== "string" || !Number.isFinite(Date.parse(inventory.capturedAt))
       || !Array.isArray(inventory.activeProducts) || !Array.isArray(inventory.reservations)) {
     throw new Error("A dated keyword inventory from the approved project is required.");

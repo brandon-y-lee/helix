@@ -1,0 +1,40 @@
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { FooterSignup } from "@/components/marketing/FooterSignup";
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
+it.each([{ ready: false }, { ready: true, scope: "unknown" }, null])("fails closed for unavailable or invalid readiness %j", async (value) => {
+  const fetch = vi.fn().mockResolvedValue(json(value)); vi.stubGlobal("fetch", fetch);
+  render(<FooterSignup />);
+  await screen.findByText("Email signup is temporarily unavailable. Please check back soon.");
+  expect(screen.getByRole("button", { name: "Sign up" })).toBeDisabled();
+  expect(screen.getByRole("checkbox")).not.toBeChecked();
+  expect(fetch).toHaveBeenCalledTimes(1);
+});
+it.each(["lifecycle", "lifecycle_reviews"])("submits only explicit displayed %s consent, suppresses duplicates, and conditionally confirms", async (scope) => {
+  let resolve!: (r: Response) => void;
+  const fetch = vi.fn().mockResolvedValueOnce(json({ ready: true, scope })).mockImplementation(() => new Promise<Response>(r => { resolve = r; }));
+  vi.stubGlobal("fetch", fetch); render(<FooterSignup />);
+  await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "owner@example.test" } });
+  const form = screen.getByRole("button", { name: "Sign up" }).closest("form")!;
+  fireEvent.submit(form); expect(fetch).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("checkbox")).not.toBeChecked();
+  if (scope === "lifecycle_reviews") expect(screen.getByText(/review invitations/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox")); fireEvent.submit(form); fireEvent.submit(form);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ email: "owner@example.test", consent: true, scope, source: "email_preferences" });
+  await act(async () => resolve(json({ ok: true }, 202)));
+  expect(screen.getByRole("status")).toHaveTextContent("If this address is eligible, check your inbox to confirm.");
+  expect(screen.getByRole("status")).toHaveFocus();
+});
+it("rejects malformed success, retains the email for retry, and aborts on unmount", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(json({ ready: true })).mockResolvedValueOnce(json({ ok: false })).mockImplementation(() => new Promise(() => {}));
+  vi.stubGlobal("fetch", fetch); const view = render(<FooterSignup />);
+  await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "owner@example.test" } }); fireEvent.click(screen.getByRole("checkbox"));
+  fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+  await screen.findByRole("alert"); expect(screen.getByRole("textbox")).toHaveValue("owner@example.test");
+  fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+  const signal = fetch.mock.calls[2][1].signal; view.unmount(); expect(signal.aborted).toBe(true);
+});

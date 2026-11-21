@@ -12,7 +12,7 @@ This document owns branch, worktree, PR, integration, and release mechanics. The
 - `codex/plan-<slug>` carries domain documentation resolved during planning.
 - `codex/trivial-<slug>` is the bounded non-behavioral fast path.
 
-Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges into `dev`, preserving the Ticket commits and visible Spec boundary. Urgent, standalone, planning, and trivial branches remain direct-to-`dev`. The human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and history rewriting are outside the workflow.
+Ticket PRs squash-merge into their Spec Branch. The final Spec PR regular-merges into `dev`, preserving the Ticket commits and visible Spec boundary. Urgent, standalone, planning, and trivial branches remain direct-to-`dev`. The human-approved `dev → main` promotion uses a regular merge commit. Force-pushes and history rewriting are outside the workflow. The Spec helper's explicit absent-ref creation lease is a narrow create-only compare-and-swap: it refuses every existing ref, including an ancestor, and does not authorize rewriting a branch. The separately documented cleanup deletion leases remain unchanged.
 
 ## Establish a Spec Branch and draft Spec PR
 
@@ -22,7 +22,7 @@ After the independently approved Ticket set is published without `ready-for-agen
 scripts/git/codex-task.sh spec-start <spec-number>-<slug>
 ```
 
-The helper validates the planned Spec, fetches the exact current remote `dev`, creates `codex/spec-<spec-number>-<slug>` at that commit, pushes it, and opens a draft Spec PR to `dev`. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
+The helper validates the planned Spec, fetches the exact current remote `dev`, creates one additive empty bootstrap commit with that exact commit as its sole parent and the identical tree, pushes `codex/spec-<spec-number>-<slug>` at the bootstrap commit, and opens a draft Spec PR to `dev`. The bootstrap changes no file and records `Spec-Bootstrap` / `Spec-Base` trailers; it provides the distinct commit required by GitHub without implementing a Ticket. The helper verifies the actual PR repository, head SHA/branch, base and open-draft state before exposing Tickets. Zero lookup results mean absence; multiple or malformed results fail closed. A recognized partial bootstrap can resume only against the same current remote base; stale or unrecognized state requires recovery. Only after both remote artifacts exist does it add `ready-for-agent` to the approved child Tickets. Rerunning is safe when the same branch and draft PR already exist. A missing branch, non-draft PR, or stale partial setup fails with preservation-oriented recovery output.
 
 ## Start an isolated task
 

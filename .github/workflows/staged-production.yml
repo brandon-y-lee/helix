@@ -1,0 +1,166 @@
+name: Staged production release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Verify a staged candidate, explicitly promote it, or restore its previous deployment
+        required: true
+        type: choice
+        options: [verify, promote, rollback, cancel]
+      selector:
+        description: Reviewed release PR number or immutable Vercel deployment ID
+        required: true
+
+permissions: {}
+concurrency:
+  group: helix-production-release
+  cancel-in-progress: false
+
+env:
+  RELEASE_SELECTOR: ${{ inputs.selector }}
+  RELEASE_OPERATION: ${{ inputs.operation }}
+
+jobs:
+  admission:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Verify protected controller and environment restrictions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENABLED: ${{ vars.HELIX_RELEASE_CONTROLLER_ENABLED }}
+          OPERATOR_ID: ${{ vars.HELIX_RELEASE_OPERATOR_ID }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY" == 'brandon-y-lee/helix' && "$GITHUB_REF" == refs/heads/main && "$GITHUB_REF_PROTECTED" == true && "$ENABLED" == true ]]
+          [[ "$OPERATOR_ID" =~ ^[1-9][0-9]*$ && "$GITHUB_ACTOR_ID" == "$OPERATOR_ID" && "$GITHUB_TRIGGERING_ACTOR" == "$GITHUB_ACTOR" ]]
+          # Environment-level credentials are installed independently. Refuse an
+          # accidentally created unrestricted environment before using any secret.
+          for environment in helix-release-inspect helix-release-control; do
+            url="repos/$GITHUB_REPOSITORY/environments/$environment"
+            gh api "$url" | jq -e --arg name "$environment" '.name == $name and .deployment_branch_policy.custom_branch_policies == true and .deployment_branch_policy.protected_branches == false' >/dev/null
+            gh api "$url/deployment-branch-policies?per_page=100" | jq -e '.total_count == 1 and .branch_policies[0].name == "main" and .branch_policies[0].type == "branch"' >/dev/null
+          done
+
+  resolve:
+    outputs:
+      context: ${{ steps.freeze.outputs.context }}
+      context_sha256: ${{ steps.freeze.outputs.context_sha256 }}
+    needs: admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: helix-release-inspect
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release-node
+      - name: Resolve the chosen release and freeze its independently qualified profile
+        id: freeze
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets.HELIX_RELEASE_VERCEL_READ_TOKEN }}
+          HELIX_RELEASE_PROFILE: ${{ vars.HELIX_RELEASE_PROFILE }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_PRODUCTION_SUPABASE_ANON_KEY }}
+          HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256 }}
+          HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
+          HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
+        run: node scripts/release/command.mjs resolve
+
+  registry:
+    needs: resolve
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: helix-release-control
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      admission: ${{ steps.admit.outputs.admission }}
+      admission_sha256: ${{ steps.admit.outputs.admission_sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release-node
+      - name: Admit the exact operation and deployment pair before forward SQL
+        id: admit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets.HELIX_RELEASE_VERCEL_READ_TOKEN }}
+          RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
+          RELEASE_CONTEXT_SHA256: ${{ needs.resolve.outputs.context_sha256 }}
+          HELIX_RELEASE_DB_HOST: ${{ vars.HELIX_RELEASE_DB_HOST }}
+          HELIX_RELEASE_DB_CA: ${{ secrets.HELIX_RELEASE_DB_CA }}
+          HELIX_RELEASE_DB_PASSWORD: ${{ secrets.HELIX_RELEASE_DB_PASSWORD }}
+        run: node scripts/release/command.mjs admit
+
+  migrate:
+    needs: registry
+    if: needs.registry.outputs.admission != '' && needs.registry.outputs.admission_sha256 != '' && (inputs.operation == 'verify' || inputs.operation == 'promote')
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/forward-migrations.yml
+    with:
+      expected_main_sha: ${{ github.sha }}
+      release_admission: ${{ needs.registry.outputs.admission }}
+      release_admission_sha256: ${{ needs.registry.outputs.admission_sha256 }}
+
+  release:
+    needs: [admission, resolve, registry, migrate]
+    if: >-
+      always() && !cancelled() && needs.admission.result == 'success' && needs.resolve.result == 'success' &&
+      needs.registry.result == 'success' && needs.registry.outputs.admission_sha256 != '' &&
+      (((inputs.operation == 'rollback' || inputs.operation == 'cancel') && needs.migrate.result == 'skipped') ||
+      ((inputs.operation == 'verify' || inputs.operation == 'promote') && needs.migrate.result == 'success' &&
+      needs.migrate.outputs.applied_sha == github.sha))
+    environment: helix-release-control
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release-node
+      - name: Check protected release evidence and perform the selected operation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ADMISSION_SHA256: ${{ needs.registry.outputs.admission_sha256 }}
+          RELEASE_APPLIED_SHA: ${{ needs.migrate.outputs.applied_sha }}
+          HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets[(inputs.operation == 'verify' || inputs.operation == 'cancel') && 'HELIX_RELEASE_VERCEL_READ_TOKEN' || 'HELIX_RELEASE_VERCEL_CONTROL_TOKEN'] }}
+          RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
+          RELEASE_CONTEXT_SHA256: ${{ needs.resolve.outputs.context_sha256 }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.HELIX_PRODUCTION_SUPABASE_ANON_KEY }}
+          HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: ${{ vars.HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256 }}
+          HELIX_RELEASE_STATUS_TOKEN: ${{ secrets.HELIX_RELEASE_STATUS_TOKEN }}
+          HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
+          HELIX_RELEASE_DB_HOST: ${{ vars.HELIX_RELEASE_DB_HOST }}
+          HELIX_RELEASE_DB_CA: ${{ secrets.HELIX_RELEASE_DB_CA }}
+          HELIX_RELEASE_DB_PASSWORD: ${{ secrets.HELIX_RELEASE_DB_PASSWORD }}
+        run: node scripts/release/command.mjs execute
+
+  result:
+    if: always() && !cancelled()
+    needs: [release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report the selected operation result
+        env:
+          OUTCOME: ${{ needs.release.result }}
+        run: test "$OUTCOME" = success

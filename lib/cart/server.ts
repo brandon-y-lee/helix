@@ -6,6 +6,7 @@ import { getCurrentIdentity } from "@/lib/auth/session";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { CartError, type CartLine, type CartState } from "@/lib/cart/types";
 import { normalizeCartQuantity } from "@/lib/cart/validation";
+import { isCatalogProductMediaUrl } from "@/lib/catalog/media-storage";
 import { routineGroupLabel } from "@/lib/catalog/product-routine";
 import { composeProductTitle } from "@/lib/products";
 import { GUEST_CART_COOKIE } from "@/lib/customer-state-identifiers";
@@ -264,6 +265,7 @@ function mapLine(row: CartItemRow): CartLine {
     ?.filter(
       (item) =>
         item.media_type !== "video" &&
+        (item.url === null || isCatalogProductMediaUrl(item.url)) &&
         [
           "cart",
           "card_default",

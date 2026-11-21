@@ -14,7 +14,7 @@ const FAMILY_ID = "123e4567-e89b-42d3-a456-426614174010";
 const FAMILY_MEMBER_ID = "123e4567-e89b-42d3-a456-426614174011";
 const APPROVED_ENV = {
   NODE_ENV: "test",
-  NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co",
+  NEXT_PUBLIC_SUPABASE_URL: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
 } as NodeJS.ProcessEnv;
 
 function validDocument(): ProductEditorDocumentV4 {
@@ -31,7 +31,7 @@ function coreRoutineEditorialMedia(
     product_id: PRODUCT_ID,
     variant_id: null,
     media_type: "image",
-    url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/123e4567-e89b-42d3-a456-426614174000/drafts/editorial.webp",
+    url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/123e4567-e89b-42d3-a456-426614174000/drafts/editorial.webp",
     alt: "CLEANSE Core routine editorial",
     width: 1400,
     height: 1600,
@@ -195,7 +195,7 @@ describe("product editor document validation", () => {
       product_id: PRODUCT_ID,
       variant_id: VARIANT_ID,
       media_type: "image",
-      url: `https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/${PRODUCT_ID}/drafts/${sha256}.webp`,
+      url: `https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/${PRODUCT_ID}/drafts/${sha256}.webp`,
       alt: "REFINE product texture",
       width: 1200,
       height: 1600,
@@ -223,7 +223,7 @@ describe("product editor document validation", () => {
       validateProductEditorDocument(document, {
         NODE_ENV: "test",
         NEXT_PUBLIC_SUPABASE_URL:
-          "https://erasogmsqpgiirovubjh.supabase.co",
+          "https://zyfkunnpnlmgvrojmrbg.supabase.co",
       } as NodeJS.ProcessEnv).issues,
     ).toEqual([]);
 
@@ -232,7 +232,7 @@ describe("product editor document validation", () => {
       validateProductEditorDocument(document, {
         NODE_ENV: "test",
         NEXT_PUBLIC_SUPABASE_URL:
-          "https://erasogmsqpgiirovubjh.supabase.co",
+          "https://zyfkunnpnlmgvrojmrbg.supabase.co",
       } as NodeJS.ProcessEnv).issues,
     ).toEqual(
       expect.arrayContaining([

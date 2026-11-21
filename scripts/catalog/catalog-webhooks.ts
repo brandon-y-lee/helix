@@ -1,11 +1,14 @@
 import {
-  APPROVED_SUPABASE_PROJECT_REF,
-  assertApprovedSupabaseProjectRef,
+  SUPABASE_PROJECT_REFS,
+  assertSupabaseTargetRef,
 } from "../../lib/supabase/project-safety";
-import { HELIX_PRODUCTS_INDEX } from "../../lib/algolia/index";
+import { HELIX_DEVELOPMENT_PRODUCTS_INDEX } from "../../lib/algolia/index";
 
 const CATALOG_WEBHOOK_PATH =
   "/api/webhooks/supabase/catalog-search-sync" as const;
+const DEV_PROJECT_REF = SUPABASE_PROJECT_REFS.development;
+const DEV_ENDPOINT = `https://helixskin.vercel.app${CATALOG_WEBHOOK_PATH}`;
+const SOURCE_PROJECT_HEADER = "x-helix-source-project" as const;
 const CATALOG_WEBHOOK_HEADER = "x-webhook-secret" as const;
 const CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER =
   "x-vercel-protection-bypass" as const;
@@ -36,7 +39,7 @@ export type CatalogWebhookTable = (typeof CATALOG_WEBHOOK_TABLES)[number];
 type Fetch = typeof fetch;
 
 export type CatalogWebhookConfig = {
-  projectRef: typeof APPROVED_SUPABASE_PROJECT_REF;
+  projectRef: typeof DEV_PROJECT_REF;
   targetEnvironment: "development" | "preview";
   endpoint: string;
   secret: string;
@@ -66,6 +69,7 @@ export type DesiredCatalogWebhook = {
   headers: {
     "Content-Type": "application/json";
     [CATALOG_WEBHOOK_HEADER]: string;
+    [SOURCE_PROJECT_HEADER]: typeof DEV_PROJECT_REF;
     [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]?: string;
   };
 };
@@ -105,7 +109,7 @@ export type CatalogWebhookAction = {
 export type CatalogWebhookReport = {
   ok: boolean;
   mode: CatalogWebhookMode;
-  projectRef: typeof APPROVED_SUPABASE_PROJECT_REF;
+  projectRef: typeof DEV_PROJECT_REF;
   targetEnvironment: CatalogWebhookConfig["targetEnvironment"];
   endpoint: string;
   databaseWebhooksEnabled: boolean;
@@ -176,12 +180,9 @@ function requiredEnv(
 function readProjectAndEnvironment(env: NodeJS.ProcessEnv) {
   const projectRef = requiredEnv(env, "SUPABASE_PROJECT_REF");
   try {
-    assertApprovedSupabaseProjectRef(projectRef);
+    assertSupabaseTargetRef(projectRef, "development");
   } catch {
-    throw new Error(
-      `[catalog-webhooks] Refusing Supabase project "${projectRef}". ` +
-        `Expected approved non-production project "${APPROVED_SUPABASE_PROJECT_REF}".`,
-    );
+    throw new Error("[catalog-webhooks] Refusing Supabase project outside the approved development target.");
   }
 
   const targetEnvironment = requiredEnv(
@@ -198,39 +199,21 @@ function readProjectAndEnvironment(env: NodeJS.ProcessEnv) {
   }
 
   return {
-    projectRef: APPROVED_SUPABASE_PROJECT_REF,
+    projectRef: DEV_PROJECT_REF,
     targetEnvironment,
   } as const;
 }
 
 function readEndpointAndSecret(env: NodeJS.ProcessEnv) {
   const endpointValue = requiredEnv(env, "SUPABASE_CATALOG_WEBHOOK_URL");
-  let endpoint: URL;
-  try {
-    endpoint = new URL(endpointValue);
-  } catch {
-    throw new Error(
-      "[catalog-webhooks] SUPABASE_CATALOG_WEBHOOK_URL must be a valid absolute URL.",
-    );
-  }
-  if (
-    endpoint.protocol !== "https:" ||
-    endpoint.username ||
-    endpoint.password ||
-    endpoint.search ||
-    endpoint.hash ||
-    endpoint.pathname !== CATALOG_WEBHOOK_PATH
-  ) {
-    throw new Error(
-      `[catalog-webhooks] SUPABASE_CATALOG_WEBHOOK_URL must be an HTTPS URL ` +
-        `with the exact path ${CATALOG_WEBHOOK_PATH} and no credentials, query, or fragment.`,
-    );
+  if (endpointValue !== DEV_ENDPOINT) {
+    throw new Error(`[catalog-webhooks] SUPABASE_CATALOG_WEBHOOK_URL must be ${DEV_ENDPOINT}.`);
   }
 
-  const secret = requiredEnv(env, "SUPABASE_CATALOG_WEBHOOK_SECRET");
+  const secret = requiredEnv(env, "HELIX_DEV_CATALOG_WEBHOOK_SECRET");
   if (Buffer.byteLength(secret, "utf8") < 32) {
     throw new Error(
-      "[catalog-webhooks] SUPABASE_CATALOG_WEBHOOK_SECRET must contain at least 32 bytes.",
+      "[catalog-webhooks] HELIX_DEV_CATALOG_WEBHOOK_SECRET must contain at least 32 bytes.",
     );
   }
 
@@ -245,7 +228,7 @@ function readEndpointAndSecret(env: NodeJS.ProcessEnv) {
     );
   }
 
-  return { endpoint: endpoint.href, secret, deploymentBypassSecret };
+  return { endpoint: DEV_ENDPOINT, secret, deploymentBypassSecret };
 }
 
 export function loadCatalogWebhookConfig(
@@ -282,6 +265,20 @@ export function catalogWebhookTriggerName(table: CatalogWebhookTable): string {
   return `helix_catalog_search_sync_${table}`;
 }
 
+function deliveryHeaders(secret: string, deploymentBypassSecret: string | null): DesiredCatalogWebhook["headers"] {
+  return {
+    "Content-Type": "application/json",
+    [CATALOG_WEBHOOK_HEADER]: secret,
+    [SOURCE_PROJECT_HEADER]: DEV_PROJECT_REF,
+    ...(deploymentBypassSecret ? { [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]: deploymentBypassSecret } : {}),
+  };
+}
+
+function assertDevelopmentDestination(config: Pick<CatalogWebhookConfig, "projectRef" | "endpoint">): void {
+  assertSupabaseTargetRef(config.projectRef, "development");
+  if (config.endpoint !== DEV_ENDPOINT) throw new Error("[catalog-webhooks] Development delivery endpoint mismatch.");
+}
+
 export function buildDesiredCatalogWebhooks(
   endpoint: string,
   secret: string,
@@ -295,16 +292,7 @@ export function buildDesiredCatalogWebhooks(
     method: "POST",
     endpoint,
     timeoutMs: CATALOG_WEBHOOK_TIMEOUT_MS,
-    headers: {
-      "Content-Type": "application/json",
-      [CATALOG_WEBHOOK_HEADER]: secret,
-      ...(deploymentBypassSecret
-        ? {
-            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
-              deploymentBypassSecret,
-          }
-        : {}),
-    },
+    headers: deliveryHeaders(secret, deploymentBypassSecret),
   }));
 }
 
@@ -661,16 +649,7 @@ export class SupabaseCatalogWebhookControlPlane
           query: INSPECT_SQL,
           parameters: [
             config.endpoint,
-            JSON.stringify({
-              "Content-Type": "application/json",
-              [CATALOG_WEBHOOK_HEADER]: config.secret,
-              ...(config.deploymentBypassSecret
-                ? {
-                    [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
-                      config.deploymentBypassSecret,
-                  }
-                : {}),
-            }),
+            JSON.stringify(deliveryHeaders(config.secret, config.deploymentBypassSecret)),
             String(CATALOG_WEBHOOK_TIMEOUT_MS),
           ],
         }),
@@ -743,6 +722,7 @@ export async function runCatalogWebhookProvisioning(
   config: CatalogWebhookConfig,
   controlPlane: CatalogWebhookControlPlane,
 ): Promise<CatalogWebhookReport> {
+  assertDevelopmentDestination(config);
   const initialState = await controlPlane.inspect(config);
   const initialReport = buildCatalogWebhookReport(mode, config, initialState);
   if (mode !== "apply" || !initialReport.ok) return initialReport;
@@ -872,16 +852,8 @@ async function postSyntheticChildEvent(
   };
   const response = await fetchImpl(config.endpoint, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      [CATALOG_WEBHOOK_HEADER]: config.secret,
-      ...(config.deploymentBypassSecret
-        ? {
-            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
-              config.deploymentBypassSecret,
-          }
-        : {}),
-    },
+    redirect: "error",
+    headers: deliveryHeaders(config.secret, config.deploymentBypassSecret),
     body: JSON.stringify({
       schema: "public",
       type: "UPDATE",
@@ -897,18 +869,11 @@ export async function runCatalogWebhookSmoke(
   config: CatalogWebhookSmokeConfig,
   fetchImpl: Fetch = fetch,
 ) {
+  assertDevelopmentDestination(config);
   const unauthorized = await fetchImpl(config.endpoint, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      [CATALOG_WEBHOOK_HEADER]: `${config.secret}.invalid`,
-      ...(config.deploymentBypassSecret
-        ? {
-            [CATALOG_WEBHOOK_DEPLOYMENT_BYPASS_HEADER]:
-              config.deploymentBypassSecret,
-          }
-        : {}),
-    },
+    redirect: "error",
+    headers: deliveryHeaders(`${config.secret}.invalid`, config.deploymentBypassSecret),
     body: JSON.stringify({
       schema: "public",
       type: "UPDATE",
@@ -933,11 +898,11 @@ export async function runCatalogWebhookSmoke(
     first.body.action !== "upsert" ||
     first.body.table !== "product_variants" ||
     first.body.objectID !== config.productId ||
-    first.body.indexName !== HELIX_PRODUCTS_INDEX ||
-    first.body.publicIndexName !== HELIX_PRODUCTS_INDEX
+    first.body.indexName !== HELIX_DEVELOPMENT_PRODUCTS_INDEX ||
+    first.body.publicIndexName !== HELIX_DEVELOPMENT_PRODUCTS_INDEX
   ) {
     throw new Error(
-      "[catalog-webhook-smoke] Deployed Product Search readers and writers are not both on helix_products.",
+      `[catalog-webhook-smoke] Deployed Product Search readers and writers are not both on ${HELIX_DEVELOPMENT_PRODUCTS_INDEX}.`,
     );
   }
   if (
@@ -976,8 +941,8 @@ export async function runCatalogWebhookSmoke(
     authenticationVerified: true,
     childProductResolutionVerified: true,
     algoliaAttemptVerified: true,
-    indexName: HELIX_PRODUCTS_INDEX,
-    publicIndexName: HELIX_PRODUCTS_INDEX,
+    indexName: HELIX_DEVELOPMENT_PRODUCTS_INDEX,
+    publicIndexName: HELIX_DEVELOPMENT_PRODUCTS_INDEX,
     cacheInvalidationAttemptVerified: true,
     duplicateDeliveryVerified: true,
     productId: config.productId,

@@ -1,0 +1,13 @@
+name: Install locked release dependencies
+description: Install the repository's reviewed Node and pnpm dependencies for the protected release controller.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version-file: .nvmrc
+    - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      with:
+        version: 9.15.4
+    - shell: bash
+      run: pnpm install --frozen-lockfile --ignore-scripts

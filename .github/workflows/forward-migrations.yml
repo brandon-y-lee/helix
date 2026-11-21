@@ -1,0 +1,133 @@
+name: Forward database migrations
+
+on:
+  push:
+    branches: [dev]
+  workflow_call:
+    inputs:
+      expected_main_sha:
+        description: Reviewed main commit whose Production build has been staged
+        required: true
+        type: string
+      release_admission:
+        description: Exact registry-admitted release identity and evidence expiry
+        required: true
+        type: string
+      release_admission_sha256:
+        description: Digest from the protected registry admission job
+        required: true
+        type: string
+    outputs:
+      applied_sha:
+        description: Commit whose expected database contracts were verified
+        value: ${{ jobs.migrate.outputs.applied_sha }}
+
+permissions: {}
+
+jobs:
+  admit:
+    # Dev starts automatically after the environment has been qualified. Production
+    # is called by the staged release workflow and must fail if it is unqualified.
+    if: github.repository == 'brandon-y-lee/helix' && (inputs.expected_main_sha != '' || (github.ref == 'refs/heads/dev' && vars.HELIX_DEV_MIGRATIONS_ENABLED == 'true'))
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      environment: ${{ steps.target.outputs.environment }}
+      target: ${{ steps.target.outputs.target }}
+    steps:
+      - id: target
+        name: Verify ref and environment restrictions before requesting credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+          PRODUCTION_ENABLED: ${{ vars.HELIX_PRODUCTION_MIGRATIONS_ENABLED }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          reject() { echo "::error::$1"; exit 1; }
+          [[ "$GITHUB_REF_PROTECTED" == true ]] || reject 'The release ref must be protected.'
+          if [[ -n "$EXPECTED_MAIN_SHA" ]]; then
+            [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]] || reject 'Production requires the staged release workflow.'
+            [[ "$GITHUB_REF" == refs/heads/main && "$EXPECTED_MAIN_SHA" == "$GITHUB_SHA" ]] || reject 'The requested main commit does not match this run.'
+            [[ "$PRODUCTION_ENABLED" == true ]] || reject 'The production database writer has not been enabled.'
+            target=production
+          else
+            [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/dev ]] || reject 'Development requires a push to dev.'
+            target=development
+          fi
+          environment="helix-db-$target"
+          path="repos/$GITHUB_REPOSITORY/environments/$environment"
+          gh api "$path" | jq -e --arg name "$environment" '
+            .name == $name and
+            .deployment_branch_policy.custom_branch_policies == true and
+            .deployment_branch_policy.protected_branches == false' >/dev/null
+          gh api "$path/deployment-branch-policies?per_page=100" | jq -e --arg ref "$GITHUB_REF_NAME" '
+            .total_count == 1 and
+            (.branch_policies | length) == 1 and
+            .branch_policies[0].name == $ref and
+            .branch_policies[0].type == "branch"' >/dev/null
+          printf 'environment=%s\ntarget=%s\n' "$environment" "$target" >> "$GITHUB_OUTPUT"
+
+  migrate:
+    needs: admit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    environment: ${{ needs.admit.outputs.environment }}
+    concurrency:
+      group: helix-db-migrations-${{ needs.admit.outputs.target }}
+      cancel-in-progress: false
+    outputs:
+      applied_sha: ${{ steps.apply.outputs.applied_sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.4
+      - name: Install frozen dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Install the reviewed Supabase CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_dir="$(mktemp -d "$RUNNER_TEMP/helix-cli.XXXXXXXX")"
+          archive="$install_dir/supabase.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            https://github.com/supabase/cli/releases/download/v2.117.0/supabase_2.117.0_linux_amd64.tar.gz --output "$archive"
+          printf '%s  %s\n' '69c05f85b9e47ee706d30f1a6ca8a526b4e337bfd12c7ef1ef522d24e7280d24' "$archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$install_dir" supabase supabase-go
+          printf 'HELIX_SUPABASE_CLI=%s/supabase\n' "$install_dir" >> "$GITHUB_ENV"
+      - name: Reject a superseded release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)"
+          if [[ "$head" != "$GITHUB_SHA" || "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]]; then
+            echo '::error::The branch or checkout no longer matches the selected commit.'
+            exit 1
+          fi
+      - name: Apply and verify the selected forward migrations
+        id: apply
+        env:
+          TARGET: ${{ needs.admit.outputs.target }}
+          HELIX_RELEASE_ADMISSION: ${{ inputs.release_admission }}
+          HELIX_RELEASE_ADMISSION_SHA256: ${{ inputs.release_admission_sha256 }}
+          HELIX_MIGRATION_TARGET: ${{ secrets.HELIX_MIGRATION_TARGET }}
+          HELIX_MIGRATION_PASSWORD: ${{ secrets.HELIX_MIGRATION_PASSWORD }}
+          HELIX_MIGRATION_CA: ${{ secrets.HELIX_MIGRATION_CA }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/db/forward-migrations.mjs apply "$TARGET"
+          printf 'applied_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
+import { flushSync } from 'react-dom';
 import { AnimatePresence, domMax, LazyMotion } from 'motion/react';
 import * as m from 'motion/react-m';
 import { effects, type Effect } from '@/lib/content/serum-effects';
@@ -302,7 +303,8 @@ export function PdpEffectsSection() {
       (rail.scrollLeft - first.offsetLeft + (rail.clientWidth - first.offsetWidth) / 2) / stride));
     // Follow the destination of native post-release motion, even before it crosses halfway.
     if (!touching.current && arrowTargetRef.current === null && next !== scrollPosition.current) {
-      showArrowsFor(next > scrollPosition.current ? Math.ceil(next) : Math.floor(next));
+      // Reveal the native destination in this scroll frame, not a deferred React commit.
+      flushSync(() => showArrowsFor(next > scrollPosition.current ? Math.ceil(next) : Math.floor(next)));
     }
     scrollPosition.current = next;
     rail.parentElement?.style.setProperty('--arrow-drift', `${((arrowTargetRef.current ?? Math.round(next)) - next) * stride}px`);

@@ -1,0 +1,4 @@
+{
+  "sourceSha256": "f00895417ff0dd66425092e1c4bb7de1ada81785b2f4fb6f5bc17a47821f4ee4",
+  "verify": "SELECT EXISTS (\n  SELECT FROM pg_catalog.pg_index i\n  WHERE i.indexrelid = pg_catalog.to_regclass('public.products_catalog_status_sort_id_idx')\n    AND i.indrelid = 'public.products'::pg_catalog.regclass\n    AND i.indisvalid AND i.indisready AND i.indislive\n    AND pg_catalog.pg_get_indexdef(i.indexrelid) =\n      'CREATE INDEX products_catalog_status_sort_id_idx ON public.products USING btree (catalog_status, sort_order, id)'\n) AS applied"
+}

@@ -2,12 +2,22 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { contactInquiryTypes } from "@/content/support/contact";
+import { CONTACT_SESSION_MARKER, contactTransport, parseUploadBinding, productionCapability, validReceipt, validateUploadDestination, handoffMessage, photoHandoffMessage, type Handoff, type UploadBinding } from "@/lib/support/contact-transport";
 import styles from "./support.module.css";
 
-type PhotoState = "selected" | "uploading" | "processing" | "ready" | "rejected" | "failed" | "expired";
-type SelectedPhoto = { uploadId: string; file: File; state?: PhotoState };
+type PhotoState = "selected" | "uploading" | "processing" | "ready" | "rejected" | "failed" | "expired" | "needs_review";
+type SelectedPhoto = { uploadId: string; file: File; state?: PhotoState; handoff?: Handoff | "not_ready" };
 
 export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}) {
+  const transport = useRef<ReturnType<typeof contactTransport> | null>(null);
+  const binding = useRef<UploadBinding | null>(null);
+  const receipt = useRef<{ inquiryId: string } | null>(null);
+  const lifecycle = useRef(new AbortController());
+  const [interrupted, setInterrupted] = useState(false);
+  const [priorWarning, setPriorWarning] = useState("");
+  const [changedAttempt, setChangedAttempt] = useState(false);
+  const [primaryHandoff, setPrimaryHandoff] = useState<Handoff>("queued");
+  const [deliveryError, setDeliveryError] = useState("");
   const [availability, setAvailability] = useState<"checking" | "available" | "unavailable" | "failed">("checking");
   const [check, setCheck] = useState(0);
   const [photosAvailable, setPhotosAvailable] = useState(false);
@@ -18,20 +28,41 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
   const [photoError, setPhotoError] = useState("");
   const [photosPending, setPhotosPending] = useState(false);
   const [draggingPhotos, setDraggingPhotos] = useState(false);
-  const attempt = useRef<{ payload: string; id: string; capability: string } | null>(null);
+  const attempt = useRef<{ payload: string; id: string; capability: string; uncertain?: boolean } | null>(null);
   const admissions = useRef(new Map<string, { photoId: string; uploadUrl: string; uploaded: boolean }>());
   const uploading = useRef(false);
   const submitting = useRef(false);
   const successHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    transport.current ??= contactTransport(window.location.origin);
+    if (lifecycle.current.signal.aborted) lifecycle.current = new AbortController();
+    if (transport.current.production) {
+      try { if (sessionStorage.getItem(CONTACT_SESSION_MARKER)) setPriorWarning("An earlier inquiry in this tab may already be saved. Photo uploads cannot resume after leaving this page. Starting again can create another inquiry."); } catch { /* Storage is optional; no content or capability is persisted. */ }
+    }
+    const hide = () => lifecycle.current.abort();
+    const show = () => { if (lifecycle.current.signal.aborted) setInterrupted(true); };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
+    return () => { hide(); window.removeEventListener("pagehide", hide); window.removeEventListener("pageshow", show); };
+  }, []);
+
+  function markAttempt(state: "unconfirmed" | "saved") {
+    if (transport.current?.production) { try { sessionStorage.setItem(CONTACT_SESSION_MARKER, state); } catch { /* No private content is persisted. */ } }
+  }
+  useEffect(() => {
+    transport.current ??= contactTransport(window.location.origin);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     let active = true;
-    void request("/api/support/intake", { cache: "no-store", credentials: "same-origin", signal: controller.signal })
+    void request(transport.current.intake, { cache: "no-store", credentials: "same-origin", signal: AbortSignal.any([controller.signal, lifecycle.current.signal]), redirect: "error" })
       .then(async (response) => {
         const result = response.ok ? await response.json() : null;
         if (active) {
+          if (transport.current?.production && result?.available === true) {
+            if (result.photosAvailable !== true) throw new Error("unavailable");
+            binding.current = parseUploadBinding(result.uploadBinding);
+          }
           setAvailability(result?.available === true ? "available" : result?.available === false ? "unavailable" : "failed");
           setPhotosAvailable(result?.photosAvailable === true);
         }
@@ -41,19 +72,19 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     return () => { active = false; controller.abort(); window.clearTimeout(timeout); };
   }, [check, request]);
 
-  useEffect(() => { if (received) successHeading.current?.focus(); }, [received]);
+  useEffect(() => { if (received || interrupted) successHeading.current?.focus(); }, [received, interrupted]);
 
   function setPhotoState(id: string, state: PhotoState) {
     setPhotos((current) => current.map((photo) => photo.uploadId === id ? { ...photo, state } : photo));
   }
 
   async function photoRequest(input: Record<string, unknown>) {
-    if (!attempt.current) throw new Error("unavailable");
+    if (!attempt.current || lifecycle.current.signal.aborted) throw new Error("unavailable");
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await request("/api/support/photos", { method: "POST", cache: "no-store", credentials: "same-origin", signal: controller.signal,
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, submissionId: attempt.current.id, capability: attempt.current.capability }) });
+      const response = await request(transport.current!.photos, { method: "POST", cache: "no-store", credentials: "same-origin", signal: AbortSignal.any([controller.signal, lifecycle.current.signal]), redirect: "error",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...input, submissionId: attempt.current.id, ...(transport.current?.production ? { uploadCapability: attempt.current.capability } : { capability: attempt.current.capability }) }) });
       const result = await response.json();
       if (!response.ok || result?.ok !== true) throw new Error("unavailable");
       return result;
@@ -67,28 +98,37 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     setPhotoError("");
     try {
       for (const photo of selected) {
+        if (lifecycle.current.signal.aborted) break;
         setPhotoState(photo.uploadId, "uploading");
         try {
           let admission = admissions.current.get(photo.uploadId);
           if (!admission) {
-            const result = await photoRequest({ action: "admit", uploadId: photo.uploadId, contentType: photo.file.type, byteSize: photo.file.size });
-            const url = new URL(result.uploadUrl);
-            if (url.origin !== "https://erasogmsqpgiirovubjh.supabase.co" || !url.pathname.startsWith("/storage/v1/object/upload/sign/") || url.username || url.password || typeof result.photoId !== "string") throw new Error("unavailable");
-            admission = { photoId: result.photoId, uploadUrl: url.toString(), uploaded: false };
+            const result = await photoRequest({ action: "admit", uploadId: photo.uploadId,
+              ...(transport.current?.production ? {} : { contentType: photo.file.type, byteSize: photo.file.size }) });
+            let uploadUrl: string;
+            if (transport.current?.production) {
+              if (!binding.current || !receipt.current || result.uploadId !== photo.uploadId) throw new Error("unavailable");
+              uploadUrl = validateUploadDestination(result.uploadUrl, binding.current, receipt.current.inquiryId, photo.uploadId);
+            } else {
+              const url = new URL(result.uploadUrl);
+              if (url.origin !== "https://erasogmsqpgiirovubjh.supabase.co" || !url.pathname.startsWith("/storage/v1/object/upload/sign/") || url.username || url.password || typeof result.photoId !== "string") throw new Error("unavailable");
+              uploadUrl = url.toString();
+            }
+            admission = { photoId: result.photoId ?? photo.uploadId, uploadUrl, uploaded: false };
             admissions.current.set(photo.uploadId, admission);
           }
           if (!admission.uploaded) {
             const controller = new AbortController();
             const timeout = window.setTimeout(() => controller.abort(), 60_000);
             try {
-              const response = await request(admission.uploadUrl, { method: "PUT", body: photo.file, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", signal: controller.signal,
+              const response = await request(admission.uploadUrl, { method: "PUT", body: photo.file, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.any([controller.signal, lifecycle.current.signal]), redirect: "error",
                 headers: { "Content-Type": photo.file.type, "x-upsert": "false" } });
               // A lost response can leave the immutable object present. Completion verifies it server-side.
               if (!response.ok && response.status !== 400 && response.status !== 409) throw new Error("unavailable");
               admission.uploaded = response.ok;
             } finally { window.clearTimeout(timeout); }
           }
-          await photoRequest({ action: "complete", photoId: admission.photoId });
+          await photoRequest({ action: "complete", ...(transport.current?.production ? { uploadId: photo.uploadId } : { photoId: admission.photoId }) });
           admission.uploaded = true;
           setPhotoState(photo.uploadId, "processing");
         } catch { setPhotoState(photo.uploadId, "failed"); }
@@ -107,14 +147,25 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     try {
       const result = await photoRequest({ action: "status" });
       if (!Array.isArray(result.photos) || result.photos.length > 5) throw new Error("unavailable");
-      for (const photo of result.photos) {
-        if (typeof photo.uploadId !== "string" || !["pending", "processing", "ready", "rejected", "expired"].includes(photo.status)) throw new Error("unavailable");
+      if (transport.current?.production) {
+        if (!["queued", "provider_accepted", "unconfirmed", "needs_review"].includes(result.primaryHandoff)) throw new Error("unavailable");
+        if (result.photos.length !== photos.length) throw new Error("unavailable");
       }
+      const seen = new Set<string>();
+      for (const photo of result.photos) {
+        if (typeof photo.uploadId !== "string" || !["pending", "pending_upload", "processing", "ready", "rejected", "expired", "needs_review"].includes(photo.status) || seen.has(photo.uploadId) || !photos.some(selected => selected.uploadId === photo.uploadId)) throw new Error("unavailable");
+        if (transport.current?.production && !["queued", "provider_accepted", "unconfirmed", "needs_review", "not_ready"].includes(photo.handoff)) throw new Error("unavailable");
+        seen.add(photo.uploadId);
+      }
+      if (transport.current?.production) { setPrimaryHandoff(result.primaryHandoff); setDeliveryError(""); }
       setPhotos((current) => current.map((photo) => {
-        const status = result.photos.find((item: { uploadId: string }) => item.uploadId === photo.uploadId)?.status;
-        return status === "ready" || status === "rejected" || status === "processing" || status === "expired" ? { ...photo, state: status } : photo;
+        const found = result.photos.find((item: { uploadId: string }) => item.uploadId === photo.uploadId);
+        const status = found?.status;
+        return status === "ready" || status === "rejected" || status === "processing" || status === "expired" || status === "needs_review"
+          ? { ...photo, state: status, handoff: found.handoff } : photo;
       }));
     } catch {
+      setDeliveryError("Handoff status could not be checked. Your message remains saved.");
       setPhotoError("Photo status could not be checked. Your message is still saved. Try again; this page’s photo access may have expired.");
     } finally {
       uploading.current = false;
@@ -147,7 +198,7 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || lifecycle.current.signal.aborted || priorWarning) return;
     const form = event.currentTarget;
     if (!form.reportValidity()) return;
     const fields = new FormData(form);
@@ -157,34 +208,47 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
       inquiryType: String(fields.get("inquiryType") ?? "general"),
       subject: String(fields.get("subject") ?? "").trim(),
       body: String(fields.get("body") ?? "").trim(),
-      ...(photos.length ? { photos: photos.map((photo) => ({ uploadId: photo.uploadId, byteSize: photo.file.size, contentType: photo.file.type })) } : {}),
+      ...((photos.length || transport.current?.production) ? { photos: photos.map((photo) => ({ uploadId: photo.uploadId, byteSize: photo.file.size, contentType: photo.file.type })) } : {}),
     };
     if (!payload.name || !payload.subject || !payload.body) {
       setError("Enter your name, topic, and message before submitting.");
       return;
     }
     const fingerprint = JSON.stringify(payload);
+    if (attempt.current?.payload !== fingerprint && attempt.current?.uncertain && transport.current?.production) {
+      setChangedAttempt(true);
+      setError("Your earlier message may already be saved. Retry it unchanged, or explicitly start a new inquiry with your changes.");
+      return;
+    }
     if (attempt.current?.payload !== fingerprint) {
-      const capability = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const capability = transport.current?.production ? productionCapability() : btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
       attempt.current = { payload: fingerprint, id: crypto.randomUUID(), capability };
     }
-    const body = JSON.stringify({ ...payload, submissionId: attempt.current.id, ...(photos.length ? { uploadCapability: attempt.current.capability } : {}) });
+    const body = JSON.stringify({ ...payload, submissionId: attempt.current.id, ...((photos.length || transport.current?.production) ? { uploadCapability: attempt.current.capability } : {}) });
     if (new TextEncoder().encode(body).length > 48 * 1024) {
       setError("Your message is too large. Please shorten it before submitting.");
       return;
     }
+    if (!transport.current) return;
+    attempt.current.uncertain = true;
+    markAttempt("unconfirmed");
     submitting.current = true;
     setPending(true);
     setError("");
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const response = await request("/api/support/intake", {
+      const response = await request(transport.current.intake, {
         method: "POST", credentials: "same-origin", cache: "no-store",
-        headers: { "Content-Type": "application/json" }, body, signal: controller.signal,
+        headers: { "Content-Type": "application/json" }, body, signal: AbortSignal.any([controller.signal, lifecycle.current.signal]), redirect: "error",
       });
       const result = await response.json();
       if (response.ok && result?.ok === true) {
+        if (transport.current.production) {
+          if (!validReceipt(result.receipt, attempt.current.id)) throw new Error("unavailable");
+          receipt.current = { inquiryId: result.receipt.inquiryId };
+        }
+        markAttempt("saved");
         setReceived(true);
         if (photos.length) void uploadPhotos(photos);
       } else if (response.status === 429) {
@@ -203,6 +267,11 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     }
   }
 
+  if (interrupted) return <div className={styles.notice}>
+    <h2 ref={successHeading} tabIndex={-1}>This inquiry was interrupted</h2>
+    <p role="status">Your message may already be saved. Uploads stopped when you left this page. Reload to check availability; starting again may create another inquiry.</p>
+    <button className={styles.retry} type="button" onClick={() => window.location.reload()}>Reload contact page</button>
+  </div>;
   if (availability === "checking") return <p className={styles.notice} role="status">Checking support availability…</p>;
   if (availability === "unavailable" || availability === "failed") return (
     <div className={styles.notice}>
@@ -215,12 +284,17 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     <div className={styles.notice}>
       <h2 ref={successHeading} tabIndex={-1}>Inquiry received</h2>
       <p role="status">Your message is saved for the Helix support team.</p>
+      {transport.current?.production ? <div>
+        <p role="status">{handoffMessage(primaryHandoff)}</p>
+        <button className={styles.retry} type="button" disabled={photosPending} onClick={() => void checkPhotos()}>Check email handoff</button>
+        {deliveryError ? <p role="alert">{deliveryError}</p> : null}
+      </div> : null}
       {photos.length ? <section aria-labelledby="support-photo-status-title" className={styles.photoStatus}>
         <h3 id="support-photo-status-title">Your photos</h3>
         <p>Your message stays saved if a photo cannot be added. Keep this page open to check photos or retry an upload.</p>
         <ul className={styles.photos} aria-live="polite">{photos.map((photo) => <li key={photo.uploadId}>
           <span>{photo.file.name}</span>
-          <span>{photo.state === "ready" ? "Added privately for support" : photo.state === "rejected" ? "Not added — this photo could not be accepted" : photo.state === "expired" ? "Photo expired — no longer available" : photo.state === "failed" ? "Upload could not be confirmed" : photo.state === "processing" ? "Processing — not yet available to support" : "Uploading…"}</span>
+          <span>{photo.state === "ready" ? (transport.current?.production ? photoHandoffMessage(photo.handoff) : "Added privately for support") : photo.state === "rejected" ? "Not added — this photo could not be accepted" : photo.state === "needs_review" ? "Photo needs review; your message remains saved" : photo.state === "expired" ? "Photo expired — no longer available" : photo.state === "failed" ? "Upload could not be confirmed" : photo.state === "processing" ? "Processing — not yet available to support" : "Uploading…"}</span>
           {photo.state === "failed" ? <button className={styles.retry} type="button" disabled={photosPending} onClick={() => void uploadPhotos([photo])}>Retry {photo.file.name}</button> : null}
         </li>)}</ul>
         <button className={styles.retry} type="button" disabled={photosPending} onClick={() => void checkPhotos()}>{photosPending ? "Checking photos…" : "Check photo status"}</button>
@@ -232,7 +306,10 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
     <form className={`contact-form ${styles.form}`} onSubmit={submit} aria-labelledby="contact-form-title">
       <h2 className="sr-only" id="contact-form-title">Send an inquiry</h2>
       <p className={styles.requiredNote}>* indicates a required field</p>
-      <fieldset className={styles.fields} disabled={pending}>
+      {priorWarning ? <div role="alert"><p>{priorWarning}</p><button className={styles.retry} type="button" onClick={() => {
+        setPriorWarning(""); try { sessionStorage.removeItem(CONTACT_SESSION_MARKER); } catch { /* Optional marker only. */ }
+      }}>Start a new inquiry</button></div> : null}
+      <fieldset className={styles.fields} disabled={pending || !!priorWarning}>
         <legend className="sr-only">Inquiry details</legend>
         <div className="contact-field"><label htmlFor="support-type">Contact reason</label><select id="support-type" name="inquiryType" defaultValue="general">{contactInquiryTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></div>
         <div className="contact-form__grid">
@@ -285,6 +362,10 @@ export function ContactForm({ request = fetch }: { request?: typeof fetch } = {}
         <div className="contact-form__actions"><button type="submit" className={styles.submit}>{pending ? "Submitting…" : "Submit inquiry"}</button></div>
       </fieldset>
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+      {changedAttempt ? <button className={styles.retry} type="button" disabled={pending} onClick={() => {
+        if (submitting.current || pending || lifecycle.current.signal.aborted) return;
+        attempt.current = null; admissions.current.clear(); setChangedAttempt(false); setError("Your earlier inquiry may still be saved. Submit these changes only if you want a new inquiry.");
+      }}>Start a new inquiry with these changes</button> : null}
     </form>
   );
 }

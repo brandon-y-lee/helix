@@ -1,19 +1,16 @@
+import { readPublicSupabaseConnection } from "./project-safety";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createSupabaseFetch } from "@/lib/supabase/network";
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required Supabase env var: ${name}`);
-  return value;
-}
 
 export async function createSupabaseServerClient() {
+  const { url, key } = readPublicSupabaseConnection();
   const cookieStore = await cookies();
 
   return createServerClient(
-    requiredEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requiredEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    url,
+    key,
     {
       global: {
         fetch: createSupabaseFetch(),

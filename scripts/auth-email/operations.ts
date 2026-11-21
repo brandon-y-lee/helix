@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { assertEmailEnvironment, emailRecipientAllowed, isEmailAddress, type EmailEnvironment } from "../../lib/email/config";
 
-const project = "erasogmsqpgiirovubjh";
+import { SUPABASE_PROJECT_REFS } from "../../lib/supabase/project-safety";
+
+const project = SUPABASE_PROJECT_REFS.development;
 const proofRequired = [
   "provider_recipient_restriction", "auth_link_tracking_disabled",
   "secure_email_change_recipient_restriction", "existing_account_continuity", "recoverable_prior_smtp_credentials",
@@ -16,7 +18,7 @@ export async function runAuthEmailCommand(args: string[], env: EmailEnvironment,
   const origin = env.HELIX_EMAIL_SITE_ORIGIN ?? "";
   let url: URL;
   try { url = new URL(origin); } catch { throw new Error("A valid HTTPS site origin is required."); }
-  if (url.origin !== origin || url.protocol !== "https:" || url.username || url.password) throw new Error("A valid HTTPS site origin is required.");
+  if (url.origin !== origin || origin !== "https://helixskin.vercel.app" || url.username || url.password) throw new Error("A valid HTTPS site origin is required.");
   if (env.HELIX_EMAIL_AUTH_FROM !== "onboarding@resend.dev") throw new Error("The restricted Auth sender is required.");
   const owner = env.HELIX_EMAIL_OWNER_RECIPIENT ?? "";
   if (!isEmailAddress(owner) || !emailRecipientAllowed(owner, env)) throw new Error("An allowed owner recipient is required.");

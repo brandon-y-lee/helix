@@ -1,18 +1,20 @@
 // @vitest-environment node
 
+import { syntheticSupabaseKey } from "./helpers/supabase-target";
 import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Operations must never load local credentials into a constructor test.
 vi.mock("dotenv", () => ({ config: vi.fn() }));
 
-const projectUrl = "https://erasogmsqpgiirovubjh.supabase.co";
+const projectUrl = "https://zyfkunnpnlmgvrojmrbg.supabase.co";
+const productionUrl = "https://erasogmsqpgiirovubjh.supabase.co";
 
 beforeEach(() => {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", projectUrl);
-  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "synthetic-public-key");
-  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-service-key");
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("development", "anon"));
+  vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", syntheticSupabaseKey("development", "service_role"));
   vi.stubGlobal(
     "fetch",
     vi.fn(() => {
@@ -29,6 +31,58 @@ afterEach(() => {
 });
 
 describe("Supabase clients on the supported Node runtime", () => {
+  it("writes and reads the child through ordinary clients while a parent control stays untouched", async () => {
+    const records = new Map([[new URL(projectUrl).host, ["dev-control"]], [new URL(productionUrl).host, ["parent-control"]]]);
+    const contacted: string[] = [];
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>(async (input, init) => {
+      const host = new URL(String(input)).host;
+      contacted.push(host);
+      const targetRows = records.get(host);
+      if (!targetRows) throw new Error("Unexpected test target");
+      if (init?.method === "POST") {
+        targetRows.push(JSON.parse(String(init.body)).id);
+        return new Response(null, { status: 201 });
+      }
+      return Response.json(targetRows.map((id) => ({ id })));
+    }));
+    const { getSupabaseClient } = await import("@/lib/supabase");
+    const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+    expect((await createSupabaseAdminClient().from("synthetic_probe").insert({ id: "child-write" })).error).toBeNull();
+    expect((await getSupabaseClient().from("synthetic_probe").select("id")).data)
+      .toEqual([{ id: "dev-control" }, { id: "child-write" }]);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", productionUrl);
+    expect(createSupabaseAdminClient).toThrow(/target/);
+    expect(contacted).toEqual([new URL(projectUrl).host, new URL(projectUrl).host]);
+    expect(records.get(new URL(productionUrl).host)).toEqual(["parent-control"]);
+  });
+
+  it("refuses the production URL in development even after a client has been cached", async () => {
+    const { getSupabaseClient } = await import("@/lib/supabase");
+    const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+    getSupabaseClient();
+    createSupabaseAdminClient();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", productionUrl);
+    expect(getSupabaseClient).toThrow(/target/i);
+    expect(createSupabaseAdminClient).toThrow(/target/i);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("requires the production parent for a main deployment in the approved Vercel project", async () => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("VERCEL_PROJECT_ID", "prj_N9nyPL9SixJHOROIovS8PDQ9aKny");
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "main");
+    vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "production");
+    const { getSupabaseClient } = await import("@/lib/supabase");
+    expect(getSupabaseClient).toThrow(/target/i);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", productionUrl);
+    expect(getSupabaseClient).toThrow(/credential/i);
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("production", "anon"));
+    expect(getSupabaseClient).not.toThrow();
+    vi.stubEnv("VERCEL_GIT_COMMIT_REF", "dev");
+    expect(getSupabaseClient).toThrow(/target/i);
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it("constructs Catalog, admin and operations clients with native WebSocket and no connection", async () => {
     const { getSupabaseClient } = await import("@/lib/supabase");
     const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
@@ -67,7 +121,7 @@ describe("Supabase clients on the supported Node runtime", () => {
     expect(await admin.from("products").select("id")).toMatchObject({
       error: null,
     });
-    expect(credentials).toEqual(["synthetic-public-key", "synthetic-service-key"]);
+    expect(credentials).toEqual([syntheticSupabaseKey("development", "anon"), syntheticSupabaseKey("development", "service_role")]);
   });
 
   it("fails before a request when Catalog configuration is missing", async () => {
@@ -143,7 +197,7 @@ describe("Supabase clients on the supported Node runtime", () => {
           PATH: process.env.PATH,
           DOTENV_CONFIG_PATH: "/dev/null",
           NEXT_PUBLIC_SUPABASE_URL: projectUrl,
-          SUPABASE_SERVICE_ROLE_KEY: "synthetic-bootstrap-key",
+          SUPABASE_SERVICE_ROLE_KEY: syntheticSupabaseKey("development", "service_role"),
           HELIX_ADMIN_ROLE: "catalog_editor",
         },
       },
@@ -155,6 +209,6 @@ describe("Supabase clients on the supported Node runtime", () => {
     expect(result.stderr).toContain(
       "Set exactly one of HELIX_ADMIN_USER_ID or HELIX_ADMIN_EMAIL.",
     );
-    expect(result.stderr).not.toContain("synthetic-bootstrap-key");
+    expect(result.stderr).not.toContain(syntheticSupabaseKey("development", "service_role"));
   });
 });

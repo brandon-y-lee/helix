@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { syntheticMainContext } from "./helpers/supabase-target";
 import { describe, expect, it, vi } from "vitest";
 import { handleSupportPhotoRequest, supportPhotoSourceHash, type SupportPhotoRequestDependencies } from "@/lib/support/photo-request";
 
@@ -9,7 +10,7 @@ const submissionId = "5728e722-cc81-43be-b446-0695c7dc3aef";
 const uploadId = "f4bbef15-d01c-4540-8d46-fc7eb83f9a9d";
 const photoId = "51787cd8-007e-45ba-8b86-1198c9baaf45";
 const capability = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE";
-const env = { NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "private-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "a".repeat(32), HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "support-private",
+const env = { ...syntheticMainContext, NEXT_PUBLIC_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "private-service-key", HELIX_SUPPORT_PHOTO_ACCESS_SECRET: "a".repeat(32), HELIX_SUPPORT_PHOTOS_ENABLED: "true", HELIX_SUPPORT_PHOTO_BUCKET: "support-private",
   HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted", HELIX_EMAIL_SITE_ORIGIN: origin };
 const input = { action: "admit", submissionId, capability, uploadId, contentType: "image/png", byteSize: 1024 };
 function request(body: unknown = input, requestOrigin = origin) {

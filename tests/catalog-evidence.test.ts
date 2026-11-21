@@ -16,8 +16,8 @@ import {
 const productId = "10000000-0000-4000-8000-000000000101";
 const hash = "a".repeat(64);
 const provenance = {
-  projectRef: "erasogmsqpgiirovubjh",
-  endpoint: "https://erasogmsqpgiirovubjh.supabase.co",
+  projectRef: "zyfkunnpnlmgvrojmrbg",
+  endpoint: "https://zyfkunnpnlmgvrojmrbg.supabase.co",
   projectVerifiedAt: "2026-09-14T08:00:00.000Z",
   sourceCommit: "b".repeat(40),
   extractorSha256: "c".repeat(64),
@@ -264,8 +264,9 @@ describe("complete Catalog evidence", () => {
   it("compares private artifacts offline without provider credentials or requests", async () => {
     const directory = await mkdtemp(join(tmpdir(), "helix-catalog-comparison-"));
     try {
-      const before = createCatalogEvidence(input(), provenance, "before");
-      const after = createCatalogEvidence(input(), provenance, "postflight");
+      const historical = { ...provenance, projectRef: "erasogmsqpgiirovubjh", endpoint: "https://erasogmsqpgiirovubjh.supabase.co" };
+      const before = createCatalogEvidence(input(), historical, "before");
+      const after = createCatalogEvidence(input(), historical, "postflight");
       const files = { before, after, plan: { version: 1, beforeCaptureSha256: before.captureSha256, changes: [] } };
       for (const [name, value] of Object.entries(files)) await writeFile(join(directory, `${name}.json`), JSON.stringify(value), { mode: 0o600 });
       const request = vi.fn<typeof fetch>();

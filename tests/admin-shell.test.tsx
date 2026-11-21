@@ -22,7 +22,7 @@ vi.mock("@/components/shell/Header", () => ({
 }));
 
 vi.mock("@/components/shell/SiteFooter", () => ({
-  SiteFooter: () => <div>Storefront customer footer</div>,
+  SiteFooter: ({ signup }: { signup?: boolean }) => <div data-signup={String(signup)}>Storefront customer footer</div>,
 }));
 
 vi.mock("@/components/cart/CartDrawer", () => ({
@@ -245,6 +245,12 @@ describe("admin shell navigation", () => {
     expect(container.querySelector(".admin-shell")).not.toHaveAttribute(
       "data-sidebar-collapsed",
     );
+  });
+
+  it.each(["/helix-verification/lifecycle", "/helix-verification/reviews", "/email-preferences"])("does not mount marketing intake on %s", (route) => {
+    pathname = route;
+    render(<ApplicationChrome><div>Isolated content</div></ApplicationChrome>);
+    expect(screen.getByText("Storefront customer footer")).toHaveAttribute("data-signup", "false");
   });
 
   it("removes storefront customer chrome from standard admin routes", () => {

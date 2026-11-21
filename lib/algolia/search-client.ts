@@ -4,10 +4,7 @@
 // "search not configured" error state rather than crashing.
 
 import { liteClient, type LiteClient } from "algoliasearch/lite";
-import {
-  HELIX_PRODUCTS_INDEX,
-  isHelixProductsIndex,
-} from "@/lib/algolia/index";
+import { isHelixProductsIndex } from "@/lib/algolia/index";
 import type { AlgoliaProductRecord } from "@/lib/algolia/record";
 
 export class SearchNotConfiguredError extends Error {
@@ -15,7 +12,7 @@ export class SearchNotConfiguredError extends Error {
     super(
       "Search is not configured. Set NEXT_PUBLIC_ALGOLIA_APP_ID and " +
         "NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY and " +
-        `NEXT_PUBLIC_ALGOLIA_INDEX_NAME=${HELIX_PRODUCTS_INDEX}.`,
+        "NEXT_PUBLIC_ALGOLIA_INDEX_NAME for this deployment.",
     );
     this.name = "SearchNotConfiguredError";
   }

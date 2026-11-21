@@ -1,4 +1,5 @@
 import "server-only";
+import { isLegacySupportProject } from "./legacy-project";
 import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 import type { EmailEnvironment } from "@/lib/email/config";
@@ -18,7 +19,7 @@ export type SupportPhotoRequestDependencies = {
 
 export function supportPhotoOrigin(env: EmailEnvironment, requireAdmission = true): string {
   if ((requireAdmission && env.HELIX_SUPPORT_PHOTOS_ENABLED !== "true") || env.HELIX_EMAIL_ENVIRONMENT !== "sandbox" || env.HELIX_EMAIL_MODE !== "restricted"
-    || env.NEXT_PUBLIC_SUPABASE_URL !== "https://erasogmsqpgiirovubjh.supabase.co" || !env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+    || !isLegacySupportProject(env) || !env.SUPABASE_SERVICE_ROLE_KEY?.trim()
     || Buffer.byteLength(env.HELIX_SUPPORT_PHOTO_ACCESS_SECRET?.trim() ?? "") < 32 || (env.HELIX_SUPPORT_PHOTO_ACCESS_SECRET?.length ?? 0) > 4096
     || !/^[a-z0-9][a-z0-9_-]{2,62}$/.test(env.HELIX_SUPPORT_PHOTO_BUCKET ?? "")) throw new SupportError("support_unavailable");
   const origin = env.HELIX_EMAIL_SITE_ORIGIN?.trim();

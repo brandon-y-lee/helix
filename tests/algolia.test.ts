@@ -174,7 +174,7 @@ describe("buildAlgoliaRecord", () => {
       product_media: [
         {
           media_type: "image",
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
           alt: "Northpoint serum",
           width: 1200,
           height: 1650,
@@ -188,7 +188,7 @@ describe("buildAlgoliaRecord", () => {
 
     expect(r.imageMedia).toEqual({
       kind: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/primary/hash.webp",
       alt: "Northpoint serum",
       width: 1200,
       height: 1650,
@@ -234,7 +234,7 @@ describe("buildAlgoliaRecord", () => {
   it("never promotes PDP-only media into search", () => {
     const searchImage = {
       media_type: "image",
-      url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/search.webp",
+      url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/search.webp",
       alt: "Northpoint serum",
       width: 1200,
       height: 1650,
@@ -248,38 +248,38 @@ describe("buildAlgoliaRecord", () => {
       product_media: [
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/gallery.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/gallery.webp",
           role: "gallery",
           sort_order: -10,
         },
         {
           ...searchImage,
           media_type: "video",
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/routine/video.mp4",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/routine/video.mp4",
           role: "routine_video",
           sort_order: -10,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/profile.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/profile.webp",
           role: "profile_editorial",
           sort_order: -9,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/ingredients-texture.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/ingredients-texture.webp",
           role: "ingredients_texture",
           sort_order: -8,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-texture.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-texture.webp",
           role: "core_routine_texture",
           sort_order: -7,
         },
         {
           ...searchImage,
-          url: "https://erasogmsqpgiirovubjh.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-editorial.webp",
+          url: "https://zyfkunnpnlmgvrojmrbg.supabase.co/storage/v1/object/public/helix-catalog/products/northpoint/core-routine-editorial.webp",
           role: "core_routine_editorial",
           sort_order: -8,
         },
@@ -358,14 +358,14 @@ describe("buildAlgoliaRecord", () => {
 });
 
 describe("verifyWebhookSecret", () => {
-  const ORIGINAL = process.env.SUPABASE_CATALOG_WEBHOOK_SECRET;
+  const ORIGINAL = process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET;
 
   beforeEach(() => {
-    process.env.SUPABASE_CATALOG_WEBHOOK_SECRET = "s3cret-value";
+    process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET = "s3cret-value";
   });
   afterEach(() => {
-    if (ORIGINAL === undefined) delete process.env.SUPABASE_CATALOG_WEBHOOK_SECRET;
-    else process.env.SUPABASE_CATALOG_WEBHOOK_SECRET = ORIGINAL;
+    if (ORIGINAL === undefined) delete process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET;
+    else process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET = ORIGINAL;
   });
 
   it("accepts a matching secret", () => {
@@ -380,7 +380,7 @@ describe("verifyWebhookSecret", () => {
   });
 
   it("rejects everything when no secret is configured", () => {
-    delete process.env.SUPABASE_CATALOG_WEBHOOK_SECRET;
+    delete process.env.HELIX_DEV_CATALOG_WEBHOOK_SECRET;
     expect(verifyWebhookSecret("anything")).toBe(false);
   });
 });
