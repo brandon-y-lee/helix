@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
 import { validateObservations, verifyClosedLiveCheckout, verifyReleaseObservations, verifyStorefrontCardOrder } from "../scripts/release/observations.mjs";
 import { observeProduction, searchCredentialFingerprints, serveReleaseStatus } from "@/lib/release-observations/status";
@@ -69,7 +69,45 @@ describe("authenticated closed live Checkout observation", () => {
   const request = (url: string, token = statusToken) =>
     new Request(url, { headers: { authorization: "Bearer " + token } });
   const path = "/api/internal/release-status?checkout=1";
-  const args = { origin: candidate.url, deploymentId: candidate.id, sha: candidate.sha, statusToken, bypassToken };
+  const vercelToken = "synthetic-provider-lookup";
+  const args = { origin: candidate.url, deploymentId: candidate.id, sha: candidate.sha, statusToken, bypassToken, vercelToken };
+  const deployment = {
+    id: candidate.id, url: new URL(candidate.url).hostname, projectId: env.VERCEL_PROJECT_ID,
+    ownerId: "team_uriJjJWNwpZnZHnIp5AiXuv0", target: "production", source: "git", readyState: "READY",
+    gitSource: { type: "github", repoId: "1280166759", ref: "main", sha: candidate.sha },
+  };
+  const metadata = vi.fn<typeof fetch>();
+  beforeEach(() => {
+    metadata.mockReset().mockImplementation(async () => Response.json(deployment));
+    vi.stubGlobal("fetch", metadata);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    { target: "preview" },
+    { url: "helix-otherbuild-brandons-projects-5060bad5.vercel.app" },
+    { id: "dpl_other" },
+    { gitSource: { ...deployment.gitSource, sha: "b".repeat(40) } },
+    { gitSource: { ...deployment.gitSource, ref: "dev" } },
+    { projectId: "prj_other" },
+    { ownerId: "team_other" },
+  ])("withholds application credentials when immutable Vercel metadata differs %j", async mismatch => {
+    metadata.mockResolvedValueOnce(Response.json({ ...deployment, ...mismatch }));
+    const appFetch = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout: closedCheckout,
+    }));
+    await expect(verifyClosedLiveCheckout({ ...args, fetchImpl: appFetch })).rejects.toThrow();
+    expect(appFetch).not.toHaveBeenCalled();
+  });
+
+  it("withholds application credentials if the independent lookup is unavailable", async () => {
+    const appFetch = vi.fn<typeof fetch>();
+    await expect(verifyClosedLiveCheckout({ ...args, vercelToken: "", fetchImpl: appFetch })).rejects.toThrow();
+    expect(metadata).not.toHaveBeenCalled();
+    metadata.mockResolvedValueOnce(new Response(null, { status: 401 }));
+    await expect(verifyClosedLiveCheckout({ ...args, fetchImpl: appFetch })).rejects.toThrow();
+    expect(appFetch).not.toHaveBeenCalled();
+  });
 
   it.each([true, false])("binds the verified merchant, settlementConfigured=%s and closed admission to the build", async settlementConfigured => {
     const catalog = vi.fn();
@@ -81,6 +119,12 @@ describe("authenticated closed live Checkout observation", () => {
     expect(result).toEqual({ version: 2, deploymentId: candidate.id, sha: candidate.sha, checkout });
     expect(catalog).not.toHaveBeenCalled();
     expect(provider).toHaveBeenCalledOnce();
+    expect(metadata).toHaveBeenCalledOnce();
+    const [lookup, lookupInit] = metadata.mock.calls[0];
+    expect(String(lookup)).toBe("https://api.vercel.com/v13/deployments/dpl_candidate?withGitRepoInfo=true&teamId=team_uriJjJWNwpZnZHnIp5AiXuv0");
+    expect(lookupInit).toMatchObject({ method: "GET", redirect: "error" });
+    expect(new Headers(lookupInit?.headers).get("authorization")).toBe("Bearer " + vercelToken);
+    expect(new Headers(lookupInit?.headers).has("x-vercel-protection-bypass")).toBe(false);
     expect(fetchImpl.mock.calls[0][0]).toBe(candidate.url + path);
     const init = fetchImpl.mock.calls[0][1];
     expect(new Headers(init?.headers).get("x-vercel-protection-bypass")).toBe(bypassToken);
@@ -106,6 +150,7 @@ describe("authenticated closed live Checkout observation", () => {
     await verifyClosedLiveCheckout({ ...args, origin: canonical, expectedSettlementConfigured: true, fetchImpl });
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(canonical + path);
+    expect(metadata).not.toHaveBeenCalled();
     expect(Object.fromEntries(new Headers(init?.headers))).toEqual({ authorization: "Bearer " + statusToken });
   });
 

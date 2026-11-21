@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import flags from "../../lib/release-observations/flags.json" with { type: "json" };
+import { createVercelRelease, helixRepositoryId } from "./vercel.mjs";
 
 const canonical = "https://www.helixskin.us";
 const apex = "https://helixskin.us";
@@ -93,17 +94,25 @@ async function boundedBytes(response, max) {
 }
 
 /** @param {{ origin: string, deploymentId: string, sha: string, statusToken: string,
- *  expectedSettlementConfigured?: boolean, bypassToken?: string, fetchImpl?: typeof fetch }} options */
+ *  expectedSettlementConfigured?: boolean, bypassToken?: string, vercelToken?: string, fetchImpl?: typeof fetch }} options */
 export async function verifyClosedLiveCheckout({
-  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, bypassToken = "", fetchImpl = fetch,
+  origin, deploymentId, sha, statusToken, expectedSettlementConfigured, bypassToken = "",
+  vercelToken = process.env.HELIX_RELEASE_VERCEL_TOKEN, fetchImpl = fetch,
 }) {
   requireValue((origin === canonical || immutable.test(origin)) && /^dpl_[A-Za-z0-9]{1,96}$/.test(deploymentId) &&
     /^[a-f0-9]{40}$/.test(sha) && typeof statusToken === "string" && allowedToken.test(statusToken) &&
     (expectedSettlementConfigured === undefined || typeof expectedSettlementConfigured === "boolean"),
     "untrusted Checkout diagnostic target");
+  let destination = canonical;
+  if (origin !== canonical) {
+    const vercel = createVercelRelease({ token: vercelToken, repositoryId: helixRepositoryId });
+    const build = await vercel.readProductionGitBuild(deploymentId, sha);
+    requireValue(build.url === origin, "Checkout diagnostic hostname differs from immutable deployment");
+    destination = build.url;
+  }
   const headers = { authorization: "Bearer " + statusToken };
-  if (origin !== canonical && bypassToken) headers["x-vercel-protection-bypass"] = bypassToken;
-  const response = await fetchImpl(origin + "/api/internal/release-status?checkout=1", {
+  if (destination !== canonical && bypassToken) headers["x-vercel-protection-bypass"] = bypassToken;
+  const response = await fetchImpl(destination + "/api/internal/release-status?checkout=1", {
     method: "GET", headers, redirect: "manual", cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(10000),
   });
   try {
