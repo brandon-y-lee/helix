@@ -129,8 +129,8 @@ describe("production release read-only probe", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it.each(["ALGOLIA_WRITE_API_KEY", "HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET"])("rejects a nonempty substituted %s even when the qualified public Search is available", async key => {
-    const qualified = { ALGOLIA_WRITE_API_KEY:"synthetic-qualified-write-key", HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET:"synthetic-qualified-production-hook" };
+  it.each(["HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", "HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET"])("rejects a nonempty substituted %s even when the qualified public Search is available", async key => {
+    const qualified = { HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY:"synthetic-qualified-write-key", HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET:"synthetic-qualified-production-hook" };
     expect(searchCredentialFingerprints(qualified)).toEqual(example.searchCredentials);
     const actual = searchCredentialFingerprints({...qualified, [key]:"synthetic-unqualified-replacement"});
     const fetchImpl = vi.fn(async (input:RequestInfo | URL, init?:RequestInit) => {

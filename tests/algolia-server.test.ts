@@ -67,20 +67,38 @@ describe("server Algolia configuration", () => {
     expect(algoliasearch).not.toHaveBeenCalled();
   });
 
-  it("permits the production index only on the production target", async () => {
+  it("uses only the dedicated production authority to write the production index", async () => {
     for (const [key, value] of Object.entries(syntheticMainContext)) vi.stubEnv(key, value);
     vi.stubEnv("NEXT_PUBLIC_HELIX_SUPABASE_TARGET", "production");
     vi.stubEnv("HELIX_PRODUCTION_ALGOLIA_APP_ID", "test-app");
     vi.stubEnv("NEXT_PUBLIC_ALGOLIA_INDEX_NAME", "helix_products");
     vi.stubEnv("ALGOLIA_INDEX_NAME", "helix_products");
-    const { getIndexName } = await import("@/lib/algolia/server");
-    expect(getIndexName()).toBe("helix_products");
+    vi.stubEnv("ALGOLIA_ADMIN_API_KEY", "operator-key");
+    vi.stubEnv("HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", undefined);
+    vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", "production-signer");
+    const { getIndexName, upsertSearchRecord } = await import("@/lib/algolia/server");
+    const record = { objectID: "synthetic-product" };
+
+    await expect(upsertSearchRecord(record as never)).rejects.toThrow(/production.*writer|HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY/i);
+    expect(algoliasearch).not.toHaveBeenCalled();
+    vi.stubEnv("HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", "production-index-writer");
+    await upsertSearchRecord(record as never);
+    expect(algoliasearch).toHaveBeenCalledWith("test-app", "production-index-writer");
+    expect(saveObjects).toHaveBeenCalledWith(expect.objectContaining({ indexName: "helix_products", objects: [record] }));
+    vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", undefined);
+    await expect(upsertSearchRecord(record as never)).rejects.toThrow(/signer/);
+    vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", "copied-signer");
+    vi.stubEnv("HELIX_DEV_CATALOG_WEBHOOK_SECRET", "copied-signer");
+    await expect(upsertSearchRecord(record as never)).rejects.toThrow(/signer/);
+    expect(saveObjects).toHaveBeenCalledTimes(1);
+    vi.stubEnv("HELIX_PRODUCTION_CATALOG_WEBHOOK_SECRET", "production-signer");
     vi.stubEnv("ALGOLIA_INDEX_NAME", "helix_products_dev");
-    expect(() => getIndexName()).toThrow();
+    expect(() => getIndexName()).toThrow(/helix_products/);
   });
 
   it("writes to helix_products_dev with bounded provider retries", async () => {
     process.env.ALGOLIA_INDEX_NAME = "helix_products_dev";
+    vi.stubEnv("HELIX_PRODUCTION_ALGOLIA_WRITE_API_KEY", "foreign-production-writer");
     const { upsertSearchRecord } = await import("@/lib/algolia/server");
     const record = { objectID: "product-1" };
 
@@ -92,5 +110,6 @@ describe("server Algolia configuration", () => {
       waitForTasks: true,
       maxRetries: 20,
     });
+    expect(algoliasearch).toHaveBeenCalledWith("test-app", "test-write-key");
   });
 });
