@@ -14,7 +14,7 @@ BEGIN
       AND p.prorettype='boolean'::regtype AND NOT p.proretset AND NOT p.prosecdef AND p.provolatile='s'
       AND p.prolang=(SELECT oid FROM pg_language WHERE lanname='sql')
       AND ARRAY(SELECT replace(x,' ','') FROM unnest(p.proconfig) x)=ARRAY['search_path=pg_catalog,pg_temp']
-      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='7be48b6366baae93bccac0681324f1d3d6ebf892197134e97dd638ce37b387be'
+      AND encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')='7572f1b1b11e8212bb8db9417de87dc2370328b0aa4ea33b12094e24021d6ac4'
       AND NOT EXISTS (SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE
         a.grantor<>p.proowner OR (a.grantee<>p.proowner AND
           (a.grantee<>session_user::regrole OR a.is_grantable OR a.privilege_type<>'EXECUTE'))))
@@ -174,6 +174,25 @@ RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog,
  SELECT b.terms||jsonb_build_object('orderId',b.order_id,'attemptId',b.attempt_id,'sessionId',b.session_id,'bindingNonce',b.binding_nonce)
  FROM private.live_checkout_bindings b WHERE b.account_id=p_account_id AND b.order_id=p_order_id AND b.attempt_id=p_attempt_id
  AND b.first_send_at IS NOT NULL AND private.valid_live_checkout_binding(b.account_id,b.order_id,b.attempt_id)
+$fn$;
+-- An authenticated provider event may arrive before we have recorded its
+-- PaymentIntent. Classify an issued attempt without returning Order data.
+CREATE FUNCTION private.classify_live_checkout_attempt(p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid,p_payment_intent_id text)
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $fn$
+ SELECT coalesce((
+   SELECT CASE
+     WHEN b.payment_intent_id=p_payment_intent_id THEN 'matched'
+     WHEN b.payment_intent_id IS NULL AND o.status='pending_payment'
+       AND a.status IN ('requires_payment','processing') THEN 'pending'
+     ELSE 'conflict' END
+   FROM private.live_checkout_bindings b
+   JOIN public.orders o ON o.id=b.order_id
+   JOIN public.payment_attempts a ON a.id=b.attempt_id AND a.order_id=o.id
+   WHERE b.account_id=p_account_id AND b.order_id=p_order_id AND b.attempt_id=p_attempt_id
+     AND b.binding_nonce=p_binding_nonce AND b.first_send_at IS NOT NULL
+     AND p_payment_intent_id ~ '^pi_[A-Za-z0-9_]{1,200}$'
+     AND private.valid_live_checkout_binding(b.account_id,b.order_id,b.attempt_id)
+ ),'unmatched')
 $fn$;
 CREATE FUNCTION private.read_live_checkout_order_id(p_account_id text,p_session_id text)
 RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $fn$
@@ -419,9 +438,10 @@ BEGIN
  IF NOT FOUND OR NOT private.valid_live_checkout_binding(p_account_id,b.order_id,b.attempt_id) THEN RETURN 'unmatched'; END IF;
  SELECT * INTO STRICT o FROM public.orders WHERE id=b.order_id AND checkout_environment='live' FOR UPDATE;
  IF o.status NOT IN ('paid','refunded') OR p_refunded_cents>o.total_cents
-   OR (b.charge_id IS NOT NULL AND b.charge_id<>p_charge_id)
-   OR p_refunded_cents<b.refunded_cents THEN RETURN 'conflict'; END IF;
- IF p_refunded_cents=b.refunded_cents THEN RETURN 'already_recorded'; END IF;
+   OR (b.charge_id IS NOT NULL AND b.charge_id<>p_charge_id) THEN RETURN 'conflict'; END IF;
+ -- Independent provider reads may finish in reverse order. The locked binding
+ -- already includes every smaller cumulative observation for this same charge.
+ IF p_refunded_cents<=b.refunded_cents THEN RETURN 'already_recorded'; END IF;
  UPDATE private.live_checkout_bindings SET refunded_cents=p_refunded_cents,charge_id=p_charge_id WHERE attempt_id=b.attempt_id;
  IF p_refunded_cents<o.total_cents THEN RETURN 'partial'; END IF;
  UPDATE public.payment_attempts SET status='refunded',raw_status='refunded' WHERE id=b.attempt_id AND order_id=o.id;
@@ -506,6 +526,11 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog, pg_temp AS $a
   SELECT private.read_pending_live_checkout_contract(p_account_id,p_order_id,p_attempt_id)
 $api$;
 
+CREATE FUNCTION public.classify_live_checkout_attempt(p_account_id text,p_order_id uuid,p_attempt_id uuid,p_binding_nonce uuid,p_payment_intent_id text) RETURNS text
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog, pg_temp AS $api$
+  SELECT private.classify_live_checkout_attempt(p_account_id,p_order_id,p_attempt_id,p_binding_nonce,p_payment_intent_id)
+$api$;
+
 CREATE FUNCTION public.read_live_checkout_order_id(p_account_id text,p_session_id text) RETURNS uuid
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path = pg_catalog, pg_temp AS $api$
   SELECT private.read_live_checkout_order_id(p_account_id,p_session_id)
@@ -571,6 +596,9 @@ GRANT EXECUTE ON FUNCTION private.read_live_checkout_payment_contract(text,uuid,
 REVOKE ALL ON FUNCTION private.read_pending_live_checkout_contract(text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.read_pending_live_checkout_contract(text,uuid,uuid) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION private.read_pending_live_checkout_contract(text,uuid,uuid), public.read_pending_live_checkout_contract(text,uuid,uuid) TO service_role;
+REVOKE ALL ON FUNCTION private.classify_live_checkout_attempt(text,uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION private.classify_live_checkout_attempt(text,uuid,uuid,uuid,text), public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION private.read_live_checkout_order_id(text,text) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.read_live_checkout_order_id(text,text) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION private.read_live_checkout_order_id(text,text), public.read_live_checkout_order_id(text,text) TO service_role;
@@ -618,6 +646,8 @@ SELECT
       ('public.read_live_checkout_payment_contract(text,uuid,text)','232d9f452dbc131a12795809b2b51c63faf743fd38e794a51d57cc182cbb35cc',false,'jsonb','sql','s'),
       ('private.read_pending_live_checkout_contract(text,uuid,uuid)','479921d4ae490b53c6f2c4f5d9d0632c34776125395060ad4c047da832e57cb3',true,'jsonb','sql','s'),
       ('public.read_pending_live_checkout_contract(text,uuid,uuid)','1813660dbc136bd6ee799d0e9d5b1be58ce195aa31fde3b7b447f14f43315326',false,'jsonb','sql','s'),
+      ('private.classify_live_checkout_attempt(text,uuid,uuid,uuid,text)','345b74481d433483a457619bb2b0353f384ee1fafdeb437e7d11e4ec540e7a7a',true,'text','sql','s'),
+      ('public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text)','65b635ac2229e347de838a5018d11ca68ba1a4ee4891523249fb55fd05982626',false,'text','sql','s'),
       ('private.read_live_checkout_order_id(text,text)','0dfba40a837c1254d55906c679e631f85c6447e2c7cea4951c13a586a522b56f',true,'uuid','sql','s'),
       ('public.read_live_checkout_order_id(text,text)','115e42f5682047103c3d9ba1f93579cbb303ee86fc836011bbf2134a7cd753e9',false,'uuid','sql','s'),
       ('private.bind_recovered_live_checkout_session(text,uuid,uuid,text,uuid)','ab63effc968dcdf8a7aa5ddb25a3f1ce68149372f24b835c32b3f79f7d63a3b8',true,'boolean','plpgsql','v'),
@@ -632,7 +662,7 @@ SELECT
       ('public.record_live_checkout_unpaid(text,uuid,uuid,text,text)','10e1119f3e665b7f6e6f84fb96e0833ccb004e3004402e9fa0ac86369c631076',false,'text','sql','v'),
       ('private.read_live_checkout_refund_target(text,text)','ea739dca359043a0b281783aaa521d7c53ab8df4047e0bb20cfc26da471a038e',true,'jsonb','sql','s'),
       ('public.read_live_checkout_refund_target(text,text)','7381945047d8ae1865d21c0f5e1cba29104f5c28479e6f5cd9c65975ebae1db3',false,'jsonb','sql','s'),
-      ('private.record_live_checkout_refund(text,text,text,integer,text)','b10ba821129895188d91372246683817dbeecf878729d0dc7a58a5e1ff3a5e2e',true,'text','plpgsql','v'),
+      ('private.record_live_checkout_refund(text,text,text,integer,text)','9635d89229a95977bb2e534616a948c2bfbaebdbe4675ecc315b40b5098ea514',true,'text','plpgsql','v'),
       ('public.record_live_checkout_refund(text,text,text,integer,text)','21eab5ba4a476fec817e37a0e126353fc58c1abb39094d4967a16eee3be8ecda',false,'text','sql','v'),
       ('private.authorize_live_checkout_receipt(text,uuid,text,uuid,text)','7388b21f0980e483313a41ce6ab65a1751ad2c51e55a395a912f0bfcdfebd595',true,'boolean','sql','s'),
       ('public.authorize_live_checkout_receipt(text,uuid,text,uuid,text)','3bca76f026a9e2a2d9cca35309c8c6707732661f14255018a92772318b01fe20',false,'boolean','sql','s'),

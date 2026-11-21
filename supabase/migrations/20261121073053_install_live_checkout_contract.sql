@@ -10,7 +10,7 @@ begin
       and p.proconfig = array['search_path=pg_catalog, pg_temp','lock_timeout=3s']
       and p.prorettype = 'void'::pg_catalog.regtype and p.prokind = 'f' and not p.proretset and p.provolatile = 'v'
       and pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex') =
-        '4fc5dd8cc582027ab16f2873ab3d04f35e85211981f70ad7d441ee80ab481e92'
+        '62a0cc228bf5cfa0c9615723bed8e9cfcddd251b5123b4d9c391f1fc7c473dac'
       and exists (select from pg_catalog.aclexplode(p.proacl) a where a.grantee = session_user::pg_catalog.regrole
         and a.grantor = p.proowner and a.privilege_type = 'EXECUTE' and not a.is_grantable)
       and not exists (select from pg_catalog.aclexplode(p.proacl) a where a.grantee <> p.proowner

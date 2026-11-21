@@ -56,6 +56,24 @@ BEGIN
   SELECT count(*) INTO value_before FROM private.email_intents WHERE purpose='order_confirmation';
   SELECT (public.read_pending_live_checkout_contract(mer,o,o)->>'bindingNonce')::uuid INTO nonce_;
   PERFORM pg_temp.check_settlement(nonce_ IS NOT NULL AND public.read_live_checkout_order_id(mer,sess) IS NULL, 'lost-response precursor');
+  PERFORM pg_temp.check_settlement(public.classify_live_checkout_attempt(mer,o,o,nonce_,'pi_observed')='pending'
+    AND public.classify_live_checkout_attempt(mer,failed,failed,failed,'pi_observed')='pending',
+    'first send is pending with or without a bound Session');
+  PERFORM pg_temp.check_settlement(public.classify_live_checkout_attempt(mer,no_send,no_send,no_send,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(other,o,o,nonce_,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,failed,o,nonce_,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,o,failed,nonce_,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,o,o,failed,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,o,o,NULL,'pi_observed')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,o,o,nonce_,NULL)='unmatched'
+    AND public.classify_live_checkout_attempt(mer,o,o,nonce_,'ch_unrelated')='unmatched'
+    AND public.classify_live_checkout_attempt(mer,lease2,lease2,lease2,'pi_observed')='unmatched',
+    'unstarted, unknown or mismatched merchant, Order, Attempt, nonce or provider identity');
+  PERFORM pg_temp.check_settlement(has_function_privilege('service_role',
+      'public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text)','EXECUTE')
+    AND NOT has_function_privilege('anon','public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text)','EXECUTE')
+    AND NOT has_function_privilege('authenticated','public.classify_live_checkout_attempt(text,uuid,uuid,uuid,text)','EXECUTE'),
+    'service-only event classification');
   PERFORM pg_temp.check_settlement(public.read_pending_live_checkout_contract(other,o,o) IS NULL AND
     public.read_pending_live_checkout_contract(mer,no_send,no_send) IS NULL, 'merchant and send-started gates');
   PERFORM pg_temp.check_settlement(NOT public.bind_recovered_live_checkout_session(mer,o,o,sess,lease2)
@@ -77,6 +95,10 @@ BEGIN
     'bad merchant, amount or physical address never settles');
   PERFORM pg_temp.check_settlement((SELECT status='pending_payment' FROM public.orders WHERE id=o),'unchanged after disputed facts');
   PERFORM pg_temp.check_settlement(public.finalize_live_checkout_payment(mer,o,o,sess,f)='paid','verified payment');
+  PERFORM pg_temp.check_settlement(public.classify_live_checkout_attempt(mer,o,o,nonce_,pi)='matched'
+    AND public.classify_live_checkout_attempt(mer,o,o,nonce_,'pi_another')='conflict'
+    AND public.classify_live_checkout_attempt(other,o,o,nonce_,pi)='unmatched',
+    'settled attempt identifies its PaymentIntent and distinguishes a conflicting observed intent');
   PERFORM pg_temp.check_settlement(public.finalize_live_checkout_payment(mer,o,o,sess,f)='already_paid' AND
     public.finalize_live_checkout_payment(mer,o,o,sess,f||'{"paymentIntentId":"pi_different"}')='conflict' AND
     public.record_live_checkout_unpaid(mer,o,o,sess,'expired')='already_paid','replays cannot replace settled facts');
@@ -90,17 +112,35 @@ BEGIN
     public.record_live_checkout_refund(mer,pi,'ch_s2refund',2501,'USD')='conflict' AND
     public.record_live_checkout_refund(mer,pi,'ch_s2refund',800,'EUR')='conflict', 'validated refund identity/amount/currency');
   PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_s2refund',800,'USD')='partial','partial amount recorded');
-  PERFORM pg_temp.check_settlement((public.read_live_checkout_refund_target(mer,pi)->>'refundedCents')::integer=800 AND
-    public.record_live_checkout_refund(mer,pi,'ch_s2refund',800,'USD')='already_recorded' AND
-    public.record_live_checkout_refund(mer,pi,'ch_s2refund',100,'USD')='conflict','partial refund high-water mark');
+  -- The newer Stripe read (800) acquired the write lock before the older read
+  -- (100). Only facts for the same authenticated merchant, intent and charge
+  -- may be subsumed. Exercise each write and subsequent read in order.
+  PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_s2refund',100,'USD')='already_recorded',
+    'an older successful provider read is already included');
+  PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_s2refund',800,'USD')='already_recorded',
+    'equal refund redelivery');
+  PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_other',100,'USD')='conflict' AND
+    public.record_live_checkout_refund(mer,pi,'ch_s2refund',100,'EUR')='conflict' AND
+    public.record_live_checkout_refund(other,pi,'ch_s2refund',100,'USD')='unmatched' AND
+    public.record_live_checkout_refund(mer,'pi_unknown','ch_s2refund',100,'USD')='unmatched',
+    'a lower amount cannot mask mismatched settlement identity');
+  PERFORM pg_temp.check_settlement((public.read_live_checkout_refund_target(mer,pi)->>'refundedCents')::integer=800
+    AND (SELECT status='paid' FROM public.orders WHERE id=o), 'subsumed partial observations preserve the high-water mark');
   PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_other',2500,'USD')='conflict' AND
     public.record_live_checkout_refund(mer,pi,'ch_s2refund',2500,'USD')='refunded' AND
     public.finalize_live_checkout_payment(mer,o,o,sess,f)='refunded' AND
     public.record_live_checkout_refund(mer,pi,'ch_s2refund',2500,'USD')='already_recorded','full refund preserves terminal state');
+  PERFORM pg_temp.check_settlement(public.record_live_checkout_refund(mer,pi,'ch_s2refund',800,'USD')='already_recorded',
+    'a partial read delivered after the full refund is subsumed');
+  PERFORM pg_temp.check_settlement((public.read_live_checkout_refund_target(mer,pi)->>'refundedCents')::integer=2500
+    AND (SELECT status='refunded' FROM public.orders WHERE id=o)
+    AND (SELECT status='refunded' FROM public.payment_attempts WHERE id=o), 'terminal Order and Attempt survive an older read');
   fail_facts:=pg_temp.live_checkout_facts(failed);
   PERFORM pg_temp.check_settlement(public.record_live_checkout_unpaid(mer,failed,failed,failed_session,'expired')='recorded' AND
     public.record_live_checkout_unpaid(mer,failed,failed,failed_session,'expired')='already_recorded' AND
     public.finalize_live_checkout_payment(mer,failed,failed,failed_session,fail_facts)='conflict','contradictory late payment held');
+  PERFORM pg_temp.check_settlement(public.classify_live_checkout_attempt(mer,failed,failed,failed,'pi_late')='conflict',
+    'a refund or dispute after a terminal unpaid Order is contradictory');
   PERFORM pg_temp.check_settlement(public.claim_live_stripe_event(mer,original_event,'checkout.session.completed',sess,lease1)='claimed'
     AND public.claim_live_stripe_event(mer,original_event,'checkout.session.completed',sess,lease2)='busy'
     AND NOT public.finish_live_stripe_event(mer,original_event,lease2,'processed',NULL),'exclusive delivery lease');

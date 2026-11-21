@@ -74,7 +74,7 @@ DECLARE
   session_id_ CONSTANT text := 'cs_live_'||replace(owned::text,'-','');
 BEGIN
   PERFORM pg_temp.seed_live_checkout(merchant,owned,user_id_);
-  IF private.live_checkout_target() OR public.authorize_live_checkout_receipt(merchant,owned,session_id_,user_id_,NULL)
+  IF public.classify_live_checkout_attempt(merchant,owned,owned,owned,'pi_unrelated')<>'unmatched' OR private.live_checkout_target() OR public.authorize_live_checkout_receipt(merchant,owned,session_id_,user_id_,NULL)
     OR public.read_live_checkout_receipt(merchant,owned,session_id_,user_id_,NULL) IS NOT NULL
     OR public.read_live_checkout_order_history(merchant,user_id_,10,NULL,NULL)<>'[]'::jsonb
     OR public.finalize_live_checkout_payment(merchant,owned,owned,session_id_,pg_temp.live_checkout_facts(owned)) IS DISTINCT FROM 'unmatched'
