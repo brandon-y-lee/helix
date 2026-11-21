@@ -119,7 +119,7 @@ it("stops before launching the writer when any protected credential is empty", (
   function execute(inputs: Record<string, string>) {
     return spawnSync("bash", ["-c", "node() { echo writer-invoked; }\n" + script], {
       encoding: "utf8",
-      env: { ...inputs, TARGET: "production", GITHUB_SHA: candidate.sha, GITHUB_OUTPUT: join(directory, "output") },
+      env: { ...inputs, NODE_ENV: "test", TARGET: "production", GITHUB_SHA: candidate.sha, GITHUB_OUTPUT: join(directory, "output") },
     });
   }
   for (const name of writerCredentials) {
