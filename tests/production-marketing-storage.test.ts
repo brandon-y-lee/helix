@@ -1,12 +1,9 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { createHash } from "node:crypto";
-import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
-import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
-import { createProductionMarketingStorage } from "@/lib/production-marketing/storage";
+import { directMarketingDeliveryContract } from "@/lib/production-marketing/delivery-config";
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
+import { createProductionMarketingStorage, productionSignupQualification } from "@/lib/production-marketing/storage";
 
-const env = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: "prj_test", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticEmailBuild",
-  VERCEL_PROJECT_PRODUCTION_URL: "www.helixskin.us", HELIX_PRODUCTION_MARKETING_SITE_ORIGIN: "https://www.helixskin.us",
-  HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: "prj_test", HELIX_PRODUCTION_MARKETING_SUPABASE_URL: "https://erasogmsqpgiirovubjh.supabase.co", HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "synthetic-dedicated-key" };
+const env = productionMarketingTestTarget;
 afterEach(() => vi.unstubAllGlobals());
 it("uses only dedicated production RPC transport with hashed inputs and never retries an unknown write", async () => {
   const network = vi.fn().mockResolvedValue(new Response("true", { headers: { "content-type": "application/json" } }));
@@ -14,15 +11,24 @@ it("uses only dedicated production RPC transport with hashed inputs and never re
   const storage = createProductionMarketingStorage(env);
   expect(await storage.confirm("a".repeat(64))).toBe(true);
   expect(String(network.mock.calls[0][0])).toBe("https://erasogmsqpgiirovubjh.supabase.co/rest/v1/rpc/confirm_production_marketing_subscription");
+  expect(network.mock.calls[0][1].headers.apikey === env.SUPABASE_SERVICE_ROLE_KEY).toBe(true);
+  expect(network.mock.calls[0][1].headers.Authorization).toBeUndefined();
   expect(JSON.parse(network.mock.calls[0][1].body)).toEqual({ p_token_hash: "a".repeat(64) });
   network.mockReset().mockRejectedValue(new Error("secret visitor@example.invalid"));
   await expect(storage.withdraw("b".repeat(64))).rejects.toThrow("Production marketing is unavailable.");
   expect(network).toHaveBeenCalledTimes(1);
 });
-it("never falls back to generic credentials or touches network on a wrong environment", async () => {
+it("verifies the production service credential and fixed target before an RPC", async () => {
   const network = vi.fn(); vi.stubGlobal("fetch", network);
-  const storage = createProductionMarketingStorage({ ...env, HELIX_PRODUCTION_MARKETING_SERVICE_KEY: undefined, SUPABASE_SERVICE_ROLE_KEY: "generic" });
-  await expect(storage.confirm("a".repeat(64))).rejects.toThrow("Production marketing is unavailable.");
+  for (const change of [
+    { HELIX_PRODUCTION_SUPABASE_SERVICE_ROLE_KEY_SHA256: "f".repeat(64) },
+    { SUPABASE_SERVICE_ROLE_KEY: undefined, HELIX_PRODUCTION_MARKETING_SERVICE_KEY: "retired-slot" },
+    { VERCEL_PROJECT_ID: "prj_other" }, { VERCEL_GIT_COMMIT_REF: "dev" },
+    { NEXT_PUBLIC_SUPABASE_URL: "https://zyfkunnpnlmgvrojmrbg.supabase.co" },
+  ]) {
+    const storage = createProductionMarketingStorage({ ...env, ...change });
+    await expect(storage.confirm("a".repeat(64))).rejects.toThrow("Production marketing is unavailable.");
+  }
   expect(network).not.toHaveBeenCalled();
 });
 
@@ -38,19 +44,12 @@ it("treats malformed or oversized durable responses as unknown without leaking o
 it("shows verified storefront readiness and binds a new signup to the qualified confirmation contract", async () => {
   const { GET, POST } = await import("@/app/api/marketing/production/subscription/route");
   for (const [key,value] of Object.entries({...env,
-    VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID, HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID: HELIX_VERCEL_PROJECT_ID,
-    VERCEL_GIT_COMMIT_REF: "main", VERCEL_GIT_COMMIT_SHA: "a".repeat(40), VERCEL_URL: "helix-build-verified.vercel.app",
-    NEXT_PUBLIC_SUPABASE_URL: supabaseOriginForTarget("production"), NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_synthetic",
-    HELIX_PRODUCTION_SUPABASE_ANON_KEY_SHA256: createHash("sha256").update("sb_publishable_synthetic").digest("hex"),
+    VERCEL_URL: "helix-build-verified.vercel.app",
     HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",
-    HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"synthetic-confirmation-sender",
-    HELIX_PRODUCTION_MARKETING_NATIVE_SENDER:"welcome@helixskin.us",
-    HELIX_PRODUCTION_MARKETING_NATIVE_TEMPLATE_ID:"22222222-2222-4222-8222-222222222222",
-    HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256:"e".repeat(64),
+    HELIX_PRODUCTION_MARKETING_PROVIDER_KEY:"re_synthetic_confirmation_sender",
     HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",
     HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:"whsec_"+Buffer.from("local-only-confirmation-webhook").toString("base64"),
-    HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),
-    HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT:JSON.stringify({version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:"11111111-1111-4111-8111-111111111111",postalAddress:"Synthetic test address",templateHash:productionMarketingTemplateHash}),
+    HELIX_PRODUCTION_MARKETING_WORKER_TOKEN:"w".repeat(48),CRON_SECRET:"s".repeat(48),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY:"c".repeat(64),
     HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY_ID:"synthetic-v1",HELIX_PRODUCTION_MARKETING_ABUSE_KEY:"b".repeat(64)})) vi.stubEnv(key,value);
   const network = vi.fn();
@@ -86,7 +85,13 @@ it("shows verified storefront readiness and binds a new signup to the qualified 
     const body=JSON.parse(request.body);
     expect(Object.keys(body).sort()).toEqual(["p_confirmation_hash","p_contract_hash","p_delivery_payload","p_email","p_explicit_consent","p_preference_hash","p_requester_hash","p_wording_version","p_worker_binding_hash"]);
     expect(body.p_contract_hash).toBe(JSON.parse(network.mock.calls[0][1].body).p_contract_hash);
+    const sameBinding = productionSignupQualification({ ...process.env, VERCEL_DEPLOYMENT_ID: "dpl_AnotherReviewedRelease", VERCEL_GIT_COMMIT_SHA: "b".repeat(40) });
     const qualified = JSON.parse(network.mock.calls[0][1].body).p_worker_binding_hash;
+    expect(sameBinding.p_worker_binding_hash).toBe(qualified);
+    expect(productionSignupQualification({ ...process.env, CRON_SECRET: "t".repeat(48) })).toEqual(sameBinding);
+    expect(productionSignupQualification({ ...process.env,
+      HELIX_PRODUCTION_MARKETING_ENABLED: "false", HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED: "false",
+      HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED: "false" })).toEqual(sameBinding);
     expect(qualified).toMatch(/^[a-f0-9]{64}$/);
     expect(body.p_worker_binding_hash).toBe(qualified);
     network.mockImplementation((url: string, options: RequestInit) => {
@@ -96,10 +101,14 @@ it("shows verified storefront readiness and binds a new signup to the qualified 
     });
     for (const [name, replacement] of [
       ["HELIX_PRODUCTION_MARKETING_WORKER_TOKEN", "x".repeat(48)],
-      ["HELIX_PRODUCTION_MARKETING_PROVIDER_KEY", "different-unqualified-sender-key"],
+      ["HELIX_PRODUCTION_MARKETING_PROVIDER_KEY", "re_different_unqualified_sender"],
       ["HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET", "whsec_" + Buffer.from("replacement-signing-key").toString("base64")],
-      ["HELIX_PRODUCTION_MARKETING_NATIVE_CONTRACT_SHA256", "9".repeat(64)],
+      ["HELIX_PRODUCTION_MARKETING_CAPABILITY_KEY", "9".repeat(64)],
       ["HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED", "false"],
+      ["CRON_SECRET", ""],
+      ["CRON_SECRET", "w".repeat(48)],
+      ["HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT", JSON.stringify({ ...directMarketingDeliveryContract, from: "news@helixskin.us" })],
+      ["HELIX_PRODUCTION_MARKETING_DELIVERY_CONTRACT", JSON.stringify({ ...directMarketingDeliveryContract, topicId: "11111111-1111-4111-8111-111111111111" })],
     ]) {
       const original = process.env[name];
       vi.stubEnv(name, replacement);

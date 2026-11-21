@@ -3,6 +3,6 @@ import { createProductionMarketingEventStorage } from "@/lib/production-marketin
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export async function POST(request: Request) {
-  const { record, restrict } = createProductionMarketingEventStorage(process.env);
-  return receiveProductionMarketingEvent(request, { env: process.env, record, restrict });
+  const { record, preference, hold } = createProductionMarketingEventStorage(process.env);
+  return receiveProductionMarketingEvent(request, { env: process.env, record, preference, hold });
 }

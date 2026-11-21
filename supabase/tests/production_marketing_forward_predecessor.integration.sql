@@ -77,7 +77,8 @@ $shape$;
 WITH original_rows(relation_name,fact) AS (
   SELECT 'controls',jsonb_build_array(singleton,enrollment_enabled,dispatch_enabled) FROM private.production_marketing_controls
   UNION ALL SELECT 'subscribers',to_jsonb(s) FROM private.production_marketing_subscribers s
-  UNION ALL SELECT 'generations',to_jsonb(g) FROM private.production_marketing_generations g
+  UNION ALL SELECT 'generations',jsonb_build_array(subscriber_id,generation,request_revision,scope,wording_version,
+    requested_at,expires_at,confirmation_hash,preference_hash) FROM private.production_marketing_generations
   UNION ALL SELECT 'evidence',to_jsonb(e) FROM private.production_marketing_evidence e
   UNION ALL SELECT 'confirmation_intents',to_jsonb(i) FROM private.production_marketing_confirmation_intents i
   UNION ALL SELECT 'request_limits',to_jsonb(l) FROM private.production_marketing_request_limits l
@@ -89,10 +90,10 @@ SELECT encode(sha256(convert_to(jsonb_agg(jsonb_build_array(relation_name,fact)
 DO $withdraw$
 BEGIN
   IF NOT EXISTS (SELECT FROM private.production_marketing_controls WHERE singleton AND NOT enrollment_enabled
-    AND NOT dispatch_enabled AND NOT native_welcome_enabled AND NOT events_enabled AND NOT status_enabled
+    AND NOT dispatch_enabled AND NOT events_enabled AND NOT status_enabled
     AND daily_limit=0 AND monthly_limit=0)
     OR EXISTS (SELECT FROM private.production_marketing_messages)
-    OR EXISTS (SELECT FROM private.production_marketing_native_generations) THEN
+    OR to_regclass('private.production_marketing_native_generations') IS NOT NULL THEN
     RAISE EXCEPTION 'Forward installation must stay paused without adopting old consent for delivery';
   END IF;
   SET LOCAL ROLE service_role;
@@ -119,10 +120,12 @@ BEGIN
          OR (normalized_email='fixture-598-confirmed@example.invalid' AND revision=3)))<>2
     OR (SELECT count(*) FROM private.production_marketing_confirmation_intents WHERE state='cancelled' AND delivery_payload IS NULL)<>2
     OR EXISTS (SELECT FROM private.production_marketing_messages)
-    OR EXISTS (SELECT FROM private.production_marketing_native_generations)
+    OR to_regclass('private.production_marketing_native_generations') IS NOT NULL
     OR EXISTS (SELECT FROM private.production_marketing_quota_reservations)
     OR EXISTS (SELECT FROM private.production_marketing_events)
-    OR EXISTS (SELECT FROM private.production_marketing_native_receipts) THEN
+    OR EXISTS (SELECT FROM private.production_marketing_direct_denials)
+    OR EXISTS (SELECT FROM private.production_marketing_direct_receipts)
+    OR to_regclass('private.production_marketing_native_receipts') IS NOT NULL THEN
     RAISE EXCEPTION 'Original withdrawal must append exactly one fact per person and enqueue no work';
   END IF;
 END;

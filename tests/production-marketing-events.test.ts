@@ -1,3 +1,4 @@
+import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
@@ -6,10 +7,8 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
 import { receiveProductionMarketingEvent } from "@/lib/production-marketing/events";
 import { handleProductionMarketingStatus } from "@/lib/production-marketing/operator-status";
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-p3-signing-secret-only").toString("base64");
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
-  HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-p3-db",
-  HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,
-  HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co"};
+const env={...productionMarketingTestTarget,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",
+  HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true"};
 const event=()=>({type:"email.complained",created_at:new Date().toISOString(),data:{email_id:"11111111-1111-4111-8111-111111111111",from:"news@helixskin.us",to:["visitor@example.invalid"],
   tags:{environment:"production",helix_message_id:"22222222-2222-4222-8222-222222222222",helix_purpose:"welcome",helix_contract:"production_welcome_delivery_v1"}}});
 function signed(value:unknown=event(),options:{timestamp?:string;alter?:boolean;id?:string}={}){

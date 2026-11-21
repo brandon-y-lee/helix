@@ -3,7 +3,7 @@
   "schedules": {
     "confirmed-welcome": {
       "schedule": "* * * * *",
-      "path": "/api/cadence",
+      "path": "/api/internal/marketing/production/maintenance",
       "requestMethod": "POST"
     }
   }

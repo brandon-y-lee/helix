@@ -19,6 +19,7 @@ export function renderProductionMarketingMessage(
     from: contract.from,
     to: [intent.email],
     reply_to: contract.replyTo,
+    ...(intent.direct && intent.purpose === "welcome" ? { topic_id: contract.topicId } : {}),
     ...renderMarketingBody(intent.purpose, action, preferences, contract.postalAddress),
     headers: intent.purpose === "welcome" ? {
       "List-Unsubscribe": `<${origin}/api/marketing/production/unsubscribe?token=${tokens.preferenceToken}>`,

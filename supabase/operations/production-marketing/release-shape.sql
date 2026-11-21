@@ -1,8 +1,9 @@
--- Stable PG17 catalog identity of this package. No subscriber, token, event or delivery rows are read.
+-- Direct delivery catalog identity. Retain native name coverage to detect partial or stale installations.
+-- No subscriber, token, key material, event or delivery rows are read.
 -- Run with search_path=pg_catalog,pg_temp; object and grant identities are names, never cluster-local OIDs.
 WITH relations AS (
   SELECT c.* FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-  WHERE n.nspname='private' AND starts_with(c.relname,'production_marketing_')
+  WHERE (n.nspname IN ('private','public') AND starts_with(c.relname,'production_marketing_')) OR n.nspname='helix_welcome_worker'
 ), routines AS (
   SELECT p.*, n.nspname||'.'||p.proname||'('||oidvectortypes(p.proargtypes)||')' AS identity
   FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -56,5 +57,8 @@ WITH relations AS (
     CASE WHEN g.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(g.grantee)::text END,g.privilege_type,g.is_grantable)
     FROM acl_objects a CROSS JOIN LATERAL aclexplode(a.acl) g WHERE g.grantee<>a.owner_id
 )
-SELECT encode(sha256(convert_to(coalesce(jsonb_agg(jsonb_build_array(kind,identity,definition)
-  ORDER BY kind COLLATE "C",identity COLLATE "C",definition::text COLLATE "C"),'[]'::jsonb)::text,'UTF8')),'hex') FROM facts
+-- The retired capability expected the old reader's digest for both the initial
+-- and final store. Its pending calls cannot qualify through this direct reader.
+SELECT encode(sha256(convert_to('helix-direct-welcome-v1:'||encode(sha256(convert_to(
+  coalesce(jsonb_agg(jsonb_build_array(kind,identity,definition) ORDER BY kind COLLATE "C",
+  identity COLLATE "C",definition::text COLLATE "C"),'[]'::jsonb)::text,'UTF8')),'hex'),'UTF8')),'hex') FROM facts

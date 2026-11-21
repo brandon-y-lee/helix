@@ -1,13 +1,13 @@
 import "server-only";
 import { readBoundedBody } from "@/lib/email/provider";
 import { resendMarketingContacts } from "@/lib/marketing/provider";
-import { productionMarketingUuid, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
+import { directProductionMarketingContract, productionMarketingUuid, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
 import type { ProductionMarketingEnvironment } from "./contract";
 import type { ProductionMarketingOutcome } from "./delivery-types";
 export const productionMarketingProvider={
   async permission(email:string,topic:string,env:ProductionMarketingEnvironment):Promise<boolean> {
     const config=readProductionMarketingDeliveryConfiguration(env),key=env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY;
-    if(!key||[config.providerKey,config.serviceKey,env.RESEND_API_KEY,env.SUPABASE_SERVICE_ROLE_KEY,env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN].includes(key)||topic!==config.contract.topicId)return false;
+    if(directProductionMarketingContract(config.contract)||!key||[config.providerKey,config.serviceKey,env.RESEND_API_KEY,env.SUPABASE_SERVICE_ROLE_KEY,env.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN].includes(key)||topic!==config.contract.topicId)return false;
     // Only pure bounded GET primitives are reused. No import, Contact creation or opt-in write.
     const contact=await resendMarketingContacts.getContact(email,key);
     if(!contact||contact.email.trim().toLowerCase()!==email||contact.unsubscribed)return false;

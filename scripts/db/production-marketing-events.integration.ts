@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { productionMarketingTestTarget } from "../../tests/helpers/production-marketing-target";
 import { createHmac,randomUUID } from "node:crypto";
 import { afterEach,expect,it,vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
@@ -14,13 +15,12 @@ if(!JSON.parse(docker(["context","inspect"]))[0].Endpoints.docker.Host.startsWit
 const sql=(input:string)=>docker(["exec","-i",container,"psql","-X","-U","postgres","-d","postgres","-v","ON_ERROR_STOP=1","-Atq"],input).trim();
 const literal=(v:unknown)=>v===null?"NULL":`'${String(v).replaceAll("'","''")}'`;
 const origin="https://www.helixskin.us",signing=Buffer.from("synthetic-events-pg-signature-only").toString("base64");
-const env={VERCEL:"1",VERCEL_ENV:"production",VERCEL_PROJECT_ID:"p",VERCEL_DEPLOYMENT_ID:"dpl_SyntheticEmailBuild",VERCEL_PROJECT_PRODUCTION_URL:"helixskin.us",
- HELIX_PRODUCTION_MARKETING_SITE_ORIGIN:origin,HELIX_PRODUCTION_MARKETING_VERCEL_PROJECT_ID:"p",HELIX_PRODUCTION_MARKETING_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co",HELIX_PRODUCTION_MARKETING_SERVICE_KEY:"synthetic-event-db-only",
- HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true",NEXT_PUBLIC_SUPABASE_URL:"https://erasogmsqpgiirovubjh.supabase.co"};
+const env={...productionMarketingTestTarget,HELIX_PRODUCTION_MARKETING_WEBHOOK_SECRET:`whsec_${signing}`,
+ HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED:"true",HELIX_PRODUCTION_MARKETING_STATUS_ENABLED:"true"};
 const storage=createProductionMarketingEventStorage(env);let privateCalls=0;
 const transport=vi.fn(async(input:string|URL|Request,init?:RequestInit)=>{
  const url=String(input),name=url.split("/").at(-1)!,headers=init?.headers as Record<string,string>;
- if(!url.startsWith(`${env.HELIX_PRODUCTION_MARKETING_SUPABASE_URL}/rest/v1/rpc/`)||!["record_production_marketing_event","read_production_marketing_status"].includes(name)||init?.method!=="POST"||headers.apikey!==env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY||headers.Authorization!==`Bearer ${env.HELIX_PRODUCTION_MARKETING_SERVICE_KEY}`)throw new Error("External network forbidden.");
+ if(!url.startsWith(`${env.HELIX_PRODUCTION_MARKETING_SUPABASE_URL}/rest/v1/rpc/`)||!["record_production_marketing_event","read_production_marketing_status"].includes(name)||init?.method!=="POST"||headers.apikey!==env.SUPABASE_SERVICE_ROLE_KEY||headers.Authorization!==undefined)throw new Error("External network forbidden.");
  const args=JSON.parse(String(init.body)) as Record<string,unknown>;if(Object.keys(args).some(k=>!/^p_[a-z_]+$/.test(k)))throw new Error("RPC argument mismatch.");privateCalls++;
  const raw=sql(`SET ROLE service_role;SELECT to_jsonb(public.${name}(${Object.entries(args).map(([k,v])=>`${k}=>${literal(v)}`).join(",")}));`);
  return Response.json(raw?JSON.parse(raw):null);

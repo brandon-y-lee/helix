@@ -11,12 +11,17 @@ import {
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const directory = "supabase/operations/production-marketing/";
-const version = "20261121081630_install_production_marketing";
+const version = "20261121090054_install_direct_production_marketing";
+// Exact function bodies from the unused, already-enrolled 20261121081630 release.
+const priorInstall =
+  "41146d8040d2f8bd7a8c5eeb8a46a58e3f19aeffa7d279b83f839f72f23c23e1";
+const priorShape =
+  "b965079a02401de5d87a5782c7093cf64895e5bf3b4a24c0cd536dd6ad32658f";
 const consentFile =
   "supabase/migrations/20261117090000_production_marketing_consent.sql";
 const packages = [
   consentFile,
-  ...["delivery", "events", "native-welcome", "native-restrictions"].map(
+  ...["delivery", "events", "direct-welcome"].map(
     (name) => directory + name + ".sql",
   ),
 ];
@@ -44,6 +49,10 @@ const read = (base, path) =>
     readFileSync(join(base, path)),
   );
 const file = (path) => read(root, path);
+const unusedNativePredecessor = {
+  cold: sha("[]"),
+  consent: "a4d8cd48ff4ad02f12db0f97b4e1dcedfef769a776d6cac2fa4bdc2f02a93d30",
+};
 const shapeName = "private.helix_welcome_release_shape";
 const installName = "private.install_helix_welcome_release";
 
@@ -70,7 +79,7 @@ function prerequisiteSources(base) {
 function closedPackage(path, index) {
   const sql = file(path);
   assert.doesNotMatch(sql, /[\u0000\r\uFEFF]/);
-  // All five canonical files have exactly one outer transaction. Execute only
+  // All four canonical files have exactly one outer transaction. Execute only
   // these reviewed bytes in the provider migration's own ledger transaction.
   const match = /^(?:--[^\n]*\n)*BEGIN;\n([\s\S]*)\nCOMMIT;\n?$/.exec(sql);
   assert.ok(
@@ -78,7 +87,12 @@ function closedPackage(path, index) {
     "Unexpected transaction wrapper: " + path,
   );
   const tag = "$helix_package_" + index + "$";
-  assert.ok(!sql.includes(tag) && !sql.includes("$welcome_capability$"));
+  assert.ok(
+    [tag, "$welcome_capability$", "$enroll$"].every(
+      (delimiter) => !sql.includes(delimiter),
+    ),
+    "Package contains a reserved release delimiter: " + path,
+  );
   return "EXECUTE " + tag + match[1] + tag + ";";
 }
 
@@ -97,7 +111,8 @@ function routineProof(
     AND p.proowner=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='postgres')
     AND p.proowner=(SELECT relowner FROM pg_catalog.pg_class WHERE oid=pg_catalog.to_regclass('private.helix_environment'))
     AND p.prosecdef=${definer} AND p.prolang=(SELECT oid FROM pg_catalog.pg_language WHERE lanname='${language}')
-    AND p.prokind='f' AND NOT p.proretset AND NOT p.proleakproof
+    AND p.prokind='f' AND NOT p.proretset AND NOT p.proleakproof AND NOT p.proisstrict
+    AND p.proparallel='u' AND p.prosqlbody IS NULL
     AND p.prorettype='pg_catalog.${returns}'::pg_catalog.regtype AND p.provolatile='${definer ? "v" : "s"}'
     AND p.proconfig=${config}
     AND pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(p.prosrc,'UTF8')),'hex')='${body}'
@@ -167,23 +182,25 @@ function generationState(shapes) {
     LOCK TABLE private.production_marketing_controls IN ACCESS EXCLUSIVE MODE;
     IF NOT EXISTS (SELECT FROM ONLY private.production_marketing_controls WHERE singleton AND NOT enrollment_enabled AND NOT dispatch_enabled)
       THEN RAISE EXCEPTION 'An inactive original consent store is required'; END IF;
-  ELSIF target_env<>'production' OR shape<>'${sha("[]")}' THEN
+  ELSIF target_env<>'production' OR shape<>'${shapes.cold}' THEN
     RAISE EXCEPTION 'Unknown marketing predecessor or target'; END IF;`;
 }
 
-// No database connection. Branch and checkout roots are distinct only for the
-// offline combined rehearsal before the independently reviewed tickets integrate.
-export function renderWelcomeRelease({ environment, predecessorRoot = root }) {
+// Render only the ordinary forward stream in this checkout.
+export function renderWelcomeRelease({ environment }) {
   assert.ok(
     Object.hasOwn(targets, environment),
     "Expected development or production",
   );
   const target = targets[environment];
-  const previous = prerequisiteSources(predecessorRoot);
+  const previous = prerequisiteSources(root);
   const shapes = JSON.parse(file(directory + "release-shapes.json"));
   for (const digest of Object.values(shapes))
     assert.match(digest, /^[0-9a-f]{64}$/);
   const shapeBody = "\n" + file(directory + "release-shape.sql");
+  assert.ok(
+    !shapeBody.includes("$welcome_shape$") && !shapeBody.includes("$enroll$"),
+  );
   const shapeProof = (writer) =>
     routineProof(shapeName, sha(shapeBody), writer, shapeOptions);
   const writerGuard = file(directory + "release-writer.sql");
@@ -213,11 +230,15 @@ BEGIN
   ${steps.slice(1).join("\n  ")}
   IF ${shapeName}() IS DISTINCT FROM '${shapes.expanded}' OR NOT EXISTS (
     SELECT FROM ONLY private.production_marketing_controls WHERE singleton AND NOT enrollment_enabled AND NOT dispatch_enabled
-      AND NOT native_welcome_enabled AND NOT status_enabled AND NOT events_enabled AND daily_limit=0 AND monthly_limit=0
-      AND confirmation_worker_binding_hash IS NULL AND native_welcome_contract_hash IS NULL
-  ) OR NOT EXISTS (SELECT FROM ONLY private.production_marketing_native_policy WHERE singleton AND revision=0 AND contract_hash IS NULL
-    AND NOT provider_qualified AND NOT routing_qualified AND NOT quota_qualified AND NOT sender_exclusive)
-  OR (SELECT rolcanlogin FROM pg_roles WHERE rolname='helix_native_welcome_worker') IS DISTINCT FROM false
+      AND NOT status_enabled AND NOT events_enabled AND daily_limit=0 AND monthly_limit=0
+      AND confirmation_worker_binding_hash IS NULL AND delivery_contract_text IS NULL
+  ) OR NOT EXISTS (
+    SELECT FROM ONLY private.production_marketing_direct_policy q
+    JOIN ONLY private.production_marketing_direct_lookup_key k USING(singleton)
+    WHERE q.singleton AND q.revision=0 AND q.topic_default IS NULL
+      AND q.baseline_evidence_sha256 IS NULL AND q.intake_evidence_sha256 IS NULL
+      AND q.lookup_key_hash=sha256(k.secret)
+  ) OR to_regnamespace('helix_welcome_worker') IS NOT NULL OR to_regrole('helix_native_welcome_worker') IS NOT NULL
   THEN RAISE EXCEPTION 'Expected exact unqualified marketing contract'; END IF;
 END
 `;
@@ -254,29 +275,40 @@ DO $enroll$
 DECLARE ${declarations}
 BEGIN
   IF current_user<>session_user OR current_user<>'postgres' THEN RAISE EXCEPTION 'Original authenticated owner required'; END IF;
+  -- Serialize enrollment with protected CLI pushes. The marker lock also waits
+  -- for direct old capability calls which already read the authenticated target.
+  PERFORM pg_advisory_xact_lock(2107275624,561);
+  LOCK TABLE ONLY private.helix_environment IN ACCESS EXCLUSIVE MODE;
   ${trustedMarker()}
   IF target_env<>'${environment}' OR target_ref<>'${target.ref}' OR writer<>'${target.writer}'::regrole
     THEN RAISE EXCEPTION 'Externally verified target mismatch'; END IF;
   ${writerGuard}
   ${historyGuard(previous, false)}
   IF NOT (${proofOfCheckoutEnrollment}) THEN RAISE EXCEPTION 'Checkout owner enrollment required'; END IF;
-END
-$enroll$;
-CREATE FUNCTION ${shapeName}() RETURNS text LANGUAGE sql STABLE SECURITY INVOKER
+  IF to_regnamespace('helix_welcome_worker') IS NOT NULL OR to_regrole('helix_native_welcome_worker') IS NOT NULL THEN
+    RAISE EXCEPTION 'An existing native welcome installation requires its own forward release'; END IF;
+  -- A lost enrollment acknowledgment may be retried only on the same unchanged, unused pair.
+  IF ${installProof("writer")} AND ${shapeProof("writer")} THEN
+    ${prestate}
+    RETURN;
+  END IF;
+  IF NOT (${routineProof(installName, priorInstall, "writer")}
+    AND ${routineProof(shapeName, priorShape, "writer", shapeOptions)}) THEN
+    RAISE EXCEPTION 'Expected the exact previously enrolled unused marketing capability and reader'; END IF;
+  ${generationState(unusedNativePredecessor)}
+CREATE OR REPLACE FUNCTION ${shapeName}() RETURNS text LANGUAGE sql STABLE SECURITY INVOKER
   SET search_path=pg_catalog,pg_temp AS $welcome_shape$${shapeBody}$welcome_shape$;
 REVOKE ALL ON FUNCTION ${shapeName}() FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION ${shapeName}() TO ${target.writer};
-CREATE FUNCTION ${installName}() RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+CREATE OR REPLACE FUNCTION ${installName}() RETURNS void LANGUAGE plpgsql SECURITY DEFINER
   SET search_path=pg_catalog,pg_temp SET lock_timeout='3s' AS $welcome_capability$${body}$welcome_capability$;
 REVOKE ALL ON FUNCTION ${installName}() FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION ${installName}() TO ${target.writer};
-DO $acl$
-DECLARE writer constant oid:='${target.writer}'::regrole; target_env constant text:='${environment}'; shape text;
-BEGIN
   IF NOT (${installProof("writer")} AND ${shapeProof("writer")}) THEN RAISE EXCEPTION 'Unexpected marketing capability or grants'; END IF;
   ${prestate}
+  ${historyGuard(previous, false)}
 END
-$acl$;
+$enroll$;
 COMMIT;
 `;
   return { ownerSql, migration, manifest };
