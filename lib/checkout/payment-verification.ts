@@ -219,8 +219,9 @@ export function verifyLiveCheckoutBinding(accepted: AcceptedCheckoutContract, pr
   if (result.status === "exception") return false;
   if (result.status === "paid" || result.status === "failed") return true;
   const intent = session.payment_intent;
-  return intent !== null && typeof intent === "object" && intent.amount === session.amount_total &&
-    intent.amount_received === 0 && typeof verifiedQuote(accepted, provider, false) !== "string";
+  const intentMatches = intent === null ? result.status === "expired" :
+    typeof intent === "object" && intent.amount === session.amount_total && intent.amount_received === 0;
+  return intentMatches && typeof verifiedQuote(accepted, provider, false) !== "string";
 }
 
 function validLiveTerms(accepted: AcceptedCheckoutContract): boolean {

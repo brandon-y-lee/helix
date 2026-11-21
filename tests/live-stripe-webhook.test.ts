@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   deployment: vi.fn(), merchant: vi.fn(), rpc: vi.fn(), session: vi.fn(),
-  charge: vi.fn(), refunds: vi.fn(), sandbox: vi.fn(),
+  dispute: vi.fn(), charge: vi.fn(), refunds: vi.fn(), sandbox: vi.fn(),
 }));
 const secret = "whsec_live_receiver_fixture";
 const accountId = "acct_HelixLiveFixture";
@@ -13,7 +13,8 @@ vi.mock("@/lib/stripe/live-provider", async (original) => ({
   ...await original<typeof import("@/lib/stripe/live-provider")>(),
   verifyLiveStripeAccount: mocks.merchant,
   readLiveStripeBinding: () => ({
-    stripe: { webhooks: Stripe.webhooks, charges: { retrieve: mocks.charge }, refunds: { list: mocks.refunds } },
+    stripe: { webhooks: Stripe.webhooks, disputes: { retrieve: mocks.dispute },
+      charges: { retrieve: mocks.charge }, refunds: { list: mocks.refunds } },
     accountId, environment: "live", webhookSecret: secret,
   }),
 }));
@@ -40,10 +41,25 @@ function request(event = snapshot(), options: { origin?: string; signer?: string
 const refund = (id: string, amount: number, status = "succeeded") => ({
   object: "refund", id, amount, currency: "usd", payment_intent: "pi_LivePayment", charge: "ch_LiveCharge", status,
 });
+const metadata = { order_id: "e441f8ec-ec3c-4fe5-b545-4be13bb19573", attempt_id: "fa1b26dd-18bf-47a6-8c49-499afd1cf616",
+  binding_nonce: "b939fa03-d451-4226-9424-a08c46106a8d", schema: "checkout_v2", environment: "live" };
+const intent = { object: "payment_intent", id: "pi_LivePayment", livemode: true, metadata,
+  latest_charge: "ch_LiveCharge", amount: 3000, amount_received: 3000, status: "succeeded", currency: "usd" };
+const dispute = { object: "dispute", id: "dp_LiveDispute", livemode: true, charge: "ch_LiveCharge", payment_intent: intent.id };
 const charged = { object: "charge", id: "ch_LiveCharge", livemode: true, paid: true, captured: true,
-  status: "succeeded", currency: "usd", payment_intent: "pi_LivePayment", amount: 3000,
+  status: "succeeded", currency: "usd", payment_intent: intent, amount: 3000,
   amount_captured: 3000, amount_refunded: 1000, refunded: false };
-const refundTarget = { paymentIntentId: "pi_LivePayment", totalCents: 3000, currency: "USD", status: "paid" };
+const refundTarget = { orderId: metadata.order_id, attemptId: metadata.attempt_id, paymentIntentId: intent.id,
+  totalCents: 3000, currency: "USD", status: "paid" };
+function storedResults(overrides: Record<string, unknown> = {}) {
+  mocks.rpc.mockImplementation(async (name: string) => {
+    const results: Record<string, unknown> = { claim_live_stripe_event: "claimed", finish_live_stripe_event: true,
+      classify_live_checkout_attempt: "matched", read_live_checkout_refund_target: refundTarget,
+      record_live_checkout_refund: "partial", ...overrides };
+    if (!(name in results)) throw new Error("unexpected RPC");
+    return { data: results[name], error: null };
+  });
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -51,14 +67,10 @@ beforeEach(() => {
   mocks.deployment.mockResolvedValue(true);
   mocks.merchant.mockResolvedValue({ accountId });
   mocks.session.mockResolvedValue("processed");
+  mocks.dispute.mockResolvedValue(dispute);
   mocks.charge.mockResolvedValue(charged);
   mocks.refunds.mockResolvedValue({ data: [refund("re_Fixture", 1000)], has_more: false });
-  mocks.rpc.mockImplementation(async (name: string) => {
-    const results: Record<string, unknown> = { claim_live_stripe_event: "claimed", finish_live_stripe_event: true,
-      read_live_checkout_refund_target: refundTarget, record_live_checkout_refund: "partial" };
-    if (!(name in results)) throw new Error("unexpected RPC");
-    return { data: results[name], error: null };
-  });
+  storedResults();
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -126,17 +138,18 @@ describe("canonical live Stripe webhook", () => {
   it("acknowledges an operator exception only after its marker was recorded", async () => {
     const response = await POST(request(snapshot("charge.dispute.created")));
     expect(response.status).toBe(200);
-    expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: expect.any(String) });
+    expect(mocks.dispute).toHaveBeenCalledWith(dispute.id);
+    expect(mocks.charge).toHaveBeenCalledWith(charged.id, { expand: ["payment_intent"] });
+    expect(mocks.rpc).toHaveBeenCalledWith("classify_live_checkout_attempt", {
+      p_account_id: accountId, p_order_id: metadata.order_id, p_attempt_id: metadata.attempt_id,
+      p_binding_nonce: metadata.binding_nonce, p_payment_intent_id: intent.id,
+    });
+    expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: "dispute_requires_review" });
     expect(mocks.session).not.toHaveBeenCalled();
   });
 
   it.each([1000, 3000])("reconciles the authenticated cumulative successful cents (%d)", async (amount) => {
-    if (amount === 3000) {
-      mocks.rpc.mockResolvedValueOnce({ data: "claimed", error: null })
-        .mockResolvedValueOnce({ data: refundTarget, error: null })
-        .mockResolvedValueOnce({ data: "refunded", error: null })
-        .mockResolvedValueOnce({ data: true, error: null });
-    }
+    if (amount === 3000) storedResults({ record_live_checkout_refund: "refunded" });
     mocks.charge.mockResolvedValue({ ...charged, amount_refunded: amount, refunded: amount === charged.amount });
     mocks.refunds.mockResolvedValueOnce({ data: [refund("re_Failed", 500, "failed")], has_more: true })
       .mockResolvedValueOnce({ data: [refund("re_Paid", amount)], has_more: false });
@@ -147,6 +160,75 @@ describe("canonical live Stripe webhook", () => {
       p_refunded_cents: amount, p_currency: "USD",
     });
   });
+  describe.each(["charge.refunded", "charge.dispute.created"])("%s ownership", (type) => {
+    it("acknowledges unrelated merchant activity even for non-USD payments and without an account field", async () => {
+      storedResults({ read_live_checkout_refund_target: null });
+      mocks.charge.mockResolvedValue({ ...charged, currency: "eur", payment_intent: {
+        ...intent, currency: "eur", metadata: { order_id: "ANOTHER-SHOP" },
+      } });
+      const response = await POST(request(snapshot(type)));
+      expect(response.status).toBe(200);
+      expect(mocks.charge).toHaveBeenCalledWith(charged.id, { expand: ["payment_intent"] });
+      expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "ignored", p_code: null });
+      expect(mocks.refunds).not.toHaveBeenCalled();
+    });
+    it.each([["unmatched", 200, "ignored"], ["pending", 500, "retryable"], ["conflict", 200, "exception"]])(
+      "uses the immutable original attempt to classify %s before any Order effect", async (match, status, outcome) => {
+        storedResults({ read_live_checkout_refund_target: null, classify_live_checkout_attempt: match });
+        const response = await POST(request(snapshot(type)));
+        expect(response.status).toBe(status);
+        expect(mocks.rpc).toHaveBeenCalledWith("classify_live_checkout_attempt", {
+          p_account_id: accountId, p_order_id: metadata.order_id, p_attempt_id: metadata.attempt_id,
+          p_binding_nonce: metadata.binding_nonce, p_payment_intent_id: intent.id,
+        });
+        expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: outcome });
+        expect(mocks.refunds).not.toHaveBeenCalled();
+      });
+    it("holds contradictory identity on a known verified payment", async () => {
+      mocks.charge.mockResolvedValue({ ...charged, payment_intent: { ...intent, metadata: {} } });
+      expect((await POST(request(snapshot(type)))).status).toBe(200);
+      expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: "reconciliation_requires_review" });
+      expect(mocks.refunds).not.toHaveBeenCalled();
+    });
+    it("keeps a known payment's conflicting Charge reference out of both refund and dispute handling", async () => {
+      mocks.charge.mockResolvedValue({ ...charged, payment_intent: { ...intent, latest_charge: "ch_Unrelated" } });
+      expect((await POST(request(snapshot(type)))).status).toBe(200);
+      expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: "reconciliation_requires_review" });
+      expect(mocks.refunds).not.toHaveBeenCalled();
+    });
+    it("retains a retry when the authenticated provider read fails", async () => {
+      (type === "charge.refunded" ? mocks.charge : mocks.dispute).mockRejectedValue(new Error("private detail"));
+      const response = await POST(request(snapshot(type)));
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain("private detail");
+      expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "retryable", p_code: "reconciliation_pending" });
+      expect(mocks.refunds).not.toHaveBeenCalled();
+    });
+  });
+  it("can identify a dispute from its verified Charge when the optional dispute PaymentIntent is null", async () => {
+    mocks.dispute.mockResolvedValue({ ...dispute, payment_intent: null });
+    expect((await POST(request(snapshot("charge.dispute.created")))).status).toBe(200);
+    expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: "dispute_requires_review" });
+  });
+  it.each([{ livemode: false }, { id: "dp_Other" }, { payment_intent: "pi_Other" },
+    { charge: { id: charged.id, object: "charge", livemode: false } }])(
+    "holds an inconsistent authenticated dispute without treating it as a verified Helix dispute", async (change) => {
+      mocks.dispute.mockResolvedValue({ ...dispute, ...change });
+      expect((await POST(request(snapshot("charge.dispute.created")))).status).toBe(200);
+      expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "exception", p_code: "reconciliation_requires_review" });
+      expect(mocks.refunds).not.toHaveBeenCalled();
+    });
+  it("acknowledges a matching earlier refund after a higher verified total has committed", async () => {
+    storedResults({ read_live_checkout_refund_target: { ...refundTarget, refundedCents: 2000 },
+      record_live_checkout_refund: "already_recorded" });
+    const response = await POST(request(snapshot("charge.refunded")));
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("record_live_checkout_refund", {
+      p_account_id: accountId, p_charge_id: charged.id, p_payment_intent_id: intent.id,
+      p_refunded_cents: 1000, p_currency: "USD",
+    });
+    expect(mocks.rpc.mock.calls.at(-1)?.[1]).toMatchObject({ p_outcome: "processed", p_code: null });
+  });
   it.each(["pending", "duplicate refund ID", "test charge", "foreign charge", "test refund reference", "wrong currency", "unmatched payment"])(
     "does not mark a live Order refunded on %s", async (failure) => {
       if (failure === "pending") mocks.refunds.mockResolvedValue({ data: [refund("re_Pending", 1000, "pending")], has_more: false });
@@ -154,10 +236,11 @@ describe("canonical live Stripe webhook", () => {
       if (failure === "test charge") mocks.charge.mockResolvedValue({ ...charged, livemode: false });
       if (failure === "foreign charge") mocks.refunds.mockResolvedValue({ data: [{ ...refund("re_A", 1000), charge: "ch_Other" }], has_more: false });
       if (failure === "test refund reference") mocks.refunds.mockResolvedValue({ data: [{
-        ...refund("re_A", 1000), payment_intent: { id: charged.payment_intent, livemode: false },
+        ...refund("re_A", 1000), payment_intent: { id: intent.id, livemode: false },
       }], has_more: false });
       if (failure === "wrong currency") mocks.charge.mockResolvedValue({ ...charged, currency: "eur" });
-      if (failure === "unmatched payment") mocks.rpc.mockResolvedValueOnce({ data: "claimed", error: null }).mockResolvedValueOnce({ data: null, error: null }).mockResolvedValue({ data: true, error: null });
+      if (failure === "unmatched payment") storedResults({ read_live_checkout_refund_target: null,
+        classify_live_checkout_attempt: "pending" });
       const response = await POST(request(snapshot("charge.refunded")));
       expect(mocks.rpc.mock.calls.some(([name]) => name === "record_live_checkout_refund")).toBe(false);
       const outcome = mocks.rpc.mock.calls.at(-1)?.[1].p_outcome;

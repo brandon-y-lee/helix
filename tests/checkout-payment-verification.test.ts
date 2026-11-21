@@ -472,6 +472,35 @@ describe("merchant-bound live verification", () => {
     expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
   });
 
+  it("binds an irreversibly expired original live Session when Stripe never created an Intent", () => {
+    const { accepted, provider } = livePaymentFixture();
+    const session = provider.session;
+    session.status = "expired";
+    session.payment_status = "unpaid";
+    session.payment_intent = null;
+    expect(verifyCheckoutPayment({ accepted, provider })).toEqual({ status: "expired", paymentIntentId: null });
+    expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(true);
+  });
+
+  it.each(["incomplete line pages", "wrong quote", "missing nonce", "different Order", "different merchant",
+    "recoverable Session", "missing intent field", "open Session"] as const)(
+    "holds an unbound live Session without an Intent and with %s", (condition) => {
+      const { accepted, provider } = livePaymentFixture();
+      const session = provider.session;
+      session.status = "expired";
+      session.payment_status = "unpaid";
+      session.payment_intent = null;
+      if (condition === "incomplete line pages") provider.lineItemsComplete = false;
+      if (condition === "wrong quote") provider.lineItems[0].quantity = 1;
+      if (condition === "missing nonce") delete session.metadata!.binding_nonce;
+      if (condition === "different Order") session.client_reference_id = "another-order";
+      if (condition === "different merchant") provider.accountId = "acct_Elsewhere";
+      if (condition === "recoverable Session") session.recovered_from = "cs_live_previous";
+      if (condition === "missing intent field") Reflect.deleteProperty(session, "payment_intent");
+      if (condition === "open Session") session.status = "open";
+      expect(verifyLiveCheckoutBinding(accepted, provider)).toBe(false);
+    });
+
   it("recognizes a definitively expired live Intent only under its accepted original Session", () => {
     const input = livePaymentFixture();
     const session = input.provider.session;
