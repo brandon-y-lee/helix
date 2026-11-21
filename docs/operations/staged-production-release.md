@@ -15,6 +15,8 @@ With configuration authority, restrict each GitHub environment below to exactly 
 
 Verify the parent project and its enrolled marker. Its independent owner provisions the restricted `helix_release_controller` LOGIN and installs the deployment registry and capability reader. When a nonsuperuser owner creates the login on PostgreSQL 17, PostgreSQL grants that owner `ADMIN` on the login with `SET` and `INHERIT` disabled. Leave this bootstrap-issued grant in place. Enrollment rejects additional memberships and authorizes zero builds. [Environment and Catalog enrollment](environment-bindings.md) · [Deployment registry SQL](../../supabase/operations/release-bootstrap/enroll_deployment_authorization.sql) · [Capability reader SQL](../../supabase/operations/release-bootstrap/read_release_capabilities.sql)
 
+After registry enrollment, the same authenticated parent owner installs the additive admission script once. It carries forward existing release history, restricts future preparation to admitted pairs, and grants the controller a bounded admission function. A missing enrollment stops the workflow before the forward writer. [Release admission SQL](../../supabase/operations/release-bootstrap/enroll_inspection_only_release.sql)
+
 ## Check the hold before merging
 
 For the first release, run Node 24 in a trusted checkout of the independently reviewed controller. Supply read credentials `GH_TOKEN` (repo/PR) and `HELIX_RELEASE_VERCEL_TOKEN` (project). Set `RELEASE_PR` to the open PR number, `RELEASE_CANDIDATE_SHA` to its exact **dev head**, and `GITHUB_REPOSITORY_ID` to `1280166759`.
@@ -34,6 +36,23 @@ Configure `HELIX_RELEASE_PROFILE` in `helix-release-inspect` once the capability
 * The first release can reference the existing public build in `legacyPrevious`. Include that exact ID and SHA, the older build's expected observations and fresh dated independent evidence under `observation`. The old build predates the status API. Its probes check the serving Catalog, real product media, auth, cart, checkout and absent new routes. The exception is restricted to the identity in the example. Set `legacyPrevious` to `null` when that artifact leaves the rollback window.
 * Each authority under `evidence` records its observation and expiry as UTC ISO timestamps with milliseconds and the lowercase SHA-256 of its retained sanitized report. The Auth owner verifies project identity, return origins and redirect settings. The Search owner qualifies the exact write key's Algolia app, allowed indexes and ACLs, plus the parent database webhook's destination and configured credential. Verify the two corresponding fingerprints from those independent records. The email owner qualifies existing signed callback routes and generation/signers. The Checkout owner verifies the recorded sandbox account, callback destination and settlement eligibility. Keep original secrets and customer records in their authorized systems.
 * Reuse valid observations across releases. Requalify the relevant evidence when a binding or intended capability changes or before an authority's evidence expires. During each dispatch the controller discovers the two immutable ID/SHA pairs and binds them to the exact profile bytes with SHA-256. Subsequent protected jobs verify the frozen packet, deployment identities and validity windows before acting.
+
+### Inspect the original Catalog build
+
+Use profile version `2` with `mode` set to `"inspection-only"` for the first Catalog stage when protected values on the original build cannot be independently observed. Keep the complete candidate `observations` with `features.searchWrite` false and `searchCredentials.writeKeySha256` null. Supply all four current provider evidence records. Omit `previous`.
+
+In `legacyPrevious` use the original deployment ID and SHA from the example. Set `publicObservations` to the measured `productSlug`, `mediaUrl` and `canonicalCheckoutGet`. Under `observation`, reference the dated independent report of the serving application and the actual parent schema **before** the forward work. After expansion, the workflow checks that the original application still serves the Catalog, product media, authentication, cart and Checkout and that the new routes remain closed. It checks the candidate’s private status on its immutable URL.
+
+Keep a separate protected-values report for that immutable original deployment. It identifies the unknown effective Search writer, the two protected credential fingerprints, and the bulk-reindex switch used by the CLI and the authenticated `POST /api/admin/search-reindex`. A public Search read cannot establish those values. Under `protectedValues` supply `observedAt`, `expiresAt`, the report’s `evidenceSha256` and `unobservable` with the following paths in the order shown below.
+
+1. `features.bulkSearchReindex`
+2. `features.searchWrite`
+3. `searchCredentials.webhookSecretSha256`
+4. `searchCredentials.writeKeySha256`
+
+Set `protectedValues.sha256` to the lowercase SHA-256 of the UTF-8 bytes of `JSON.stringify([deploymentId, sha, observedAt, expiresAt, evidenceSha256, unobservable])`. Both legacy reports expire independently. The public and protected reports have distinct evidence digests.
+
+Dispatch `verify` with the release PR or candidate deployment ID. Before the forward writer runs, the registry permanently records the inspection restriction on that exact candidate and predecessor. The workflow can verify the staged candidate and cancel an unattempted preparation. Cancellation preserves the record. Substituting a full profile, selecting the release differently or retrying the cancelled preparation cannot authorize promotion or rollback of this pair. Any later decision to move public traffic requires separately qualified evidence and reviewed authority.
 
 ## Run the release
 

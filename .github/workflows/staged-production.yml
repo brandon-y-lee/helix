@@ -75,9 +75,38 @@ jobs:
           HELIX_RELEASE_BYPASS_TOKEN: ${{ secrets.HELIX_RELEASE_BYPASS_TOKEN }}
         run: node scripts/release/command.mjs resolve
 
-  migrate:
+  registry:
     needs: resolve
-    if: inputs.operation == 'verify' || inputs.operation == 'promote'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: helix-release-control
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      admission_sha256: ${{ steps.admit.outputs.admission_sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release-node
+      - name: Admit the exact operation and deployment pair before forward SQL
+        id: admit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets.HELIX_RELEASE_VERCEL_READ_TOKEN }}
+          RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
+          RELEASE_CONTEXT_SHA256: ${{ needs.resolve.outputs.context_sha256 }}
+          HELIX_RELEASE_DB_HOST: ${{ vars.HELIX_RELEASE_DB_HOST }}
+          HELIX_RELEASE_DB_CA: ${{ secrets.HELIX_RELEASE_DB_CA }}
+          HELIX_RELEASE_DB_PASSWORD: ${{ secrets.HELIX_RELEASE_DB_PASSWORD }}
+        run: node scripts/release/command.mjs admit
+
+  migrate:
+    needs: registry
+    if: needs.registry.outputs.admission_sha256 != '' && (inputs.operation == 'verify' || inputs.operation == 'promote')
     permissions:
       actions: read
       contents: read
@@ -86,9 +115,10 @@ jobs:
       expected_main_sha: ${{ github.sha }}
 
   release:
-    needs: [admission, resolve, migrate]
+    needs: [admission, resolve, registry, migrate]
     if: >-
       always() && !cancelled() && needs.admission.result == 'success' && needs.resolve.result == 'success' &&
+      needs.registry.result == 'success' && needs.registry.outputs.admission_sha256 != '' &&
       (((inputs.operation == 'rollback' || inputs.operation == 'cancel') && needs.migrate.result == 'skipped') ||
       ((inputs.operation == 'verify' || inputs.operation == 'promote') && needs.migrate.result == 'success' &&
       needs.migrate.outputs.applied_sha == github.sha))
@@ -108,6 +138,7 @@ jobs:
       - name: Check protected release evidence and perform the selected operation
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ADMISSION_SHA256: ${{ needs.registry.outputs.admission_sha256 }}
           RELEASE_APPLIED_SHA: ${{ needs.migrate.outputs.applied_sha }}
           HELIX_RELEASE_VERCEL_TOKEN: ${{ secrets[(inputs.operation == 'verify' || inputs.operation == 'cancel') && 'HELIX_RELEASE_VERCEL_READ_TOKEN' || 'HELIX_RELEASE_VERCEL_CONTROL_TOKEN'] }}
           RELEASE_CONTEXT: ${{ needs.resolve.outputs.context }}
