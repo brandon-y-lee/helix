@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import styles from "./FooterSignup.module.css";
 
 type State = "idle" | "pending" | "success" | "limited" | "error";
+
+const subscribe = () => () => {};
 
 const messages: Record<State, string> = {
   idle: "",
@@ -16,6 +18,7 @@ const messages: Record<State, string> = {
 
 export function FooterSignup() {
   const id = useId();
+  const hydrated = useSyncExternalStore(subscribe, () => true, () => false);
   const [state, setState] = useState<State>("idle");
   const submission = useRef<AbortController | null>(null);
   const result = useRef<HTMLParagraphElement>(null);
@@ -66,6 +69,7 @@ export function FooterSignup() {
     }
   }
 
+  const disabled = !hydrated || state === "pending";
   return (
     <section className={styles.section} aria-labelledby={`${id}-heading`}>
       <div className={`storefront-shell ${styles.inner}`}>
@@ -86,10 +90,10 @@ export function FooterSignup() {
                   autoComplete="email"
                   maxLength={254}
                   required
-                  disabled={state === "pending"}
+                  disabled={disabled}
                   aria-describedby={`${id}-result`}
                 />
-                <button type="submit" disabled={state === "pending"}>
+                <button type="submit" disabled={disabled}>
                   {state === "pending" ? "Signing up…" : "Sign up"}
                 </button>
               </div>

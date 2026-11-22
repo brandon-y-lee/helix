@@ -1,8 +1,15 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
 import { FooterSignup } from "@/components/marketing/FooterSignup";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it("keeps the form inert until it can submit the expected JSON", () => {
+  const page = new DOMParser().parseFromString(renderToString(<FooterSignup />), "text/html");
+  expect(page.querySelector("input")).toBeDisabled();
+  expect(page.querySelector("button")).toBeDisabled();
+});
 
 it("submits only the address once and announces success after capture", async () => {
   let resolve!: (response: Response) => void;
