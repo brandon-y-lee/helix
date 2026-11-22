@@ -82,9 +82,9 @@ it("sends zero photos and 64hex capability, validates saved receipt, and separat
   await screen.findByRole("button", { name: "Submit inquiry" });
   fill();
   submit();
-  expect(
-    await screen.findByRole("heading", { name: "Inquiry received" }),
-  ).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Inquiry received" })).toHaveFocus(),
+  );
   expect(bodies[0].photos).toEqual([]);
   expect(bodies[0].uploadCapability).toMatch(/^[a-f0-9]{64}$/);
   fireEvent.click(screen.getByRole("button", { name: "Check email handoff" }));
@@ -255,11 +255,9 @@ it("does not silently resume or submit after back-forward page restoration", asy
   fill();
   fireEvent(window, new Event("pagehide"));
   fireEvent(window, new Event("pageshow"));
-  expect(
-    await screen.findByRole("heading", {
-      name: "This inquiry was interrupted",
-    }),
-  ).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "This inquiry was interrupted" })).toHaveFocus(),
+  );
   expect(
     screen.getByText(/Your message may already be saved. Uploads stopped/),
   ).toBeInTheDocument();
@@ -290,5 +288,7 @@ it("cannot replace uncertain attempt identity while its unchanged retry is in fl
   fireEvent.click(change);
   expect(posted[1]).toEqual(posted[0]);
   resolveRetry(Response.json({ ok: true, receipt: { inquiryId, submissionId: posted[0].submissionId, status: "saved" } }));
-  expect(await screen.findByRole("heading", { name: "Inquiry received" })).toHaveFocus();
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Inquiry received" })).toHaveFocus(),
+  );
 });
