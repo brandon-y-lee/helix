@@ -31,6 +31,9 @@ const preferenceRpc = "record_direct_production_marketing_preference";
 const strictRpc = "record_direct_production_marketing_event";
 const holdRpc = "hold_direct_production_marketing_receipt";
 const rawRpc = "record_production_marketing_event";
+const supportContractRpc = "read_support_prod_contract";
+const supportReceiptRpc = "record_support_prod_sent";
+const supportKey = "sb_secret_synthetic_support_credential";
 const occurredAt = "2024-04-13T12:10:09.000Z";
 const eventId = "msg_synthetic_native";
 const env = {
@@ -83,7 +86,7 @@ beforeEach(() => {
     if (!Object.hasOwn(outcomes, name) || init.method !== "POST" || init.redirect !== "error")
       throw new Error("External network forbidden");
     const headers = new Headers(init.headers);
-    expect(headers.get("apikey")).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
+    expect(headers.get("apikey")).toBe(name.includes("support_prod") ? supportKey : env.SUPABASE_SERVICE_ROLE_KEY);
     expect(headers.has("authorization")).toBe(false);
     ledger.push({ name, args: JSON.parse(String(init.body)) });
     if (outcomes[name] instanceof Error) throw outcomes[name];
@@ -101,6 +104,52 @@ async function accepted(event: unknown) {
   expect(await response.json()).toEqual({ ok: true });
   expect(response.headers.get("cache-control")).toBe("private, no-store");
 }
+
+it("routes an authenticated owned support message to the private recorder even while marketing is paused", async () => {
+  const support = "support@helixskin.us";
+  const from = "Helix Website <contact@helixskin.us>";
+  const supportEnv = {
+    HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED: "false",
+    HELIX_PRODUCTION_SUPPORT_ORIGIN: origin,
+    HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh",
+    HELIX_PRODUCTION_SUPPORT_PROJECT_URL: database,
+    HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: messageId,
+    HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: supportKey,
+    HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-support-abuse-secret-at-least-32",
+  };
+  for (const [key, value] of Object.entries(supportEnv)) vi.stubEnv(key, value);
+  outcomes[supportContractRpc] = {
+    projectRef: "erasogmsqpgiirovubjh", contractId: messageId,
+    admissionEnabled: false, workerEnabled: false,
+    fullMediaQualified: false, isolationQualified: false, operationsQualified: false,
+  };
+  outcomes[supportReceiptRpc] = "matched";
+  const tags = {
+    helix_support_outbox: emailId, helix_support_contract: messageId,
+    helix_support_delivery: "a".repeat(64),
+  };
+  const fields = {
+    from, to: [support], tags, message_id: "<support@resend.example.invalid>",
+    subject: `Helix Website inquiry ${emailId}`,
+  };
+  const event = delivery("email.sent", fields);
+  expect((await POST(signed(event, { alter: true }))).status).toBe(400);
+  expect(ledger).toEqual([]);
+  await accepted(event);
+  expect(ledger.map(item => item.name)).toEqual([supportContractRpc, supportReceiptRpc]);
+  expect(ledger[1].args).toMatchObject({ p_input: { outboxId: emailId, to: support, from } });
+  ledger.length = 0;
+  outcomes[supportReceiptRpc] = "unmatched";
+  expect((await POST(signed(event))).status).toBe(503);
+  ledger.length = 0;
+  const mixed = { ...fields, tags: { ...tags, ...rawTags } };
+  expect((await POST(signed(delivery("email.sent", mixed)))).status).toBe(400);
+  expect(ledger).toEqual([]);
+  vi.stubEnv("HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED", "true");
+  await accepted(delivery("email.bounced", mixed));
+  expect(ledger.map(item => item.name)).toEqual([holdRpc]);
+});
+
 describe("dedicated signed direct marketing intake", () => {
   it.each(["contact.created", "contact.updated"])(
     "retains a signed %s global denial during an enrollment pause",

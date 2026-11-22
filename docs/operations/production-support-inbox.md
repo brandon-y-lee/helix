@@ -14,6 +14,16 @@ Inventory every account-wide email/Inbox webhook and effective dev send/read/man
 
 The manual SQL order is `install.sql`, then `media.sql`, then `status.sql` in `supabase/operations/support-production/`. These are outside migration discovery and are not automatically applied. Target verification, any required security/credential approval, bucket provisioning, worker cadence and control configuration are separate operations. No source command here installs them or contacts a service.
 
+## First launch with photos
+
+Use the existing private Supabase bucket design for original and clean images. Postgres stores each inquiry, upload manifest, and delivery state. Configure one photo processing lease to start. The two production Vercel schedules wake the existing photo and dispatch workers every minute. An immutable scheduled hostname must match the deployment serving the public domain before either worker touches the queue. The active signed Resend callback also records owned support `email.sent` events for threading. Its URL and event subscriptions stay the same.
+
+Before opening admission, verify production credential isolation, the bucket's private access and file limits, the decoder in the exact deployed build, both schedules, and the signed receipt path with inert fixtures. Confirm available storage and provider capacity. Start with 2 requests per source or email per hour, 3 requests globally per hour, and a 280 MiB reservation limit for 20 photo slots. At most 20 provider attempts can begin per UTC day, including retries and attachment sends. The limit leaves headroom for Resend's sent and received usage, existing mail, and manual replies. Monitor reserved bytes, queue counts and oldest outstanding work without inspecting customer payloads.
+
+The owner will make the first live demo submission after promotion and confirm Inbox arrival, attachment visibility in the same conversation, and the recipient selected by manual Reply. A separate restricted production submission, backup assignment and archive restoration are deferred for this launch. Keep the optional checks below for a future operations rehearsal. Do not report a saved inquiry, a signed provider callback, or a synthetic fixture as proof of what the owner can open in the Inbox.
+
+If delivery breaks, close new admission in the stored control. Keep the worker, callback and original/clean files available for already accepted requests. The previous build cannot record support callback receipts, so keep the current callback while those sends are outstanding and fix forward if needed.
+
 ## Read-only readiness packet
 
 Run only against an operator-prepared, private **nonsecret** JSON packet:
@@ -28,7 +38,7 @@ The version 1 packet contains `candidateCommit`, a fresh UTC `observedAt`, nonse
 
 Exit 1 means blocked. Exit 2 means the supplied packet is complete enough for operator review, **not a passing live gate**. Even an all-true packet always reports `actualProductionVerified:false` and `activationAuthorized:false`. Persistence, provider handoff, actual Inbox receipt, manual reply, maximum media, attachment hashes, threading, archive restoration, development/provider isolation and human responsibilities each have independent claims. None is inferred from another. A changed candidate, stale snapshot, missing claim, mismatched target/bucket or zero photo capacity blocks the packet. Actual evidence and applicable approvals remain outside this evaluator.
 
-## Owned canary sequence, not yet a live procedure
+## Optional restricted rehearsal
 
 First obtain a reviewed concrete rollout sequence that keeps general public admission closed while testing the exact production artifact. Do not add a permanent public test bypass, falsify qualification flags or assume hosting controls exist or are free. A narrowly restricted hosting-layer owned-test window is one possible design, but requires verified availability, impact review and any applicable security approval before use. Source integration alone authorizes none of those settings.
 
@@ -64,4 +74,4 @@ Resend documents 30-day general email/log retention on Free/Pro/Scale. That is n
 
 Pause new admission independently of draining already-owned work. Keep target/bucket credentials, signed callbacks and preservation intact while reconciliation is needed. Never rekey an uncertain primary/media request or silently split an attempted batch after the 20-hour automatic horizon. Storage signed URLs use a separate signing key and are not revoked by Auth-key rotation; retain worst-case reservations until any authorized release/disposition process actually proves finality. This source provides no capacity-release/deletion path. [Storage URL signing keys](https://supabase.com/docs/guides/storage/security/signing-keys).
 
-A final activation record must bind inspected code/configuration, actual evidence, monitoring/archive responsibilities, quota budget, rollback and applicable approvals. Nothing in a local packet or successful CI result supplies that authority. No direct dev push is needed: complete the required Spec reviews/gates and coordinate its eventual dev merge with the existing Git-linked branch owner before any publication that can affect that branch.
+A final activation record must bind inspected code/configuration, actual evidence, operator responsibilities, quota budget, rollback and applicable approvals. Complete the applicable reviews and CI gates before promotion.

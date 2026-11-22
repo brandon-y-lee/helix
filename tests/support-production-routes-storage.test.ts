@@ -1,8 +1,8 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { afterEach, expect, it, vi } from "vitest";
 import { GET as intakeGet, POST as intakePost } from "@/app/api/support/production/intake/route";
-import { POST as worker } from "@/app/api/internal/support-production-dispatch/route";
+import { HEAD as workerIdentity, POST as worker } from "@/app/api/internal/support-production-dispatch/route";
 import { POST as sent } from "@/app/api/webhooks/support-production-sent/route";
 import { productionConfig } from "@/lib/support/production/config";
 import { productionRpc } from "@/lib/support/production/storage";
@@ -33,6 +33,32 @@ it("requires bounded internal bearer authentication and production URL/context b
   expect((await worker(workerRequest(undefined, "https://preview.vercel.app"))).status).toBe(403);
   vi.stubEnv("VERCEL_ENV", "preview"); expect((await worker(workerRequest())).status).toBe(503);
   expect(network).not.toHaveBeenCalled();
+});
+it("runs scheduled workers only on the deployment currently serving the shop", async () => {
+  setup();
+  const cron = "synthetic-schedule-secret-32-characters-only";
+  const deployment = "dpl_ActiveSupportDeployment";
+  const host = "support-build.vercel.app";
+  const canonical = "https://www.helixskin.us/api/internal/support-production-dispatch";
+  vi.stubEnv("CRON_SECRET", cron);
+  vi.stubEnv("VERCEL_URL", host);
+  vi.stubEnv("VERCEL_DEPLOYMENT_ID", deployment);
+  vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "a".repeat(40));
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", env.HELIX_PRODUCTION_SUPPORT_PROJECT_URL);
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("production", "anon"));
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED", "false");
+  const headers = { authorization: `Bearer ${cron}` };
+  expect((await workerIdentity(new Request(canonical, { method: "HEAD" }))).status).toBe(401);
+  expect((await workerIdentity(new Request(canonical, { method: "HEAD", headers }))).headers.get("X-Helix-Deployment")).toBe(deployment);
+  const network = vi.fn().mockResolvedValueOnce(new Response(null, { headers: { "X-Helix-Deployment": "dpl_OtherDeployment" } }))
+    .mockResolvedValueOnce(new Response(null, { headers: { "X-Helix-Deployment": deployment } }));
+  vi.stubGlobal("fetch", network);
+  expect((await worker(workerRequest(cron, "https://another.vercel.app"))).status).toBe(403);
+  expect(network).not.toHaveBeenCalled();
+  expect((await worker(workerRequest(cron, `https://${host}`))).status).toBe(409);
+  expect((await worker(workerRequest(cron, `https://${host}`))).status).toBe(200);
+  expect(network).toHaveBeenCalledTimes(2);
+  expect(network).toHaveBeenCalledWith(canonical, expect.objectContaining({ method: "HEAD", redirect: "error" }));
 });
 it("cannot inherit generic provider credentials and does not drain disabled work", async () => {
   setup(); const network = vi.fn(); vi.stubGlobal("fetch", network);

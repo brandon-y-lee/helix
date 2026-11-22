@@ -387,7 +387,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public.start_support_prod_send(p_input jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-DECLARE c support_production_private.contract%ROWTYPE; o support_production_private.outbox%ROWTYPE;
+DECLARE c support_production_private.contract%ROWTYPE; o support_production_private.outbox%ROWTYPE; v_send_day timestamptz;
 BEGIN
  PERFORM support_production_private.validate_input(p_input,ARRAY['projectRef','contractId','outboxId','leaseId'],ARRAY['projectRef','contractId','outboxId','leaseId']);
  IF p_input->>'outboxId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' OR p_input->>'leaseId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RAISE EXCEPTION 'support_invalid_input'; END IF;
@@ -398,6 +398,12 @@ BEGIN
  IF NOT FOUND OR o.state<>'leased' OR o.lease_id IS DISTINCT FROM (p_input->>'leaseId')::uuid OR o.lease_until<=clock_timestamp() THEN RETURN NULL; END IF;
  IF o.first_attempt_at<=clock_timestamp()-interval '20 hours' THEN
   UPDATE support_production_private.outbox SET state='reconciliation',lease_id=NULL,lease_until=NULL WHERE id=o.id; RETURN NULL;
+ END IF;
+ v_send_day:=date_trunc('day',clock_timestamp(),'UTC');
+ IF NOT support_production_private.reserve_provider_send(v_send_day) THEN
+  UPDATE support_production_private.outbox SET state=CASE WHEN o.first_attempt_at IS NULL THEN 'queued' ELSE 'unknown' END,
+   next_attempt_at=v_send_day+interval '24 hours',lease_id=NULL,lease_until=NULL WHERE id=o.id;
+  RETURN NULL;
  END IF;
  -- State is set to unknown before handoff: process death can never erase the first-attempt marker.
  UPDATE support_production_private.outbox SET first_attempt_at=coalesce(first_attempt_at,clock_timestamp()),attempt_count=attempt_count+1,state='unknown'

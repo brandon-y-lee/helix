@@ -3,10 +3,12 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import {
   assertCanonicalRequest,
   assertStoredContract,
+  PRODUCTION_ORIGIN,
   productionConfig,
   ProductionSupportError,
   type ProductionConfig,
 } from "./config";
+import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { handleProductionIntake } from "./intake";
 import { sendFrozenRequest } from "./provider";
 import { boundedText, failure, object, response } from "./request";
@@ -21,6 +23,10 @@ import { handleProductionPhotos } from "./photo-request";
 import { createProductionPhotoStorage } from "./photo-storage";
 import { processProductionPhoto } from "./photo-worker";
 const FULL_MEDIA_IMPLEMENTED = true;
+const workerPaths = new Set([
+  "/api/internal/support-production-dispatch",
+  "/api/internal/support-production-photos",
+]);
 const identity = (config: ProductionConfig) => ({
   projectRef: config.projectRef,
   contractId: config.contractId,
@@ -45,19 +51,42 @@ export async function deployedSent(request: Request): Promise<Response> {
       productionRpc(config, "record_support_prod_sent", input),
   });
 }
+function workerBearerMatches(request: Request, secret: string | undefined): boolean {
+  if (!secret || !/^[!-~]{32,256}$/.test(secret)) return false;
+  const expected = Buffer.from(`Bearer ${secret}`),
+    actual = Buffer.from(request.headers.get("authorization") ?? "");
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export async function deployedWorkerIdentity(request: Request): Promise<Response> {
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID;
+  const url = new URL(request.url);
+  if (!workerBearerMatches(request, process.env.CRON_SECRET)) return new Response(null, { status: 401 });
+  if (!workerPaths.has(url.pathname) || url.href !== PRODUCTION_ORIGIN + url.pathname ||
+      !deploymentId || !await productionDeploymentAuthorized(process.env)) return new Response(null, { status: 403 });
+  return new Response(null, { headers: { "Cache-Control": "private, no-store", "X-Helix-Deployment": deploymentId } });
+}
+
 async function authorizeWorker(request: Request): Promise<ProductionConfig> {
   if (request.method !== "POST")
     throw new ProductionSupportError(405, "method_not_allowed");
-  const secret = process.env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET;
-  const authorization = request.headers.get("authorization") ?? "";
-  if (!secret || !/^[A-Za-z0-9_-]{32,256}$/.test(secret))
-    throw new ProductionSupportError();
-  const expected = Buffer.from(`Bearer ${secret}`),
-    actual = Buffer.from(authorization);
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+  const env = process.env;
+  const manualSecret = env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET;
+  const scheduled = workerBearerMatches(request, env.CRON_SECRET);
+  const manual = !!manualSecret && /^[A-Za-z0-9_-]{32,256}$/.test(manualSecret) &&
+    workerBearerMatches(request, manualSecret);
+  if (!scheduled && !manual)
     throw new ProductionSupportError(401, "unauthorized");
-  const config = productionConfig(process.env);
-  assertCanonicalRequest(request);
+  const config = productionConfig(env);
+  const url = new URL(request.url);
+  if (!scheduled) assertCanonicalRequest(request);
+  if (scheduled && (!workerPaths.has(url.pathname) ||
+      (url.href !== PRODUCTION_ORIGIN + url.pathname &&
+        (!env.VERCEL_URL || !/^[a-z0-9-]+\.vercel\.app$/.test(env.VERCEL_URL) ||
+          url.href !== `https://${env.VERCEL_URL}${url.pathname}`)) ||
+      !await productionDeploymentAuthorized(env))) {
+    throw new ProductionSupportError(403, "same_origin_required");
+  }
   if (request.body !== null) {
     if (
       !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/i.test(
@@ -75,6 +104,18 @@ async function authorizeWorker(request: Request): Promise<ProductionConfig> {
     }
     if (!object(body) || Object.keys(body).length !== 0)
       throw new ProductionSupportError(400, "invalid_input");
+  }
+  if (scheduled && url.origin !== PRODUCTION_ORIGIN) {
+    const serving = await fetch(PRODUCTION_ORIGIN + url.pathname, {
+      method: "HEAD",
+      headers: { Authorization: request.headers.get("authorization")! },
+      redirect: "error",
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!serving.ok || serving.headers.get("x-helix-deployment") !== env.VERCEL_DEPLOYMENT_ID) {
+      throw new ProductionSupportError(409, "support_unavailable");
+    }
   }
   return config;
 }
