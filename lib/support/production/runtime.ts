@@ -11,7 +11,7 @@ import {
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { handleProductionIntake } from "./intake";
 import { sendFrozenRequest } from "./provider";
-import { boundedText, failure, object, response } from "./request";
+import { boundedTextWithSize, failure, object, response } from "./request";
 import { handleProductionSent } from "./sent";
 import { productionRpc } from "./storage";
 import { dispatchProductionOutbox } from "./worker";
@@ -88,22 +88,25 @@ async function authorizeWorker(request: Request): Promise<ProductionConfig> {
     throw new ProductionSupportError(403, "same_origin_required");
   }
   if (request.body !== null) {
-    if (
-      !/^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/i.test(
-        request.headers.get("content-type") ?? "",
-      )
-    ) {
+    const hasJsonType = /^application\/json(?:\s*;\s*charset=(?:utf-8|"utf-8"))?$/i.test(
+      request.headers.get("content-type") ?? "",
+    );
+    if (!scheduled && !hasJsonType)
       throw new ProductionSupportError(400, "invalid_input");
+
+    // Vercel sends no payload, but Next.js can still expose a body stream.
+    const { text: raw, byteLength } = await boundedTextWithSize(request, 256, 1_000);
+    if (!scheduled || byteLength !== 0) {
+      if (!hasJsonType) throw new ProductionSupportError(400, "invalid_input");
+      let body: unknown;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        throw new ProductionSupportError(400, "invalid_input");
+      }
+      if (!object(body) || Object.keys(body).length !== 0)
+        throw new ProductionSupportError(400, "invalid_input");
     }
-    const raw = await boundedText(request, 256, 1_000);
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      throw new ProductionSupportError(400, "invalid_input");
-    }
-    if (!object(body) || Object.keys(body).length !== 0)
-      throw new ProductionSupportError(400, "invalid_input");
   }
   if (scheduled && url.origin !== PRODUCTION_ORIGIN) {
     const serving = await fetch(PRODUCTION_ORIGIN + url.pathname, {

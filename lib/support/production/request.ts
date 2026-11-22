@@ -9,9 +9,14 @@ export function failure(error: unknown): Response {
   const safe = error instanceof ProductionSupportError ? error : new ProductionSupportError();
   return response({ ok: false, error: safe.code }, safe.status);
 }
+type IncomingBody = { body: ReadableStream<Uint8Array> | null; headers: Headers };
+
+export async function boundedText(input: IncomingBody, maxBytes: number, timeoutMs = 5_000): Promise<string> {
+  return (await boundedTextWithSize(input, maxBytes, timeoutMs)).text;
+}
+
 /** A byte cap plus wall-clock deadline covers missing/false Content-Length and stalled streams. */
-export async function boundedText(input: { body: ReadableStream<Uint8Array> | null; headers: Headers }, maxBytes: number,
-  timeoutMs = 5_000): Promise<string> {
+export async function boundedTextWithSize(input: IncomingBody, maxBytes: number, timeoutMs: number) {
   const declared = input.headers.get("content-length");
   if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maxBytes)) throw new ProductionSupportError(413, "payload_too_large");
   if (!input.body) throw new ProductionSupportError(400, "invalid_input");
@@ -31,7 +36,7 @@ export async function boundedText(input: { body: ReadableStream<Uint8Array> | nu
     const joined = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
-    try { return new TextDecoder("utf-8", { fatal: true }).decode(joined); }
+    try { return { text: new TextDecoder("utf-8", { fatal: true }).decode(joined), byteLength: total }; }
     catch { throw new ProductionSupportError(400, "invalid_input"); }
   } finally {
     if (timer) clearTimeout(timer);
