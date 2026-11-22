@@ -9,8 +9,8 @@ for(const width of [390,1440]){
    if(url.pathname.startsWith('/api/')||!['GET','HEAD'].includes(req.method())){unexpected.push(`${req.method()} ${url.pathname}`);return route.abort();}
    return route.fallback();
   });
-  await page.clock.install();await page.goto('/helix-verification/lifecycle');
-  await expect(page.getByRole('heading',{name:'Lifecycle email and welcome popup preview'})).toBeVisible();
+  await page.goto('/helix-verification/lifecycle');
+  await expect(page.getByRole('heading',{name:'Lifecycle email previews'})).toBeVisible();
   for(const kind of ['welcome','cart','browse','review_winback']){
    const iframe=page.locator(`iframe[title="lifecycle_${kind} email"]`);
    const frame=page.frameLocator(`iframe[title="lifecycle_${kind} email"]`);
@@ -39,14 +39,7 @@ for(const width of [390,1440]){
    expect(result.overflow).toBe(false);expect(result.hrefs).toBe(0);expect(result.height).toBeLessThanOrEqual(await iframe.evaluate(el=>(el as HTMLIFrameElement).clientHeight));
    await iframe.screenshot({path:testInfo.outputPath(`${kind}-${width}.png`)});
   }
-  const reset=page.getByRole('button',{name:'Start / reset popup preview'});await reset.click();await page.clock.fastForward(13000);
-  const dialog=page.getByRole('dialog',{name:'Your first step. 15% off.'});await expect(dialog).toBeVisible();
-  await dialog.getByRole('textbox',{name:'Email address'}).fill('synthetic@example.test');await dialog.getByRole('checkbox').check();await dialog.getByRole('button',{name:'Join the list'}).click();
-  await expect(dialog.getByRole('status')).toContainText('If this address is eligible');await page.keyboard.press('Escape');await expect(dialog).toHaveCount(0);
-  await expect(reset).toBeFocused();await reset.click();await page.clock.fastForward(13000);await expect(dialog.getByRole('textbox')).toHaveValue('');await expect(dialog.getByRole('checkbox')).not.toBeChecked();
-  await dialog.screenshot({path:testInfo.outputPath(`popup-${width}.png`)});
-  expect(await page.evaluate(()=>Object.values(localStorage).some(v=>v.includes('synthetic@example.test')))).toBe(false);expect(unexpected).toEqual([]);
-  await page.keyboard.press('Escape');
+  expect(unexpected).toEqual([]);
   await page.goto('/helix-verification/lifecycle/welcome');
   await expect(page.getByRole('heading',{name:'Start with your skin.'})).toBeVisible();
   for(const img of await page.locator('img').all())await expect.poll(()=>img.evaluate(el=>(el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
