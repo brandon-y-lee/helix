@@ -7,8 +7,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("keeps the form inert until it can submit the expected JSON", () => {
   const page = new DOMParser().parseFromString(renderToString(<FooterSignup />), "text/html");
-  expect(page.querySelector("input")).toBeDisabled();
-  expect(page.querySelector("button")).toBeDisabled();
+  expect(page.querySelector("input")?.disabled).toBe(true);
+  expect(page.querySelector("button")?.disabled).toBe(true);
 });
 
 it("submits only the address once and announces success after capture", async () => {
