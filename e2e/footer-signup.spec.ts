@@ -8,8 +8,10 @@ for (const width of [390, 1440]) {
       const sameOrigin = url.origin === new URL(testInfo.project.use.baseURL as string).origin;
       if (sameOrigin && !url.search && request.method() === "GET" && url.pathname === "/api/cart") return route.fulfill({ json: { count: 0, lines: [], subtotal: 0, currency: "USD" } });
       if (sameOrigin && !url.search && request.method() === "POST" && url.pathname === "/api/marketing/newsletter") {
-        writes.push({ body: request.postDataJSON(), referrer: await request.headerValue("referer") });
-        return route.fulfill({ status: 200, json: { ok: true } });
+        const body = request.postDataJSON();
+        writes.push({ body, referrer: await request.headerValue("referer") });
+        const outcome = body.email === "repeat@example.invalid" ? "already_added" : "added";
+        return route.fulfill({ status: 200, json: { outcome } });
       }
       if (url.pathname.startsWith("/api/") || !["GET", "HEAD"].includes(request.method())) { unexpected.push(request.method()+" "+url.pathname); return route.abort(); }
       return route.fallback();
@@ -23,13 +25,29 @@ for (const width of [390, 1440]) {
     await expect(form.getByRole("checkbox")).toHaveCount(0);
     await page.clock.fastForward(13000);
     await expect(page.getByRole("dialog")).toHaveCount(0);
-    await form.getByRole("textbox", { name: "Email address" }).fill("footer@example.invalid");
+    const email = form.getByRole("textbox", { name: "Email address" });
+    await email.fill("repeat@example.invalid");
     expect(writes).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`footer-signup-${width}.png`) });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
     await form.getByRole("button", { name: "Sign up" }).click();
-    await expect(page.getByRole("contentinfo").getByRole("status")).toHaveText("You’re signed up.");
-    expect(writes).toEqual([{ body: { email: "footer@example.invalid" }, referrer: null }]);
+    const status = footer.getByRole("status");
+    await expect(status).toHaveText("This email has already been added.");
+    await expect(email).toHaveValue("repeat@example.invalid");
+    const note = await status.boundingBox();
+    const field = await email.boundingBox();
+    expect(note?.y).toBeGreaterThanOrEqual((field?.y ?? 0) + (field?.height ?? 0));
+    await email.fill("footer@example.invalid");
+    await expect(status).toHaveText("");
+    await form.getByRole("button", { name: "Sign up" }).click();
+    await expect(status).toHaveText("Thanks for signing up!");
+    await expect(form).toHaveCount(0);
+    await expect(status).toBeFocused();
+    await status.screenshot({ path: testInfo.outputPath(`footer-signup-success-${width}.png`) });
+    expect(writes).toEqual([
+      { body: { email: "repeat@example.invalid" }, referrer: null },
+      { body: { email: "footer@example.invalid" }, referrer: null },
+    ]);
     expect(unexpected).toEqual([]);
   });
 }

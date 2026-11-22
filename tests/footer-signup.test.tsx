@@ -29,13 +29,27 @@ it("submits only the address once and announces success after capture", async ()
     body: JSON.stringify({ email: "footer@example.invalid" }),
     referrerPolicy: "no-referrer",
   }));
-  await act(async () => resolve(Response.json({ ok: true })));
-  expect(screen.getByRole("status")).toHaveTextContent("You’re signed up.");
+  await act(async () => resolve(Response.json({ outcome: "added" })));
+  expect(screen.getByRole("status")).toHaveTextContent("Thanks for signing up!");
   expect(screen.getByRole("status")).toHaveFocus();
 });
 
+it("keeps the field visible for an existing address and clears the note after edits", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ outcome: "already_added" })));
+  render(<FooterSignup />);
+  const input = screen.getByRole("textbox", { name: "Email address" });
+  fireEvent.change(input, { target: { value: "repeat@example.invalid" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign up" }));
+  const note = await screen.findByText("This email has already been added.");
+  expect(input).toBeVisible();
+  expect(input).toHaveAccessibleDescription(note.textContent ?? "");
+  expect(screen.getByRole("button", { name: "Sign up" })).toBeEnabled();
+  fireEvent.change(input, { target: { value: "other@example.invalid" } });
+  expect(note).toBeEmptyDOMElement();
+});
+
 it("keeps the address after a failed signup and aborts on unmount", async () => {
-  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ ok: false }))
+  const fetch = vi.fn().mockResolvedValueOnce(Response.json({ outcome: "unexpected" }))
     .mockResolvedValueOnce(Response.json({ ok: false }, { status: 429 }))
     .mockImplementation((_url: string, { signal }: RequestInit) =>
       new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(signal.reason))));

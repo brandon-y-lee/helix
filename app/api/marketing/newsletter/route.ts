@@ -11,8 +11,8 @@ import {
 
 export const runtime = "nodejs";
 
-function respond(status: number) {
-  return Response.json({ ok: status === 200 }, {
+function respond(status: number, outcome?: "added" | "already_added") {
+  return Response.json(outcome ? { outcome } : { ok: false }, {
     status,
     headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
   });
@@ -59,8 +59,9 @@ export async function POST(request: Request) {
       p_requester_hash: requesterHash,
     }).abortSignal(AbortSignal.timeout(3000));
 
-    if (error || typeof data !== "boolean") return respond(503);
-    return respond(data ? 200 : 429);
+    if (error) return respond(503);
+    if (data === "added" || data === "already_added") return respond(200, data);
+    return respond(data === "limited" ? 429 : 503);
   } catch {
     return respond(503);
   }

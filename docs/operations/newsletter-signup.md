@@ -2,7 +2,7 @@
 
 The footer's **Sign up** action saves the submitted address immediately in a private newsletter list. The address is unverified. The action doesn't create an account, issue a confirmation link, queue email, or grant permission for behavior-based campaigns. Old account and welcome preference links keep their original behavior. Keep existing opt-outs when qualifying any future newsletter sender.
 
-The API accepts only the serving `www.helixskin.us` production deployment or the protected, child-backed development storefront. It reuses the existing role-bearing credential for the respective target. A returning address gets the same response as a new one. No browser can query the list or call its database function directly.
+The API accepts only the serving `www.helixskin.us` production deployment or the protected, child-backed development storefront. It reuses the existing role-bearing credential for the respective target. The form reports whether the submitted address was already on this newsletter list. The lookup happens only as part of a rate-limited signup, and the response never includes the address or information from other lists. No browser can query the list or call its database function directly.
 
 ## Prepare the database for a release
 

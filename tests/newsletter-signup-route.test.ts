@@ -28,7 +28,7 @@ beforeEach(() => {
   authorize.mockResolvedValue(true);
   client.mockReturnValue({ rpc });
   rpc.mockReturnValue({ abortSignal });
-  abortSignal.mockResolvedValue({ data: true, error: null });
+  abortSignal.mockResolvedValue({ data: "added", error: null });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -36,7 +36,7 @@ it("accepts only a normalized address with a pseudonymous, bounded storage call"
   const response = await POST(request());
   expect(response.status).toBe(200);
   expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-  expect(await response.json()).toEqual({ ok: true });
+  expect(await response.json()).toEqual({ outcome: "added" });
   expect(rpc).toHaveBeenCalledExactlyOnceWith("sign_up_for_newsletter", {
     p_email: "footer@example.invalid",
     p_requester_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
@@ -67,8 +67,15 @@ it("fails closed for invalid payloads or missing trusted rate-limit input", asyn
   expect(client).not.toHaveBeenCalled();
 });
 
+it("reports a repeat signup without returning the address", async () => {
+  abortSignal.mockResolvedValue({ data: "already_added", error: null });
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ outcome: "already_added" });
+});
+
 it("reports rate rejection and unavailable storage without claiming signup", async () => {
-  abortSignal.mockResolvedValueOnce({ data: false, error: null }).mockResolvedValueOnce({ data: null, error: new Error("private") });
+  abortSignal.mockResolvedValueOnce({ data: "limited", error: null }).mockResolvedValueOnce({ data: null, error: new Error("private") });
   for (const status of [429, 503]) {
     const response = await POST(request());
     expect(response.status).toBe(status);

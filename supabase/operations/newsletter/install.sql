@@ -36,7 +36,7 @@ revoke all on private.newsletter_signups, private.newsletter_signup_limits
   from public, anon, authenticated, service_role;
 
 create function public.sign_up_for_newsletter(p_email text, p_requester_hash text)
-returns boolean language plpgsql security definer
+returns text language plpgsql security definer
 set search_path = pg_catalog, pg_temp
 as $signup$
 declare
@@ -67,12 +67,12 @@ begin
       raise sqlstate 'P1001';
     end if;
   exception when sqlstate 'P1001' then
-    return false;
+    return 'limited';
   end;
 
   delete from private.newsletter_signup_limits where window_start < current_window;
   insert into private.newsletter_signups (email) values (p_email) on conflict (email) do nothing;
-  return true;
+  return case when found then 'added' else 'already_added' end;
 end;
 $signup$;
 

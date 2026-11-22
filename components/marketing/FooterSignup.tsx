@@ -4,14 +4,15 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEven
 import { HelixIdentity } from "@/components/brand/HelixIdentity";
 import styles from "./FooterSignup.module.css";
 
-type State = "idle" | "pending" | "success" | "limited" | "error";
+type State = "idle" | "pending" | "success" | "duplicate" | "limited" | "error";
 
 const subscribe = () => () => {};
 
 const messages: Record<State, string> = {
   idle: "",
   pending: "Signing up…",
-  success: "You’re signed up.",
+  success: "Thanks for signing up!",
+  duplicate: "This email has already been added.",
   limited: "Please wait a few minutes and try again.",
   error: "We couldn’t sign you up. Please try again.",
 };
@@ -55,12 +56,12 @@ export function FooterSignup() {
       });
       const data: unknown = await response.json();
       if (controller.signal.aborted) return;
-      if (response.ok && data && typeof data === "object" && "ok" in data && data.ok === true) {
-        form.reset();
-        setState("success");
-      } else {
-        setState(response.status === 429 ? "limited" : "error");
-      }
+      const outcome = response.ok && data && typeof data === "object" && "outcome" in data
+        ? data.outcome
+        : null;
+      if (outcome === "added") setState("success");
+      else if (outcome === "already_added") setState("duplicate");
+      else setState(response.status === 429 ? "limited" : "error");
     } catch {
       if (!controller.signal.aborted) setState("error");
     } finally {
@@ -91,6 +92,7 @@ export function FooterSignup() {
                   maxLength={254}
                   required
                   disabled={disabled}
+                  onChange={() => { if (state !== "idle") setState("idle"); }}
                   aria-describedby={`${id}-result`}
                 />
                 <button type="submit" disabled={disabled}>
@@ -99,7 +101,7 @@ export function FooterSignup() {
               </div>
             </form>
           )}
-          <p id={`${id}-result`} ref={result} tabIndex={-1} role={state === "error" || state === "limited" ? "alert" : "status"} className={styles.result}>
+          <p id={`${id}-result`} ref={result} tabIndex={-1} role={state === "error" || state === "limited" ? "alert" : "status"} className={state === "success" ? styles.success : styles.result}>
             {messages[state]}
           </p>
         </div>
