@@ -3,6 +3,7 @@ import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-t
 import { afterEach, expect, it, vi } from "vitest";
 import { GET as intakeGet, POST as intakePost } from "@/app/api/support/production/intake/route";
 import { HEAD as workerIdentity, POST as worker } from "@/app/api/internal/support-production-dispatch/route";
+import { POST as photoWorker } from "@/app/api/internal/support-production-photos/route";
 import { POST as sent } from "@/app/api/webhooks/support-production-sent/route";
 import { productionConfig } from "@/lib/support/production/config";
 import { productionRpc } from "@/lib/support/production/storage";
@@ -60,6 +61,51 @@ it("runs scheduled workers only on the deployment currently serving the shop", a
   expect(network).toHaveBeenCalledTimes(2);
   expect(network).toHaveBeenCalledWith(canonical, expect.objectContaining({ method: "HEAD", redirect: "error" }));
 });
+it.each([
+  ["/api/internal/support-production-dispatch", worker],
+  ["/api/internal/support-production-photos", photoWorker],
+] as const)("accepts the scheduler's zero-byte stream on %s", async (path, run) => {
+  setup();
+  const cron = "synthetic-schedule-secret-32-characters-only";
+  const deployment = "dpl_ActiveSupportDeployment";
+  const host = "support-build.vercel.app";
+  vi.stubEnv("CRON_SECRET", cron);
+  vi.stubEnv("VERCEL_URL", host);
+  vi.stubEnv("VERCEL_DEPLOYMENT_ID", deployment);
+  vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "a".repeat(40));
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", env.HELIX_PRODUCTION_SUPPORT_PROJECT_URL);
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("production", "anon"));
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED", "false");
+  const network = vi.fn().mockResolvedValue(new Response(null, { headers: { "X-Helix-Deployment": deployment } }));
+  vi.stubGlobal("fetch", network);
+
+  function request(bytes: Uint8Array, contentType?: string, manual = false) {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        if (bytes.length) controller.enqueue(bytes);
+        controller.close();
+      },
+    });
+    const origin = manual ? env.HELIX_PRODUCTION_SUPPORT_ORIGIN : `https://${host}`;
+    return new Request(origin + path, {
+      method: "POST", body, duplex: "half",
+      headers: {
+        authorization: `Bearer ${manual ? env.HELIX_PRODUCTION_SUPPORT_WORKER_SECRET : cron}`,
+        ...(contentType && { "content-type": contentType }),
+      },
+    } as RequestInit);
+  }
+
+  expect((await run(request(new Uint8Array(0)))).status).toBe(200);
+  expect(network).toHaveBeenCalledExactlyOnceWith(env.HELIX_PRODUCTION_SUPPORT_ORIGIN + path,
+    expect.objectContaining({ method: "HEAD", redirect: "error" }));
+  network.mockClear();
+  expect((await run(request(new Uint8Array([0xef, 0xbb, 0xbf]), "application/json"))).status).toBe(400);
+  expect((await run(request(new TextEncoder().encode("{}")))).status).toBe(400);
+  expect((await run(request(new Uint8Array(0), "application/json", true))).status).toBe(400);
+  expect(network).not.toHaveBeenCalled();
+});
+
 it("cannot inherit generic provider credentials and does not drain disabled work", async () => {
   setup(); const network = vi.fn(); vi.stubGlobal("fetch", network);
   vi.stubEnv("HELIX_PRODUCTION_SUPPORT_RESEND_SENDING_KEY", ""); vi.stubEnv("RESEND_API_KEY", "re_generic_key_must_not_work");
@@ -155,7 +201,6 @@ it("maps only fixed SQL domain failures without returning PII/provider diagnosti
 
 it("keeps unqualified photo access closed and wires photo worker to dedicated metadata RPCs only", async () => {
   const { POST: photos } = await import("@/app/api/support/production/photos/route");
-  const { POST: photoWorker } = await import("@/app/api/internal/support-production-photos/route");
   setup(); vi.stubEnv("HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET", "support-production-private");
   const network = vi.fn(); vi.stubGlobal("fetch", network);
   vi.stubEnv("HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED", "false");
