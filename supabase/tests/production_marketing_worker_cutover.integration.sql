@@ -12,12 +12,16 @@ DECLARE
   lease_id uuid;
   retained jsonb;
   role_name text;
+  column_name text;
 BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role','unexpected'] LOOP
     PERFORM proof.check(NOT has_function_privilege(role_name,
-      'private.production_marketing_worker_cutover(text,text,text,text,timestamptz)','EXECUTE')
-      AND NOT has_column_privilege(role_name,'private.production_marketing_controls','cutover_worker_binding_hash','UPDATE'),
-      'only the database owner can control worker overlap');
+      'private.production_marketing_worker_cutover(text,text,text,text,timestamptz)','EXECUTE'),
+      'only the database owner can execute worker overlap changes');
+    FOREACH column_name IN ARRAY ARRAY['cutover_worker_binding_hash','cutover_primary_binding_hash','cutover_contract_hash','cutover_expires_at'] LOOP
+      PERFORM proof.check(NOT has_column_privilege(role_name,'private.production_marketing_controls',column_name,'SELECT,UPDATE'),
+        'only the database owner can access worker overlap fields');
+    END LOOP;
   END LOOP;
   PERFORM proof.check(proof.ready(original) AND NOT proof.ready(replacement), 'installation preserves the current worker alone');
 

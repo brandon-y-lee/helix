@@ -154,6 +154,7 @@ try {
     (error) => /Verified production database owner required/.test(error.stderr),
   );
   sql(direct(), "postgres", "proof_journey");
+  sql(cutover(), "postgres", "proof_journey");
   sql(direct());
   sql(cutover());
   fixture("direct");
