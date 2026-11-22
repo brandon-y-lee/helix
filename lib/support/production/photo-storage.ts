@@ -8,6 +8,7 @@ import {
 } from "./config";
 import { object } from "./request";
 import { photoPath } from "./media";
+import { productionSupportHeaders } from "./storage";
 const STORAGE_REQUEST_MS = 5_000;
 const UPLOAD_TOKEN_TTL_MS = 2 * 60 * 60 * 1_000;
 const MINT_CLOCK_MARGIN_MS = 30_000;
@@ -57,8 +58,7 @@ export function createProductionPhotoStorage(
           cache: "no-store",
           signal: controller.signal,
           headers: {
-            apikey: config.serviceKey,
-            authorization: `Bearer ${config.serviceKey}`,
+            ...productionSupportHeaders(config.serviceKey),
             ...init.headers,
           },
         }),

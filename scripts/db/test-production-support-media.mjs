@@ -62,6 +62,22 @@ async function concurrencyProof(){
  assert.equal(sql(`SELECT mint_count FROM support_production_private.photo_ledger WHERE photo_id='${reservations[0].photoId}';`),'2');
  assert.deepEqual(await overlap(wrapped(`public.complete_support_prod_photo(${identity})`),wrapped(`public.complete_support_prod_photo(${identity})`)),[true,true]);
  assert.equal(sql('SELECT reserved_bytes FROM support_production_private.contract'),capacity,'Concurrent retries never double-charge');
+ stage='concurrent daily send budget across primary and attachment jobs';
+ const primary = JSON.parse(sql('SELECT production_support_test.submit(302);')).outboxId;
+ const media = batches[0].outboxId;
+ const lease = id => sql(`UPDATE support_production_private.outbox SET state='leased', lease_id=gen_random_uuid(),
+  lease_until=clock_timestamp()+interval '2 minutes' WHERE outbox.id='${id}' RETURNING lease_id;`);
+ const mediaStart = wrapped(`public.start_support_prod_send(${context({ outboxId: media, leaseId: lease(media) })})`);
+ const primaryStart = wrapped(`public.start_support_prod_send(${context({ outboxId: primary, leaseId: lease(primary) })})`);
+ const window = "date_trunc('day',clock_timestamp(),'UTC')";
+ sql(`INSERT INTO support_production_private.abuse_windows VALUES('send-day','global',${window},19)
+  ON CONFLICT(kind,digest,window_at) DO UPDATE SET used=19;`);
+ const attempts = await overlap(mediaStart, primaryStart);
+ assert.equal(attempts[0]?.kind, 'media');
+ assert.equal(attempts[1], null);
+ assert.equal(sql(`SELECT used FROM support_production_private.abuse_windows WHERE kind='send-day' AND window_at=${window};`),'20');
+ assert.equal(sql(`SELECT state='queued' AND first_attempt_at IS NULL AND attempt_count=0 AND lease_id IS NULL
+  AND next_attempt_at=${window}+interval '24 hours' FROM support_production_private.outbox WHERE outbox.id='${primary}';`),'t');
 }
 try {
  assert.equal(docker(['inspect','-f','{{index .Config.Labels "helix.task"}}',container]).trim(),'spec358-synthetic-sql');

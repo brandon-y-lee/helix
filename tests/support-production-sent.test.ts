@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { createHmac } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { handleProductionSent, type SentDependencies } from "@/lib/support/production/sent";
@@ -8,7 +8,7 @@ const id = "00000000-0000-4000-8000-000000000001";
 const key = Buffer.from("synthetic-only-sent-webhook-secret").toString("base64");
 const env = { ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
   HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
-  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-service-credential-32-characters",
+  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: syntheticSupabaseKey("production", "service_role"),
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters", HELIX_PRODUCTION_SUPPORT_SENT_WEBHOOK_SECRET: `whsec_${key}` };
 const event = { type: "email.sent", created_at: "2026-11-17T12:00:00Z", data: { email_id: id, from: SUPPORT_FROM, to: [SUPPORT_TO],
   message_id: "<actual-synthetic-message@resend.example.invalid>", subject: `Helix Website inquiry ${id}`,
