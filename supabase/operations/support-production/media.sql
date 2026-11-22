@@ -387,7 +387,7 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION public.start_support_prod_send(p_input jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
-DECLARE c support_production_private.contract%ROWTYPE; o support_production_private.outbox%ROWTYPE;
+DECLARE c support_production_private.contract%ROWTYPE; o support_production_private.outbox%ROWTYPE; v_send_day timestamptz;
 BEGIN
  PERFORM support_production_private.validate_input(p_input,ARRAY['projectRef','contractId','outboxId','leaseId'],ARRAY['projectRef','contractId','outboxId','leaseId']);
  IF p_input->>'outboxId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' OR p_input->>'leaseId' !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN RAISE EXCEPTION 'support_invalid_input'; END IF;
@@ -399,16 +399,22 @@ BEGIN
  IF o.first_attempt_at<=clock_timestamp()-interval '20 hours' THEN
   UPDATE support_production_private.outbox SET state='reconciliation',lease_id=NULL,lease_until=NULL WHERE id=o.id; RETURN NULL;
  END IF;
+ v_send_day:=date_trunc('day',clock_timestamp(),'UTC');
+ IF NOT support_production_private.reserve_provider_send(v_send_day) THEN
+  UPDATE support_production_private.outbox SET state=CASE WHEN o.first_attempt_at IS NULL THEN 'queued' ELSE 'unknown' END,
+   next_attempt_at=v_send_day+interval '24 hours',lease_id=NULL,lease_until=NULL WHERE id=o.id;
+  RETURN NULL;
+ END IF;
  -- State is set to unknown before handoff: process death can never erase the first-attempt marker.
  UPDATE support_production_private.outbox SET first_attempt_at=coalesce(first_attempt_at,clock_timestamp()),attempt_count=attempt_count+1,state='unknown'
  WHERE id=o.id RETURNING * INTO o;
  IF o.kind='media' THEN
   RETURN (SELECT jsonb_build_object('outboxId',o.id,'kind','media','recipe',b.recipe,'requestHash',o.request_hash,'requestBytes',b.request_bytes,
-   'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at)
+   'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at,'budgetDay',v_send_day)
    FROM support_production_private.media_batches b WHERE b.id=o.id);
  END IF;
  RETURN jsonb_build_object('outboxId',o.id,'requestText',o.request_text,'requestHash',o.request_hash,
- 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at);
+ 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at,'budgetDay',v_send_day);
 END $$;
 CREATE OR REPLACE FUNCTION public.record_support_prod_sent(p_input jsonb) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$

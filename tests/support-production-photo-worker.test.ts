@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import sharp from "sharp";
@@ -15,7 +15,7 @@ const config = productionConfig({
     "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id,
   HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:
-    "synthetic-service-credential-32-characters",
+    syntheticSupabaseKey("production", "service_role"),
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters",
   HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED: "true",
   HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED: "true",

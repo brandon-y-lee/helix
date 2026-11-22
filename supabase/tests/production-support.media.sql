@@ -173,7 +173,7 @@ DO $$ DECLARE r jsonb; c jsonb; b jsonb; work jsonb; retry jsonb; frozen jsonb; 
  UPDATE support_production_private.outbox SET next_attempt_at=clock_timestamp()-interval '1 second' WHERE id=(c->>'outboxId')::uuid;
  retry:=public.claim_support_prod_outbox(production_support_test.context(jsonb_build_object('leaseId',gen_random_uuid(),'leaseSeconds',120)));
  frozen:=public.start_support_prod_send(production_support_test.context(retry-ARRAY['kind','recipe','requestHash','requestBytes']));
- PERFORM production_support_test.assert((work-ARRAY['attemptCount'])=(frozen-ARRAY['attemptCount']),'unknown retries exact recipe/hash/key/first attempt without split');
+ PERFORM production_support_test.assert((work-ARRAY['attemptCount','budgetDay'])=(frozen-ARRAY['attemptCount','budgetDay']),'unknown retries exact recipe/hash/key/first attempt without split');
  PERFORM production_support_test.assert((SELECT count(*)=1 FROM support_production_private.media_batches WHERE inquiry_id=(r->>'inquiryId')::uuid),'unknown max batch never split');
  PERFORM production_support_test.assert((SELECT reserved_bytes=cap FROM support_production_private.contract),'all processing and delivery does not double reserve');
  -- Persisted first attempt cannot be moved backwards by runtime; create separate 21h-old synthetic fixture below instead.

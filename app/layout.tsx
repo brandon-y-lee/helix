@@ -3,7 +3,6 @@ import { Manrope, Marcellus } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 import "./mobile-services.css";
-import { WelcomePopup } from "@/components/marketing/WelcomePopup";
 import { ApplicationChrome } from "@/components/shell/ApplicationChrome";
 import { createPublicSiteMetadata } from "@/lib/public-site-metadata";
 import { resolvePublicSiteOrigin } from "@/lib/site-url";
@@ -45,7 +44,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${manrope.variable} ${marcellus.variable}`}>
       <body>
         <ApplicationChrome>{children}</ApplicationChrome>
-        <WelcomePopup />
       </body>
     </html>
   );

@@ -1,15 +1,15 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { afterEach, expect, it, vi } from "vitest";
 import { GET as intakeGet, POST as intakePost } from "@/app/api/support/production/intake/route";
-import { POST as worker } from "@/app/api/internal/support-production-dispatch/route";
+import { HEAD as workerIdentity, POST as worker } from "@/app/api/internal/support-production-dispatch/route";
 import { POST as sent } from "@/app/api/webhooks/support-production-sent/route";
 import { productionConfig } from "@/lib/support/production/config";
 import { productionRpc } from "@/lib/support/production/storage";
 const id = "00000000-0000-4000-8000-000000000001";
 const env = { ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
   HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
-  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-dedicated-service-credential-32-chars",
+  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: syntheticSupabaseKey("production", "service_role"),
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters-only",
   HELIX_PRODUCTION_SUPPORT_WORKER_SECRET: "synthetic-worker-secret-32-characters-only",
   HELIX_PRODUCTION_SUPPORT_RESEND_SENDING_KEY: "re_synthetic_dedicated_domain_sending_key",
@@ -34,12 +34,48 @@ it("requires bounded internal bearer authentication and production URL/context b
   vi.stubEnv("VERCEL_ENV", "preview"); expect((await worker(workerRequest())).status).toBe(503);
   expect(network).not.toHaveBeenCalled();
 });
+it("runs scheduled workers only on the deployment currently serving the shop", async () => {
+  setup();
+  const cron = "synthetic-schedule-secret-32-characters-only";
+  const deployment = "dpl_ActiveSupportDeployment";
+  const host = "support-build.vercel.app";
+  const canonical = "https://www.helixskin.us/api/internal/support-production-dispatch";
+  vi.stubEnv("CRON_SECRET", cron);
+  vi.stubEnv("VERCEL_URL", host);
+  vi.stubEnv("VERCEL_DEPLOYMENT_ID", deployment);
+  vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "a".repeat(40));
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", env.HELIX_PRODUCTION_SUPPORT_PROJECT_URL);
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", syntheticSupabaseKey("production", "anon"));
+  vi.stubEnv("HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED", "false");
+  const headers = { authorization: `Bearer ${cron}` };
+  expect((await workerIdentity(new Request(canonical, { method: "HEAD" }))).status).toBe(401);
+  expect((await workerIdentity(new Request(canonical, { method: "HEAD", headers }))).headers.get("X-Helix-Deployment")).toBe(deployment);
+  const network = vi.fn().mockResolvedValueOnce(new Response(null, { headers: { "X-Helix-Deployment": "dpl_OtherDeployment" } }))
+    .mockResolvedValueOnce(new Response(null, { headers: { "X-Helix-Deployment": deployment } }));
+  vi.stubGlobal("fetch", network);
+  expect((await worker(workerRequest(cron, "https://another.vercel.app"))).status).toBe(403);
+  expect(network).not.toHaveBeenCalled();
+  expect((await worker(workerRequest(cron, `https://${host}`))).status).toBe(409);
+  expect((await worker(workerRequest(cron, `https://${host}`))).status).toBe(200);
+  expect(network).toHaveBeenCalledTimes(2);
+  expect(network).toHaveBeenCalledWith(canonical, expect.objectContaining({ method: "HEAD", redirect: "error" }));
+});
 it("cannot inherit generic provider credentials and does not drain disabled work", async () => {
   setup(); const network = vi.fn(); vi.stubGlobal("fetch", network);
   vi.stubEnv("HELIX_PRODUCTION_SUPPORT_RESEND_SENDING_KEY", ""); vi.stubEnv("RESEND_API_KEY", "re_generic_key_must_not_work");
   expect((await worker(workerRequest())).status).toBe(503);
   vi.stubEnv("HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED", "false");
   expect(await (await worker(workerRequest())).json()).toEqual({ ok: true, claimed: 0, accepted: 0, unconfirmed: 0 });
+  expect(network).not.toHaveBeenCalled();
+});
+it("does not present wrong-project JWTs or unpinned opaque keys to Supabase", async () => {
+  setup();
+  const network = vi.fn();
+  vi.stubGlobal("fetch", network);
+  for (const credential of [syntheticSupabaseKey("development", "service_role"), "sb_secret_synthetic_unpinned_credential"]) {
+    vi.stubEnv("HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY", credential);
+    expect((await worker(workerRequest())).status).toBe(503);
+  }
   expect(network).not.toHaveBeenCalled();
 });
 it("checks stored identity before claim/send and rejects nonboolean qualification data", async () => {

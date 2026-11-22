@@ -1,5 +1,5 @@
 import "server-only";
-import { marketingSigningKey } from "./callback-config";
+import { configuredMarketingSigningKey, marketingSigningKey } from "./callback-config";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { Resend } from "resend";
 import { readProductionMarketingConfiguration } from "./config";
@@ -28,6 +28,7 @@ type EventDependencies = {
   record: (event: ProductionMarketingEvent) => Promise<ProductionMarketingEventResult>;
   preference?: (event: DirectPreference) => Promise<DirectPreferenceResult>;
   hold?: (event: DirectReceiptHold) => Promise<DirectReceiptHoldResult>;
+  supportSent?: (request: Request, secret: string) => Promise<Response>;
 };
 
 function occurrence(value: unknown) {
@@ -65,21 +66,35 @@ export async function receiveProductionMarketingEvent(request: Request, deps: Ev
   if(request.method!=="POST")return response(405);
   let secret:string;
   try {
-    const config=readProductionMarketingConfiguration(deps.env);
-    secret = marketingSigningKey(deps.env, Boolean(deps.preference));
-    if(new URL(request.url).origin!==config.siteOrigin)return response(403);
+    const origin = deps.supportSent ? "https://www.helixskin.us" : readProductionMarketingConfiguration(deps.env).siteOrigin;
+    secret = deps.supportSent ? configuredMarketingSigningKey(deps.env, true) : marketingSigningKey(deps.env, Boolean(deps.preference));
+    if(new URL(request.url).origin!==origin)return response(403);
   }catch{return response(503);}
   let event:unknown;
+  let payload: string;
   const id=request.headers.get("svix-id")??"",timestamp=request.headers.get("svix-timestamp")??"",signature=request.headers.get("svix-signature")??"";
   if(!/^[A-Za-z0-9_-]{1,200}$/.test(id)||!/^[0-9]{1,12}$/.test(timestamp)||Math.abs(Date.now()/1000-Number(timestamp))>300||!signature||signature.length>1024)return response(400);
   try {
-    const payload=await rawBody(request);
+    payload=await rawBody(request);
     // Local verification only; this dummy key never authorizes or performs provider I/O.
     event=new Resend("re_webhook_verification_only").webhooks.verify({payload,webhookSecret:secret,headers:{id,timestamp,signature}});
   }catch(error){return response(error instanceof RangeError?413:400);}
   if(!object(event)||typeof event.type!=="string" || !/^[a-z][a-z0-9_.]{0,99}$/.test(event.type))return response(400);
   try {
     if (!await productionDeploymentAuthorized(deps.env)) return response(503);
+    if (deps.supportSent) {
+      const tags = object(event.data) ? event.data.tags : undefined;
+      const supportClaim = object(tags) && Object.keys(tags).some(key => key === "helix_support" || key.startsWith("helix_support_"));
+      if (supportClaim && types.has(event.type)) {
+        if (claimsMarketingReceipt(event.data)) {
+          if (!negativeDelivery.has(event.type)) return response(400);
+        } else if (event.type === "email.sent") {
+          return await deps.supportSent(new Request(request.url, { method: "POST", headers: request.headers, body: payload }), secret);
+        }
+      }
+      readProductionMarketingConfiguration(deps.env);
+      marketingSigningKey(deps.env, Boolean(deps.preference));
+    }
     const occurredAt = occurrence(event.created_at);
     if (deps.preference) {
       const observation = directPreference(event.type, event.data, id, occurredAt);

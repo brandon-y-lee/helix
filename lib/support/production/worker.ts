@@ -96,10 +96,11 @@ export async function dispatchProductionOutbox(
   // before returning the exact previously-frozen provider request.
   const frozen = await dependencies.start(config, claim);
   if (frozen === null) return { ...empty, claimed: 1 };
+  if (!object(frozen) || typeof frozen.budgetDay !== "string") throw new ProductionSupportError();
+  const budgetDay = Date.parse(frozen.budgetDay);
   let request: FrozenRequest;
   if (media) {
     if (
-      !object(frozen) ||
       frozen.kind !== "media" ||
       frozen.outboxId !== claim.outboxId ||
       frozen.requestHash !== media.requestHash ||
@@ -123,9 +124,16 @@ export async function dispatchProductionOutbox(
     assertFrozenRequest(frozen, config, claim.outboxId);
     request = frozen;
   }
-  const elapsed = dependencies.now() - Date.parse(request.firstAttemptAt);
+  const now = dependencies.now();
+  const elapsed = now - Date.parse(request.firstAttemptAt);
   if (elapsed < 0 || elapsed >= 20 * 3600 * 1000)
     return { claimed: 1, accepted: 0, unconfirmed: 1 };
+  const utcDayMs = 24 * 3600 * 1000;
+  // A delayed process must reserve another attempt before using the next day's budget.
+  if (budgetDay !== Math.floor(now / utcDayMs) * utcDayMs) {
+    await dependencies.complete(config, claim, { outcome: "unknown" });
+    return { claimed: 1, accepted: 0, unconfirmed: 1 };
+  }
   let outcome: SendOutcome;
   try {
     outcome = await dependencies.send(request);

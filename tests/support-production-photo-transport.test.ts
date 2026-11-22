@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { expect, it, vi } from "vitest";
 import { productionConfig } from "@/lib/support/production/config";
 import { createProductionPhotoStorage } from "@/lib/support/production/photo-storage";
@@ -14,7 +14,7 @@ const env = {
     "https://erasogmsqpgiirovubjh.supabase.co",
   HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id,
   HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY:
-    "synthetic-service-credential-32-characters",
+    syntheticSupabaseKey("production", "service_role"),
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters",
   HELIX_PRODUCTION_SUPPORT_PHOTO_BUCKET: "support-production-private",
   HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED: "true",

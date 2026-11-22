@@ -5,6 +5,16 @@
       "schedule": "* * * * *",
       "path": "/api/internal/marketing/production/maintenance",
       "requestMethod": "POST"
+    },
+    "support-photos": {
+      "schedule": "* * * * *",
+      "path": "/api/internal/support-production-photos",
+      "requestMethod": "POST"
+    },
+    "support-dispatch": {
+      "schedule": "* * * * *",
+      "path": "/api/internal/support-production-dispatch",
+      "requestMethod": "POST"
     }
   }
 }

@@ -1,4 +1,5 @@
 import "server-only";
+import { verifySupabaseCredential } from "@/lib/supabase/key-binding";
 import { deploymentSupabaseTarget, SUPABASE_PROJECT_REFS, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 
 export type ProductionEnvironment = Record<string, string | undefined>;
@@ -29,6 +30,11 @@ export function productionConfig(env: ProductionEnvironment) {
     || !contractId || !UUID.test(contractId)
     || !serviceKey || !/^[A-Za-z0-9_.-]{32,4096}$/.test(serviceKey)
     || !abuseSecret || !/^[A-Za-z0-9_-]{32,256}$/.test(abuseSecret)) throw new ProductionSupportError();
+  try {
+    verifySupabaseCredential(serviceKey, "production", "service_role", {
+      HELIX_PRODUCTION_SUPABASE_SERVICE_ROLE_KEY_SHA256: env.HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY_SHA256,
+    });
+  } catch { throw new ProductionSupportError(); }
   return { projectRef, contractId, projectUrl, serviceKey, abuseSecret,
     admissionEnabled: env.HELIX_PRODUCTION_SUPPORT_ADMISSION_ENABLED === "true",
     workerEnabled: env.HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED === "true",

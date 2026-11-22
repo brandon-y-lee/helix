@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { syntheticMainContext } from "./helpers/supabase-target";
+import { syntheticMainContext, syntheticSupabaseKey } from "./helpers/supabase-target";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { dispatchProductionOutbox, type WorkerDependencies } from "@/lib/support/production/worker";
@@ -8,7 +8,7 @@ import { productionConfig, SUPPORT_FROM, SUPPORT_TO } from "@/lib/support/produc
 const id = "00000000-0000-4000-8000-000000000001";
 const config = productionConfig({ ...syntheticMainContext, VERCEL: "1", VERCEL_ENV: "production", HELIX_PRODUCTION_SUPPORT_ORIGIN: "https://www.helixskin.us",
   HELIX_PRODUCTION_SUPPORT_PROJECT_REF: "erasogmsqpgiirovubjh", HELIX_PRODUCTION_SUPPORT_PROJECT_URL: "https://erasogmsqpgiirovubjh.supabase.co",
-  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: "synthetic-service-credential-32-characters",
+  HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: id, HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: syntheticSupabaseKey("production", "service_role"),
   HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-abuse-secret-32-characters", HELIX_PRODUCTION_SUPPORT_WORKER_ENABLED: "true",
   HELIX_PRODUCTION_SUPPORT_ISOLATION_QUALIFIED: "true", HELIX_PRODUCTION_SUPPORT_FULL_MEDIA_QUALIFIED: "true",
   HELIX_PRODUCTION_SUPPORT_OPERATIONS_QUALIFIED: "true" });
@@ -16,7 +16,8 @@ const payload = { from: SUPPORT_FROM, to: [SUPPORT_TO], reply_to: "visitor@examp
   text: "Unverified visitor content: visitor-provided identity and Reply-To are unverified. Do not disclose Account, Order or private information based on them.\n\nSubject: synthetic\nSynthetic body", tags: [
     { name: "helix_support_contract", value: id }, { name: "helix_support_outbox", value: id }, { name: "helix_support_delivery", value: "a".repeat(64) } ] };
 const frozen = (text = JSON.stringify(payload)) => ({ outboxId: id, requestText: text, requestHash: createHash("sha256").update(text).digest("hex"),
-  idempotencyKey: `helix-support:${id}`, attemptCount: 1, firstAttemptAt: new Date().toISOString() });
+  idempotencyKey: `helix-support:${id}`, attemptCount: 1, firstAttemptAt: new Date().toISOString(),
+  budgetDay: new Date().toISOString().slice(0, 10) + "T00:00:00.000Z" });
 const deps = (): WorkerDependencies => ({ contract: vi.fn().mockResolvedValue({ ...config, workerEnabled: true }),
   claim: vi.fn().mockResolvedValue({ outboxId: id, leaseId: id }), start: vi.fn().mockResolvedValue(frozen()),
   complete: vi.fn().mockResolvedValue(true), send: vi.fn().mockResolvedValue({ outcome: "accepted", providerEmailId: id }), now: () => Date.now(), leaseId: () => id });
@@ -34,6 +35,17 @@ it("treats throws and timeouts as unknown, retries only frozen bytes/key and sto
   expect(vi.mocked(d.send).mock.calls[0][0]).toEqual(vi.mocked(d.send).mock.calls[1][0]);
   d.start = vi.fn().mockResolvedValue({ ...frozen(), firstAttemptAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString() });
   vi.mocked(d.send).mockClear(); await dispatchProductionOutbox(config, d); expect(d.send).not.toHaveBeenCalled();
+});
+it("keeps the immutable send queued when its daily authorization expires at midnight", async () => {
+  const d = deps();
+  const attempt = { ...frozen(), firstAttemptAt: "2026-11-21T23:59:59Z", budgetDay: "2026-11-21T00:00:00Z" };
+  d.now = () => Date.parse("2026-11-22T00:00:00Z");
+  d.start = vi.fn().mockResolvedValueOnce(attempt).mockResolvedValueOnce({ ...attempt, budgetDay: "2026-11-22T00:00:00Z" });
+  expect(await dispatchProductionOutbox(config, d)).toEqual({ claimed: 1, accepted: 0, unconfirmed: 1 });
+  expect(d.send).not.toHaveBeenCalled();
+  expect(d.complete).toHaveBeenCalledWith(config, { outboxId: id, leaseId: id }, { outcome: "unknown" });
+  expect(await dispatchProductionOutbox(config, d)).toEqual({ claimed: 1, accepted: 1, unconfirmed: 0 });
+  expect(d.send).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: attempt.idempotencyKey, requestText: attempt.requestText }));
 });
 it("does not call send on wrong stored identity, frozen hash tampering, arbitrary recipient or a lost lease", async () => {
   for (const changed of [ { contract: vi.fn().mockResolvedValue({ ...config, contractId: "wrong" }) },
