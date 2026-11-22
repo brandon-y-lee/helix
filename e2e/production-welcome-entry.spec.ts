@@ -61,48 +61,23 @@ async function requestWelcome(scope: Locator, buttonName: string, page: Page) {
   await page.keyboard.press("Enter");
 }
 
-for (const width of [390, 1440]) {
-  test(`canonical footer, popup and preferences submit only welcome consent at ${width}px`, async ({ page, baseURL }, testInfo) => {
-    await page.setViewportSize({ width, height: 900 });
-    const network = await localStorefront(page, baseURL, { enabled: true, production: true });
-    await page.clock.install();
-    await page.goto(canonical + "/");
-    const footer = page.getByRole("contentinfo");
-    await expect(footer.getByRole("checkbox")).toBeEnabled();
-    expect(network.writes).toEqual([]);
-    await footer.locator("section").filter({ has: page.getByRole("form", { name: "Email signup" }) })
-      .screenshot({ path: testInfo.outputPath(`welcome-footer-${width}.png`) });
-    await page.clock.fastForward(13000);
-    const dialog = page.getByRole("dialog");
-    await dialog.screenshot({ path: testInfo.outputPath(`welcome-popup-${width}.png`) });
-    await requestWelcome(dialog, "Request confirmation", page);
-    await expect.poll(() => network.writes.length).toBe(1);
-    await page.keyboard.press("Escape");
-    await requestWelcome(footer, "Sign up", page);
-    await expect.poll(() => network.writes.length).toBe(2);
-    await page.goto(canonical + "/email-preferences");
-    await requestWelcome(page.getByRole("main"), "Request confirmation", page);
-    await expect.poll(() => network.writes.length).toBe(3);
-    expect(network.writes).toEqual(Array(3).fill({ path: subscription, body: { email: address, consent: true }, referrer: null }));
-    expect(network.unexpected).toEqual([]);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-  });
-}
+test("canonical preferences submit only the existing welcome consent", async ({ page, baseURL }) => {
+  const network = await localStorefront(page, baseURL, { enabled: true, production: true });
+  await page.goto(canonical + "/email-preferences");
+  expect(network.writes).toEqual([]);
+  await requestWelcome(page.getByRole("main"), "Request confirmation", page);
+  await expect.poll(() => network.writes).toEqual([
+    { path: subscription, body: { email: address, consent: true }, referrer: null },
+  ]);
+  expect(network.unexpected).toEqual([]);
+});
 
 test("canonical paused and malformed readiness never enter the legacy intake", async ({ page, baseURL }) => {
   const network = await localStorefront(page, baseURL, { ready: true, scope: "lifecycle_reviews" });
-  await page.clock.install();
-  await page.goto(canonical + "/");
-  const footer = page.getByRole("contentinfo");
-  await expect(footer).toContainText(/paused/i);
-  await expect(footer.getByRole("checkbox")).toBeDisabled();
-  await expect.poll(network.reads).toBeGreaterThan(0);
-  await page.clock.fastForward(13000);
-  await expect.poll(network.reads).toBeGreaterThanOrEqual(2);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.goto(canonical + "/email-preferences");
   await expect(page.getByRole("main")).toContainText(/paused/i);
   await expect(page.getByRole("main").getByRole("button", { name: "Request confirmation" })).toBeDisabled();
+  await expect.poll(network.reads).toBeGreaterThan(0);
   expect(network.writes).toEqual([]);
   expect(network.unexpected).toEqual([]);
 });
@@ -122,23 +97,8 @@ test("previously issued canonical query link still needs a human action on its o
   expect(network.unexpected).toEqual([]);
 });
 
-test("held production deployment shows all three paused welcome entries without legacy intake", async ({ page, baseURL }) => {
+test("held production keeps the existing welcome enrollment closed", async ({ page, baseURL }) => {
   const network = await localStorefront(page, baseURL, { enabled: false, production: true }, held);
-  await page.clock.install();
-  await page.goto(held + "/");
-  const footer = page.getByRole("contentinfo");
-  await expect(footer).toContainText(/paused/i);
-  await expect(footer).toContainText(PRODUCTION_MARKETING_WORDING);
-  await expect(footer.getByRole("button", { name: "Sign up" })).toBeDisabled();
-  await expect(footer.getByRole("checkbox")).not.toBeChecked();
-  await expect.poll(network.reads).toBeGreaterThan(0);
-  await page.clock.fastForward(13000);
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText(/paused/i);
-  await expect(dialog).toContainText(PRODUCTION_MARKETING_WORDING);
-  await expect(dialog.getByRole("button", { name: "Request confirmation" })).toBeDisabled();
-  await expect(dialog.getByRole("textbox")).toBeDisabled();
-  await page.keyboard.press("Escape");
   await page.goto(held + "/email-preferences");
   const main = page.getByRole("main");
   await expect(main).toContainText(/paused/i);

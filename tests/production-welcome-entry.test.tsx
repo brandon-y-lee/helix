@@ -2,7 +2,6 @@
 import { fireEvent, render, screen, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { FooterSignup } from "@/components/marketing/FooterSignup";
 import { EmailPreferences } from "@/components/marketing/EmailPreferences";
 import { PRODUCTION_MARKETING_WORDING } from "@/lib/production-marketing/contract";
 import { readSignupScope } from "@/components/marketing/signup-readiness";
@@ -23,15 +22,15 @@ it.each([{ enabled: true, production: true }, { enabled: false, production: fals
   },
 );
 
-it.each([FooterSignup, EmailPreferences])(
+it(
   "shows only welcome consent before and after canonical readiness",
-  async (Entry) => {
+  async () => {
     const request = vi.fn(async () => Response.json({ ready: true, scope: "lifecycle_reviews" }));
     vi.stubGlobal("fetch", request);
-    expect(renderToString(<Entry />)).not.toMatch(
+    expect(renderToString(<EmailPreferences />)).not.toMatch(
       /welcome offers|cart and product reminders|skincare education/i,
     );
-    render(<Entry />);
+    render(<EmailPreferences />);
     await screen.findByText(/signup is paused/i);
     expect(request.mock.calls).toHaveLength(1);
     expect(request).toHaveBeenCalledWith(subscription, expect.objectContaining({ cache: "no-store" }));
@@ -52,14 +51,14 @@ it("preserves a legacy confirmation link without looking up welcome readiness", 
   );
 });
 
-it.each([FooterSignup, EmailPreferences])(
+it(
   "submits canonical consent once with no legacy fields",
-  async (Entry) => {
+  async () => {
     const request = vi.fn(async (_url: string, init: RequestInit) =>
       Response.json(init.method === "POST" ? { ok: true } : { enabled: true, production: true }),
     );
     vi.stubGlobal("fetch", request);
-    render(<Entry />);
+    render(<EmailPreferences />);
     const box = screen.getByRole("checkbox");
     await waitFor(() => expect(box).toBeEnabled());
     expect(box).not.toBeChecked();

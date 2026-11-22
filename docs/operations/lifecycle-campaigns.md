@@ -26,12 +26,6 @@ First handoff freezes the existing request and provider idempotency key. Subsequ
 
 Order locks precede cart locks, which precede marketing address/subscriber locks, matching activity admission. Verified payment or withdrawal committed before the final preparation check suppresses unsent mail. As with the existing dispatcher, a purchase or withdrawal after preparation commits but before the external HTTP handoff cannot be atomically recalled. No claim is made of a distributed transaction with Stripe/Resend.
 
-## Welcome popup
-
-Public readiness never creates an offer or sends mail. It requires all four enabled/current subscription and welcome admission controls, lifecycle/offer database readiness, a verified configured coupon and valid immutable native confirmation/offer templates. Provider reads are single-flight and cached for at most30 seconds per server instance, including failures; flags are checked before every response. Database/provider configuration changes can take up to30 seconds to hide an already-ready popup. Readiness contains no customer data and responses are private/no-store.
-
-The dialog appears after12 seconds only on home or product routes. It is keyboard dismissible, uses shared modal focus/scroll handling, and stores only a dismissal timestamp for30 days. Explicit unchecked consent precedes double confirmation. Terms disclose first purchase, verified matching account,14-day expiry, no stacking and merchandise-only discount. No code or entitlement is issued on form submission.
-
 ## Verification
 
-Focused suites: `tests/lifecycle-campaigns.test.ts`, `lifecycle-readiness.test.ts`, `lifecycle-templates.test.ts`, `welcome-popup.test.tsx`, existing marketing/delivery suites. `node scripts/db/test-lifecycle-combined.mjs` installs actual consent/offer/campaign migrations and retains all predecessor assertions and real transactional races. `e2e/welcome-popup.spec.ts` mocks exact readiness/cart/subscription API boundaries and rejects every unexpected API or mutation; it cannot send real email. Run the supported `CI=1 pnpm verify:production` profile after source review; never invoke Playwright directly.
+Focused suites: `tests/lifecycle-campaigns.test.ts`, `lifecycle-readiness.test.ts`, `lifecycle-templates.test.ts`, existing marketing/delivery suites. `node scripts/db/test-lifecycle-combined.mjs` installs actual consent/offer/campaign migrations and retains all predecessor assertions and real transactional races. Run the supported `CI=1 pnpm verify:production` profile after source review; never invoke Playwright directly.
