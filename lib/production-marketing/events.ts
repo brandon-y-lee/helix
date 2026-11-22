@@ -85,7 +85,7 @@ export async function receiveProductionMarketingEvent(request: Request, deps: Ev
     if (deps.supportSent) {
       const tags = object(event.data) ? event.data.tags : undefined;
       const supportClaim = object(tags) && Object.keys(tags).some(key => key === "helix_support" || key.startsWith("helix_support_"));
-      if (supportClaim) {
+      if (supportClaim && types.has(event.type)) {
         if (claimsMarketingReceipt(event.data)) {
           if (!negativeDelivery.has(event.type)) return response(400);
         } else if (event.type === "email.sent") {

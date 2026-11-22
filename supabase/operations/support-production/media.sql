@@ -410,11 +410,11 @@ BEGIN
  WHERE id=o.id RETURNING * INTO o;
  IF o.kind='media' THEN
   RETURN (SELECT jsonb_build_object('outboxId',o.id,'kind','media','recipe',b.recipe,'requestHash',o.request_hash,'requestBytes',b.request_bytes,
-   'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at)
+   'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at,'budgetDay',v_send_day)
    FROM support_production_private.media_batches b WHERE b.id=o.id);
  END IF;
  RETURN jsonb_build_object('outboxId',o.id,'requestText',o.request_text,'requestHash',o.request_hash,
- 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at);
+ 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at,'budgetDay',v_send_day);
 END $$;
 CREATE OR REPLACE FUNCTION public.record_support_prod_sent(p_input jsonb) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$

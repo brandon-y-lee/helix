@@ -1,4 +1,4 @@
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { POST } from "@/app/api/webhooks/marketing-production/route";
@@ -115,6 +115,7 @@ it("routes an authenticated owned support message to the private recorder even w
     HELIX_PRODUCTION_SUPPORT_PROJECT_URL: database,
     HELIX_PRODUCTION_SUPPORT_CONTRACT_ID: messageId,
     HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY: supportKey,
+    HELIX_PRODUCTION_SUPPORT_SERVICE_ROLE_KEY_SHA256: createHash("sha256").update(supportKey).digest("hex"),
     HELIX_PRODUCTION_SUPPORT_ABUSE_SECRET: "synthetic-support-abuse-secret-at-least-32",
   };
   for (const [key, value] of Object.entries(supportEnv)) vi.stubEnv(key, value);
@@ -148,6 +149,9 @@ it("routes an authenticated owned support message to the private recorder even w
   vi.stubEnv("HELIX_PRODUCTION_MARKETING_EVENTS_ENABLED", "true");
   await accepted(delivery("email.bounced", mixed));
   expect(ledger.map(item => item.name)).toEqual([holdRpc]);
+  ledger.length = 0;
+  await accepted(contact({ unsubscribed: true, tags: mixed.tags }));
+  expect(ledger.map(item => item.name)).toEqual([preferenceRpc]);
 });
 
 describe("dedicated signed direct marketing intake", () => {

@@ -249,7 +249,7 @@ BEGIN
  UPDATE support_production_private.outbox SET first_attempt_at=coalesce(first_attempt_at,clock_timestamp()),attempt_count=attempt_count+1,state='unknown'
  WHERE id=o.id RETURNING * INTO o;
  RETURN jsonb_build_object('outboxId',o.id,'requestText',o.request_text,'requestHash',o.request_hash,
- 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at);
+ 'idempotencyKey',o.idempotency_key,'attemptCount',o.attempt_count,'firstAttemptAt',o.first_attempt_at,'budgetDay',v_send_day);
 END $$;
 
 CREATE FUNCTION public.complete_support_prod_send(p_input jsonb) RETURNS boolean
