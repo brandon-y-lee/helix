@@ -95,15 +95,11 @@ export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
                 key={card.id}
                 href={card.href}
                 className="site-footer__service-card"
-                aria-label={`${card.label}: ${card.description}`}
               >
                 <span className="site-footer__service-icon">
                   <FooterServiceIcon name={card.icon} />
                 </span>
-                <span className="site-footer__service-copy">
-                  <strong>{card.label}</strong>
-                  <small>{card.description}</small>
-                </span>
+                <span className="site-footer__service-label">{card.label}</span>
                 <span className="site-footer__service-arrow" aria-hidden="true">
                   ↗
                 </span>
