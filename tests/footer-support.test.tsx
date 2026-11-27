@@ -89,11 +89,11 @@ describe("global footer", () => {
       .toEqual(["Navigate", "Support", "Official", "Account"]);
     const accountGroup = within(desktopNav).getByRole("region", { name: "Account" });
     expect(within(accountGroup).getAllByRole("listitem").map((item) => item.textContent))
-      .toEqual(["Sign in", "Create account", "helix rewards", "Subscription"]);
+      .toEqual(["Sign in", "Create account", "Rewards", "Subscription"]);
     for (const [name, href] of [
       ["Sign in", "/account/sign-in"],
       ["Create account", "/account/sign-up"],
-      ["helix rewards", "/rewards"],
+      ["Rewards", "/rewards"],
     ] as const) {
       expect(within(accountGroup).getByRole("link", { name })).toHaveAttribute("href", href);
     }
