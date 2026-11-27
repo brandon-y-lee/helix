@@ -67,11 +67,9 @@ export default async function HomePage() {
         <div className="home-video-hero__scrim" aria-hidden="true" />
         <div className="home-video-hero__content">
           <div>
-            <p className="home-video-hero__eyebrow">helix</p>
             <h1 id="home-hero-heading" className="display-secondary home-video-hero__title">
-              Your skin starts with three steps.
+              The frontier of skincare. Designed for men.
             </h1>
-            <p className="home-video-hero__display-line">Cleanse. Treat. Seal.</p>
             <div className="home-video-hero__actions">
               <Link href="#core-three" className="home-video-hero__cta">
                 SHOP THE CORE

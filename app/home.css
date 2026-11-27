@@ -35,15 +35,6 @@
   line-height: 1.08;
 }
 
-.home-lander-hero .home-video-hero__display-line {
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
-  font-weight: 500;
-}
-
-.home-lander-hero .home-video-hero__eyebrow {
-  font-size: 0.7rem;
-}
-
 .home-lander-hero .home-video-control,
 .home-lander-plug .home-video-control {
   position: absolute;
@@ -52,14 +43,13 @@
   bottom: 24px;
   display: grid;
   place-items: center;
-  min-width: 64px;
+  min-width: 44px;
   min-height: 44px;
+  padding: 0;
   border: 1px solid #fff;
-  border-radius: 999px;
+  border-radius: var(--radius-editorial-button);
   background: rgba(17, 19, 18, 0.72);
   color: #fff;
-  font: inherit;
-  font-size: 0.75rem;
   cursor: pointer;
 }
 

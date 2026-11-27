@@ -1,6 +1,6 @@
 type FooterLink = {
   label: string;
-  href: string;
+  href?: string;
   description?: string;
 };
 
@@ -13,7 +13,6 @@ export type FooterLinkGroup = {
 export type FooterServiceCard = {
   id: string;
   label: string;
-  description: string;
   href: string;
   icon: "contact" | "shipping" | "faq";
 };
@@ -34,13 +33,13 @@ export const footerLinkGroups: FooterLinkGroup[] = [
     links: [
       { label: "FAQ", href: "/faq" },
       { label: "Contact", href: "/contact" },
-      { label: "Shipping", href: "/faq#shipping" },
+      { label: "Shipping Policy", href: "/faq#shipping" },
       { label: "Returns & Refunds", href: "/faq#returns" },
     ],
   },
   {
     id: "legal",
-    label: "Legal",
+    label: "Official",
     links: [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
@@ -51,10 +50,10 @@ export const footerLinkGroups: FooterLinkGroup[] = [
     id: "account",
     label: "Account",
     links: [
-      { label: "Account overview", href: "/account" },
       { label: "Sign in", href: "/account/sign-in" },
       { label: "Create account", href: "/account/sign-up" },
-      { label: "helix rewards", href: "/rewards" },
+      { label: "Rewards", href: "/rewards" },
+      { label: "Subscription" },
     ],
   },
 ];
@@ -62,22 +61,19 @@ export const footerLinkGroups: FooterLinkGroup[] = [
 export const footerServiceCards: FooterServiceCard[] = [
   {
     id: "contact",
-    label: "Contact status",
-    description: "Check Support Intake availability",
+    label: "Contact Us",
     href: "/contact",
     icon: "contact",
   },
   {
     id: "shipping",
     label: "Shipping & returns",
-    description: "Review current policy status",
     href: "/faq",
     icon: "shipping",
   },
   {
     id: "faq",
     label: "FAQ",
-    description: "Product, account, and order guidance",
     href: "/faq",
     icon: "faq",
   },

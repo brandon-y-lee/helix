@@ -172,10 +172,15 @@ describe("homepage product wiring", () => {
     expect(within(sectionForHeading("Simple is not basic.")).getByRole("link", { name: "our values" })).toHaveAttribute("href", "/about#about-men-heading");
   });
 
-  it("uses the lowercase helix name in the editorial hero", async () => {
+  it("renders the campaign headline without supporting copy in the editorial hero", async () => {
     render(<CartProvider>{await HomePage()}</CartProvider>);
 
-    expect(screen.getByText("helix")).toHaveClass("home-video-hero__eyebrow");
+    const hero = sectionForHeading("The frontier of skincare. Designed for men.");
+    expect(within(hero).getByRole("heading", { level: 1 })).toHaveTextContent(
+      "The frontier of skincare. Designed for men.",
+    );
+    expect(within(hero).queryByText("helix", { exact: true })).not.toBeInTheDocument();
+    expect(within(hero).queryByText("Cleanse. Treat. Seal.")).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(FORMER_BRAND_PATTERN);
   });
 
