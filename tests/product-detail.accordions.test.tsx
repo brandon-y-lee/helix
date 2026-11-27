@@ -226,7 +226,6 @@ function makeProduct(overrides: ProductOverrides = {}): PdpProduct {
     ...product,
     variants: product.variants.map((variant) => ({
       ...variant,
-      productId: product.id,
       productSlug: product.slug,
       productStatus: product.status,
     })),

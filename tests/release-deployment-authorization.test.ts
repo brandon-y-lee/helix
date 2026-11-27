@@ -4,8 +4,8 @@ import { createHash, createHmac } from "node:crypto";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { POST as receive } from "@/app/api/webhooks/resend-production/route";
-import { POST as enroll } from "@/app/api/marketing/production/subscription/route";
-import { productionSignupQualification } from "@/lib/production-marketing/storage";
+import { subscribe as enroll } from "@/tests/helpers/retired-production-marketing/routes";
+import { productionSignupQualification } from "@/lib/production-marketing/delivery-config";
 import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 
 const key = "sb_publishable_syntheticKeyForLocalTests";

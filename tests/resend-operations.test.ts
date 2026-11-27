@@ -58,7 +58,7 @@ async function setup(preserveDefaultSmtp = false) {
     evidence: Object.fromEntries(PROOF_KINDS.map(kind => [kind, { file: `/private/evidence/${kind}`, sha256: "2".repeat(64) }])) as Manifest["evidence"],
     setupReceiptFile: "/private/evidence/setup-receipt.json",
     smtp: { change: false, beforeFingerprint: baseline.observedFingerprint!, rollbackReference: "private-before-state-v1" },
-    expectedControlsFingerprint: fingerprint(snapshot()), enable: { confirmation: true, tracking: true, support: true, receiving: true, marketing: true, product: true },
+    expectedControlsFingerprint: fingerprint(snapshot()), enable: { confirmation: true, tracking: true, support: true, receiving: true, marketing: true, product: false },
   };
   const local: LocalEvidence = { codeSha: manifest.codeSha, clean: true, migrations: { [manifest.migrations[0].file]: "1".repeat(64) },
     evidence: Object.fromEntries(Object.values(manifest.evidence).map(e => [e.file, e.sha256!])) };
@@ -130,6 +130,14 @@ const mutations = (fetcher: Awaited<ReturnType<typeof setup>>["fetcher"]) => fet
   options?.method === "PATCH" || new URL(String(url)).pathname.endsWith("/database/query"));
 
 describe("restricted Resend operational command", () => {
+  it("rejects retired Product activation before any provider or SMTP request", async () => {
+    const f = await setup();
+    f.manifest.enable.product = true;
+    f.manifest.smtp.change = true;
+    await expect(f.run("apply")).rejects.toThrow("product_notifications_retired");
+    expect(f.fetcher).not.toHaveBeenCalled();
+  });
+
   it("uses an independently bound opaque dev service key only with the apikey header", async () => {
     const f = await setup();
     f.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_synthetic";
@@ -235,7 +243,7 @@ describe("restricted Resend operational command", () => {
     expect(f.fetcher.mock.calls.every(([url]) => !String(url).endsWith("/emails"))).toBe(true);
   });
 
-  it("applies every independent purpose while preserving the approved default Auth mail configuration", async () => {
+  it("applies active controls while preserving the approved default Auth mail configuration", async () => {
     const f = await setup(true), before = structuredClone(f.current.smtp);
     expect(await f.run("verify")).toMatchObject({ readyForGuardedApply: true, operationalAcceptanceComplete: false, findings: [] });
     expect(mutations(f.fetcher)).toEqual([]);
@@ -243,8 +251,8 @@ describe("restricted Resend operational command", () => {
     expect(mutations(f.fetcher)).toHaveLength(1);
     expect(new URL(String(mutations(f.fetcher)[0][0])).pathname).toBe(`/v1/projects/${TARGET.project}/database/query`);
     expect(f.current.smtp).toEqual(before);
-    for (const control of Object.values(f.current.controls)) {
-      for (const row of Array.isArray(control) ? control : [control]) expect(row).toMatchObject({ enabled: true });
+    for (const [purpose, control] of Object.entries(f.current.controls)) {
+      for (const row of Array.isArray(control) ? control : [control]) expect(row).toMatchObject({ enabled: purpose !== "product" });
     }
   });
 

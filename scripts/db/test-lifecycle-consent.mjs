@@ -9,7 +9,7 @@ let harness=readFileSync(new URL("./test-product-notification-contracts.mjs",imp
 const rootAnchor='const root = fileURLToPath(new URL("../../", import.meta.url));';
 const importAnchor='"./checkout-payment-test-fixture.mjs"';
 const migrationAnchor='  migration("_product_notifications.sql");';
-const finalAnchor='  console.log(JSON.stringify({ status: "passed", postgresMajor: 17,';
+const finalAnchor='  // Apply retirement after any composed predecessor assertions.';
 for(const anchor of [rootAnchor,importAnchor,migrationAnchor,finalAnchor]) assert.equal(harness.split(anchor).length-1,1);
 harness=harness.replace(rootAnchor,`const root=${JSON.stringify(root)};`).replace(importAnchor,JSON.stringify(new URL("./checkout-payment-test-fixture.mjs",import.meta.url).href))
  .replace(migrationAnchor,`${migrationAnchor}\n  sql("ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email text, ADD COLUMN IF NOT EXISTS email_confirmed_at timestamptz, ADD COLUMN IF NOT EXISTS deleted_at timestamptz;");\n  migration("_lifecycle_consent_activity.sql");`)

@@ -247,7 +247,7 @@ describe("admin shell navigation", () => {
     );
   });
 
-  it.each(["/helix-verification/lifecycle", "/helix-verification/reviews", "/email-preferences"])("does not mount marketing intake on %s", (route) => {
+  it.each(["/helix-verification/lifecycle", "/helix-verification/reviews", "/marketing/consent"])("does not mount marketing intake on %s", (route) => {
     pathname = route;
     render(<ApplicationChrome><div>Isolated content</div></ApplicationChrome>);
     expect(screen.getByText("Storefront customer footer")).toHaveAttribute("data-signup", "false");

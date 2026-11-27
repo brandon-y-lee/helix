@@ -4,7 +4,7 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
 import { randomUUID } from "node:crypto";
-import { dispatchProductionMarketing, type ProductionMarketingWorkerDependencies } from "@/lib/production-marketing/worker";
+import { dispatchProductionMarketing, type ProductionMarketingWorkerDependencies } from "@/tests/helpers/retired-production-marketing/worker";
 import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
 import { directMarketingDeliveryContract, productionMarketingContractFingerprint } from "@/lib/production-marketing/delivery-config";
 import { createProductionMarketingDeliveryStorage } from "@/lib/production-marketing/delivery-storage";

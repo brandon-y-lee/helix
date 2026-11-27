@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { directMarketingDeliveryContract } from "@/lib/production-marketing/delivery-config";
 import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
-import { createProductionMarketingStorage, productionSignupQualification } from "@/lib/production-marketing/storage";
+import { createProductionMarketingStorage, productionSignupQualification } from "@/tests/helpers/retired-production-marketing/storage";
 
 const env = productionMarketingTestTarget;
 afterEach(() => vi.unstubAllGlobals());
@@ -42,7 +42,7 @@ it("treats malformed or oversized durable responses as unknown without leaking o
 });
 
 it("shows verified storefront readiness and binds a new signup to the qualified confirmation contract", async () => {
-  const { GET, POST } = await import("@/app/api/marketing/production/subscription/route");
+  const { signupStatus: GET, subscribe: POST } = await import("@/tests/helpers/retired-production-marketing/routes");
   for (const [key,value] of Object.entries({...env,
     VERCEL_URL: "helix-build-verified.vercel.app",
     HELIX_PRODUCTION_MARKETING_ENABLED:"true",HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED:"true",

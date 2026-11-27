@@ -68,6 +68,7 @@ export function parseManifest(value: unknown): Manifest {
     || typeof value.smtp.change !== "boolean" || typeof value.smtp.beforeFingerprint !== "string" || !sha.test(value.smtp.beforeFingerprint) || !text(value.smtp.rollbackReference, 500)
     || (value.expectedControlsFingerprint !== null && (typeof value.expectedControlsFingerprint !== "string" || !sha.test(value.expectedControlsFingerprint)))
     || !record(value.enable) || !exactKeys(value.enable, Object.keys(CONTROL_READS)) || !Object.values(value.enable).every(v => typeof v === "boolean")) fail("invalid_manifest");
+  if (value.enable.product) fail("product_notifications_retired");
   const aliases: string[] = [];
   for (const p of purposes) {
     const t = value.templates[p];
@@ -254,7 +255,7 @@ export async function runResendOperations(command: ReturnType<typeof parseComman
     NEXT_PUBLIC_SUPABASE_URL: `https://${TARGET.project}.supabase.co`, HELIX_EMAIL_ENVIRONMENT: "sandbox", HELIX_EMAIL_MODE: "restricted",
     HELIX_EMAIL_SITE_ORIGIN: TARGET.origin, HELIX_EMAIL_OWNER_RECIPIENT: manifest.ownerRecipient, HELIX_EMAIL_ALLOW_SIMULATORS: String(manifest.allowSimulators),
     HELIX_EMAIL_ORDER_FROM: "Helix <onboarding@resend.dev>", HELIX_EMAIL_SUPPORT_FROM: "Helix <onboarding@resend.dev>",
-    HELIX_EMAIL_PRODUCT_FROM: "Helix <onboarding@resend.dev>", HELIX_EMAIL_AUTH_FROM: "onboarding@resend.dev",
+    HELIX_EMAIL_AUTH_FROM: "onboarding@resend.dev",
     HELIX_EMAIL_REPLY_TO: manifest.receivingAddress, HELIX_SUPPORT_RECEIVING_ADDRESS: manifest.receivingAddress, HELIX_SUPPORT_PHOTO_BUCKET: manifest.photoBucket,
   };
   if (Object.entries(expectedEnvironment).some(([k, v]) => env[k] !== v)) add("private_configuration_mismatch");

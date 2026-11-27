@@ -72,6 +72,35 @@ it("does not send after the claim was fenced by another worker or an early deliv
   expect(send).not.toHaveBeenCalled();
 });
 
+it("sends no frozen marketing message with an action link to the retired page", async () => {
+  const requestPayload: NonNullable<EmailIntent["requestPayload"]> = {
+    tags: [], from: "Helix <onboarding@resend.dev>", reply_to: env.HELIX_EMAIL_REPLY_TO,
+    to: [intent.recipient], subject: "Confirm subscription",
+    html: '<a href="https://helixskin.vercel.app/email-preferences?confirm=demo">Confirm</a>',
+    text: "https://helixskin.vercel.app/email-preferences?confirm=demo",
+  };
+  const { dependencies, storage, send } = setup({
+    purpose: "marketing_confirmation",
+    requestPayload,
+    firstAttemptAt: new Date().toISOString(),
+    attemptCount: 1,
+  });
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ deferred: 1, accepted: 0 });
+  expect(storage.prepare).not.toHaveBeenCalled();
+  expect(storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "uncertain", code: "reconciliation_required" });
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("blocks unattempted legacy welcome work without rendering or contacting the provider", async () => {
+  const { dependencies, storage, send } = setup({
+    purpose: "welcome_initial",
+  });
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ blocked: 1, accepted: 0 });
+  expect(storage.prepare).not.toHaveBeenCalled();
+  expect(storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "blocked", code: "marketing_not_eligible" });
+  expect(send).not.toHaveBeenCalled();
+});
+
 it("pauses dispatch without requiring or touching provider credentials", async () => {
   const { dependencies, storage, send } = setup();
   dependencies.env = { ...env, HELIX_EMAIL_DISPATCH_ENABLED: "false", RESEND_API_KEY: "" };
@@ -135,51 +164,23 @@ it("keeps a support conversation's frozen receiving domain and RFC headers acros
   expect(retry.send).toHaveBeenCalledWith(frozen, intent.idempotencyKey, "re_synthetic_test");
 });
 
-it("delivers a requested Product notice with its own sender and preserves its first request across retries", async () => {
-  const product = {
-    purpose: "product_availability" as const,
-    receipt: { schemaVersion: 1 as const, enrollmentId: 12, generation: 2, transitionId: 8,
-      productId: "cbff59d2-b98d-4da9-9c04-697f98553eac", productName: "Current Serum", productSlug: "current-serum" },
-    idempotencyKey: "sandbox/product_availability/enrollment-12-generation-2-transition-8",
-  };
-  const first = setup(product);
-  first.dependencies.env = { ...env, HELIX_EMAIL_ORDER_FROM: "", HELIX_EMAIL_PRODUCT_FROM: "Helix <onboarding@resend.dev>" };
-  first.send.mockRejectedValueOnce(new Error("response lost"));
-  expect(await dispatchEmailIntents(first.dependencies)).toMatchObject({ deferred: 1 });
-  const frozen = first.storage.prepare.mock.calls[0][2];
-  expect(frozen).toMatchObject({ from: "Helix <onboarding@resend.dev>", to: ["delivered@resend.dev"],
-    subject: "[DEMO] helix — Current Serum is ready for Checkout" });
-  expect(frozen.text).toContain("https://helixskin.vercel.app/products/current-serum");
-  const retry = setup({ ...product, receipt: { ...product.receipt, productName: "Changed Serum", productSlug: "renamed-serum" },
-    requestPayload: frozen, firstAttemptAt: new Date().toISOString(), attemptCount: 1 });
-  retry.dependencies.env = { ...env, HELIX_EMAIL_SITE_ORIGIN: "https://changed.example", HELIX_EMAIL_PRODUCT_FROM: "" };
-  expect(await dispatchEmailIntents(retry.dependencies)).toMatchObject({ accepted: 1 });
-  expect(retry.send).toHaveBeenCalledWith(frozen, product.idempotencyKey, "re_synthetic_test");
-});
+it.each(["product_availability", "product_waitlist_recovery"] as const)(
+  "never admits or replays a retired %s intent",
+  async (purpose) => {
+    const queued = setup({ purpose });
+    expect(await dispatchEmailIntents(queued.dependencies)).toMatchObject({ blocked: 1 });
+    expect(queued.storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, {
+      kind: "blocked", code: "product_request_not_eligible",
+    });
+    expect(queued.storage.prepare).not.toHaveBeenCalled();
+    expect(queued.send).not.toHaveBeenCalled();
 
-it("delivers private cancellation links through the restricted shared envelope without a marketing Topic", async () => {
-  const recovery = { purpose: "product_waitlist_recovery" as const,
-    receipt: { schemaVersion: 1 as const, links: [{ enrollmentId: 12, generation: 2,
-      productId: "cbff59d2-b98d-4da9-9c04-697f98553eac", productName: "Current Serum", token: "a".repeat(43), expiresAt: "2030-01-01T00:00:00Z" }] },
-    idempotencyKey: "sandbox/product_waitlist_recovery/request-1" };
-  const first = setup(recovery);
-  first.dependencies.env = { ...env, HELIX_EMAIL_PRODUCT_FROM: "Helix <onboarding@resend.dev>" };
-  expect(await dispatchEmailIntents(first.dependencies)).toMatchObject({ accepted: 1 });
-  expect(first.send).toHaveBeenCalledWith(expect.objectContaining({ from: "Helix <onboarding@resend.dev>", to: ["delivered@resend.dev"],
-    subject: "helix — manage your Product notifications" }), recovery.idempotencyKey, "re_synthetic_test");
-  expect(first.send.mock.calls[0][0].text).toContain(`https://helixskin.vercel.app/product-notifications?cancel=${"a".repeat(43)}`);
-  expect(first.send.mock.calls[0][0]).not.toHaveProperty("topic_id");
-  const restricted = setup({ ...recovery, recipient: "other@example.test" });
-  restricted.dependencies.env = first.dependencies.env;
-  expect(await dispatchEmailIntents(restricted.dependencies)).toMatchObject({ blocked: 1, accepted: 0 });
-  expect(restricted.send).not.toHaveBeenCalled();
-  expect(restricted.storage.prepare).not.toHaveBeenCalled();
-});
-
-it("does not fall back to the Order sender when a new Product notification has no valid sender", async () => {
-  const item = setup({ purpose: "product_availability", receipt: { schemaVersion: 1, enrollmentId: 12, generation: 2, transitionId: 8,
-    productId: "cbff59d2-b98d-4da9-9c04-697f98553eac", productName: "Current Serum", productSlug: "current-serum" } });
-  expect(await dispatchEmailIntents(item.dependencies)).toMatchObject({ blocked: 1, accepted: 0 });
-  expect(item.storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "blocked", code: "invalid_email_identity" });
-  expect(item.send).not.toHaveBeenCalled();
-});
+    const admitted = setup({ purpose, firstAttemptAt: new Date().toISOString(), attemptCount: 1 });
+    expect(await dispatchEmailIntents(admitted.dependencies)).toMatchObject({ deferred: 1 });
+    expect(admitted.storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, {
+      kind: "uncertain", code: "reconciliation_required",
+    });
+    expect(admitted.storage.prepare).not.toHaveBeenCalled();
+    expect(admitted.send).not.toHaveBeenCalled();
+  },
+);

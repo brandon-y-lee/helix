@@ -152,7 +152,7 @@ function collectionHtml(products: readonly StorefrontSnapshotProduct[]) {
         ? Math.min(...presentation.offers.map((variant) => variant.price))
         : null;
       const price = item.merchandisingStatus === "waitlist"
-        ? "Waitlist"
+        ? "Coming soon"
         : startingPrice === null
           ? null
           : `${presentation.hasMultipleOffers ? "From " : ""}$${(startingPrice / 100).toFixed(2)}`;
@@ -405,7 +405,7 @@ describe("Storefront journey expectations", () => {
     });
     expect(journeys.cardPriceLabel(multiVariantProduct)).toBe("From $12.00");
     expect(journeys.cardPriceLabel(beyond)).toBeNull();
-    expect(journeys.cardPriceLabel(waitlist)).toBe("Waitlist");
+    expect(journeys.cardPriceLabel(waitlist)).toBe("Coming soon");
     expect(
       journeys.gallery(multiVariantProduct).map((item) => item.alt),
     ).toEqual(["Core detail", "Core bottle", "Core motion"]);
