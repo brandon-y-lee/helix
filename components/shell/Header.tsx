@@ -244,13 +244,17 @@ export function Header({
             aria-expanded={searchOpen}
             aria-label="SEARCH"
           >
-            <span className="site-nav__label" aria-hidden="true">SEARCH</span>
             <svg className="site-nav__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <circle cx="10.5" cy="10.5" r="6.5" />
               <path d="m16 16 5 5" />
             </svg>
           </button>
-          <Link href="/account">ACCOUNT</Link>
+          <Link href="/account" aria-label="ACCOUNT">
+            <svg className="site-nav__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="7.5" r="3.5" />
+              <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+            </svg>
+          </Link>
           <button
             ref={cartTriggerRef}
             type="button"
@@ -267,15 +271,12 @@ export function Header({
             }
             disabled={commerceDisabled}
           >
-            <span className="site-nav__label" aria-hidden="true">
-              {commerceDisabled ? "CART (PREVIEW)" : `CART (${cartQuantity})`}
-            </span>
-            <span className="cart-link__mobile" aria-hidden="true">
-              <svg className="site-nav__icon" viewBox="0 0 24 24" focusable="false">
-                <path d="M5 7h14l1 14H4L5 7Z" />
-                <path d="M9 8V6a3 3 0 0 1 6 0v2" />
-              </svg>
-              <span>{commerceDisabled ? "—" : cartQuantity}</span>
+            <svg className="site-nav__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M5 7h14l1 14H4L5 7Z" />
+              <path d="M9 8V6a3 3 0 0 1 6 0v2" />
+            </svg>
+            <span className="cart-link__count" aria-hidden="true">
+              {commerceDisabled ? "—" : cartQuantity}
             </span>
           </button>
         </nav>
