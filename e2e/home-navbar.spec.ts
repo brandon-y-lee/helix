@@ -260,6 +260,13 @@ test("desktop navigation shows outlined utilities above the compact header break
       expect(box.width).toBeGreaterThanOrEqual(44);
       expect(box.height).toBeGreaterThanOrEqual(44);
     }
+    const [searchCenter, accountCenter, cartCenter] = await utilities
+      .locator(".site-nav__icon")
+      .evaluateAll((icons) => icons.map((icon) => {
+        const { left, width } = icon.getBoundingClientRect();
+        return left + width / 2;
+      }));
+    expect(cartCenter - accountCenter).toBeCloseTo(accountCenter - searchCenter, 1);
     const identityBox = await header.getByRole("link", { name: "helix home" }).boundingBox();
     expect(identityBox).not.toBeNull();
     expect(identityBox!.x + identityBox!.width / 2).toBeCloseTo(width / 2, 1);
