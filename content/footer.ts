@@ -1,6 +1,6 @@
 type FooterLink = {
   label: string;
-  href: string;
+  href?: string;
   description?: string;
 };
 
@@ -44,6 +44,16 @@ export const footerLinkGroups: FooterLinkGroup[] = [
       { label: "Privacy", href: "/privacy" },
       { label: "Terms", href: "/terms" },
       { label: "Accessibility", href: "/accessibility" },
+    ],
+  },
+  {
+    id: "account",
+    label: "Account",
+    links: [
+      { label: "Sign in", href: "/account/sign-in" },
+      { label: "Create account", href: "/account/sign-up" },
+      { label: "helix rewards", href: "/rewards" },
+      { label: "Subscription" },
     ],
   },
 ];

@@ -81,7 +81,7 @@ test("the Helix Wordmark preserves full-band scaling and reduced motion", async 
 });
 
 for (const width of [320, 390, 430, 620, 621, 720, 721, 732, 980]) {
-  test(`compact footer exposes three navigation groups before services at ${width}px`, async ({ page }) => {
+  test(`compact footer exposes four navigation groups before services at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 732 ? 776 : 844 });
     await page.goto("/");
     const footer = page.locator("#site-footer");
@@ -90,7 +90,7 @@ for (const width of [320, 390, 430, 620, 621, 720, 721, 732, 980]) {
     await expect(navigation).toBeVisible();
     await expect(footer.locator(".site-footer__mobile-groups")).toBeHidden();
     await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
-      "Navigate", "Support", "Official",
+      "Navigate", "Support", "Official", "Account",
     ]);
 
     const geometry = await footer.evaluate((element) => {
@@ -125,8 +125,8 @@ for (const width of [320, 390, 430, 620, 621, 720, 721, 732, 980]) {
     expect(geometry.nav.right).toBeCloseTo(geometry.contentRight, 1);
     expect(geometry.nav.top).toBeGreaterThanOrEqual(geometry.wordmark.bottom);
     expect(geometry.services.top).toBeGreaterThanOrEqual(geometry.nav.bottom);
-    const columns = width <= 620 ? 2 : 3;
-    expect(geometry.groups).toHaveLength(3);
+    const columns = width <= 620 ? 2 : 4;
+    expect(geometry.groups).toHaveLength(4);
     expect(geometry.groups[0].left).toBeCloseTo(geometry.nav.left, 1);
     expect(geometry.groups[columns - 1].right).toBeCloseTo(geometry.nav.right, 1);
     for (const group of geometry.groups) {
@@ -138,6 +138,8 @@ for (const width of [320, 390, 430, 620, 621, 720, 721, 732, 980]) {
     if (columns === 2) {
       expect(geometry.groups[2].left).toBeCloseTo(geometry.nav.left, 1);
       expect(geometry.groups[2].top).toBeGreaterThanOrEqual(geometry.groups[0].bottom);
+      expect(geometry.groups[3].top).toBeCloseTo(geometry.groups[2].top, 1);
+      expect(geometry.groups[3].right).toBeCloseTo(geometry.nav.right, 1);
     }
     for (const link of geometry.links) {
       expect(link.height, `${link.label} should have a usable target`).toBeGreaterThanOrEqual(44);
@@ -158,11 +160,17 @@ for (const width of [981, 1020, 1440]) {
     await expect(navigation).toBeVisible();
     await expect(disclosures).toBeHidden();
     await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
-      "Navigate", "Support", "Official",
+      "Navigate", "Support", "Official", "Account",
     ]);
     const rows = await navigation.locator("section").evaluateAll((sections) =>
       sections.map((section) => section.getBoundingClientRect().top),
     );
     for (const top of rows) expect(top).toBeCloseTo(rows[0], 1);
+
+    const services = footer.getByRole("complementary", { name: "Footer service links" });
+    for (const link of await services.getByRole("link").all()) {
+      await expect(link).toHaveCSS("height", "56px");
+      await expect(link).toHaveCSS("border-top-left-radius", "999px");
+    }
   });
 }

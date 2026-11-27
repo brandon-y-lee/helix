@@ -270,10 +270,10 @@ body[data-sheet-scroll-lock] .site-header {
   grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
-  min-height: 84px;
-  padding: 15px 18px;
+  min-height: 56px;
+  padding: 10px 18px;
   border: 1px solid var(--line);
-  border-radius: var(--pdp-panel-radius);
+  border-radius: var(--radius-editorial-button);
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
@@ -326,7 +326,7 @@ body[data-sheet-scroll-lock] .site-header {
 
 .site-footer__nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(18px, 3vw, 48px);
 }
 
@@ -359,9 +359,14 @@ body[data-sheet-scroll-lock] .site-header {
 }
 
 .site-footer__nav a,
-.site-footer__accordion a {
+.site-footer__accordion a,
+.site-footer__nav-label {
   font-size: clamp(0.98rem, 1.1vw, 1.16rem);
   line-height: 1.35;
+}
+
+.site-footer__nav-label {
+  color: var(--ink-soft);
 }
 
 .site-footer__nav a:hover,
@@ -10132,7 +10137,8 @@ body:has(main[data-storefront-main] > [data-header-theme="light"])
     gap: 0;
   }
 
-  .site-footer__nav a {
+  .site-footer__nav a,
+  .site-footer__nav .site-footer__nav-label {
     display: flex;
     align-items: center;
     min-height: 44px;

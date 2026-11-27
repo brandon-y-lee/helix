@@ -86,7 +86,18 @@ describe("global footer", () => {
       name: "Footer navigation",
     });
     expect(within(desktopNav).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent))
-      .toEqual(["Navigate", "Support", "Official"]);
+      .toEqual(["Navigate", "Support", "Official", "Account"]);
+    const accountGroup = within(desktopNav).getByRole("region", { name: "Account" });
+    expect(within(accountGroup).getAllByRole("listitem").map((item) => item.textContent))
+      .toEqual(["Sign in", "Create account", "helix rewards", "Subscription"]);
+    for (const [name, href] of [
+      ["Sign in", "/account/sign-in"],
+      ["Create account", "/account/sign-up"],
+      ["helix rewards", "/rewards"],
+    ] as const) {
+      expect(within(accountGroup).getByRole("link", { name })).toHaveAttribute("href", href);
+    }
+    expect(within(accountGroup).queryByRole("link", { name: "Subscription" })).not.toBeInTheDocument();
     expect(within(footer).queryByRole("link", { name: "Product notifications" })).not.toBeInTheDocument();
     expect(within(footer).queryByRole("link", { name: "Email preferences" })).not.toBeInTheDocument();
 
@@ -131,7 +142,7 @@ describe("global footer", () => {
     render(<SiteFooter />);
 
     const mobileGroups = screen.getByLabelText("Footer links");
-    expect(mobileGroups.querySelectorAll("details")).toHaveLength(3);
+    expect(mobileGroups.querySelectorAll("details")).toHaveLength(4);
     const navigate = within(mobileGroups).getByText("Navigate");
     const navigateDetails = navigate.closest("details");
     expect(navigateDetails).not.toHaveAttribute("open");
