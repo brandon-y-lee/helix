@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
 import { renderSupportEmail } from "@/lib/support/email";
-import { renderProductNotification } from "@/lib/waitlist/templates";
 import { isMarketingPurpose, parseMarketingReceipt, type MarketingPurpose } from "@/lib/marketing/contract";
 import { renderMarketingMessage } from "@/lib/marketing/templates";
 import { MarketingProviderError, resendMarketingContacts } from "@/lib/marketing/provider";
@@ -20,13 +19,13 @@ export type EmailDeliveryDependencies = {
 };
 
 type MarketingIntent = Extract<EmailIntent, { purpose: MarketingPurpose }>;
+type RetiredProductIntent = Extract<EmailIntent, { purpose: "product_availability" | "product_waitlist_recovery" }>;
 function marketingIntent(intent: EmailIntent): intent is MarketingIntent { return isMarketingPurpose(intent.purpose); }
-async function renderEmailContent(intent: Exclude<EmailIntent, MarketingIntent>, config: ReturnType<typeof readEmailConfig>) {
+async function renderEmailContent(intent: Exclude<EmailIntent, MarketingIntent | RetiredProductIntent>, config: ReturnType<typeof readEmailConfig>) {
   switch (intent.purpose) {
     case "order_confirmation": return renderOrderConfirmation(intent.receipt, config);
     case "order_tracking": return renderOrderTracking(intent.receipt, config);
     case "support_acknowledgement": case "support_reply": return renderSupportEmail(intent.purpose, intent.receipt);
-    case "product_availability": case "product_waitlist_recovery": return renderProductNotification(intent.purpose, intent.receipt, config);
   }
 }
 
@@ -39,6 +38,18 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
   const intents = await storage.claim(randomUUID(), 1);
   result.claimed = intents.length;
   for (const intent of intents) {
+    // A stale database can still return a retired intent. Preserve an earlier
+    // admission for signed reconciliation without rendering or replaying it.
+    if (intent.purpose === "product_availability" || intent.purpose === "product_waitlist_recovery") {
+      if (intent.firstAttemptAt) {
+        await storage.finish(intent.id, intent.leaseToken, { kind: "uncertain", code: "reconciliation_required" });
+        result.deferred++;
+      } else {
+        await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: "product_request_not_eligible" });
+        result.blocked++;
+      }
+      continue;
+    }
     if (intent.firstAttemptAt && Date.now() - Date.parse(intent.firstAttemptAt) >= 23 * 60 * 60 * 1000) {
       await storage.finish(intent.id, intent.leaseToken, { kind: "uncertain", code: "reconciliation_required" });
       result.deferred++;

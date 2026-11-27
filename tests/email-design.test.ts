@@ -2,13 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildAuthEmailTemplates } from "@/lib/email/auth-templates";
 import { renderOrderConfirmation } from "@/lib/email/order-confirmation";
 import { renderOrderTracking } from "@/lib/email/order-tracking";
-import { renderProductNotification } from "@/lib/waitlist/templates";
 
 const identity = { siteOrigin: "https://helix.example.test", replyTo: "support@example.test" };
-const productId = "d7f29a08-9d0c-409b-b460-62eafc77806a";
-const available = { schemaVersion: 1, enrollmentId: 1, generation: 1, transitionId: 2,
-  productId, productName: "Super Serum", productSlug: "super-serum" };
-
 export async function representativeEmails() {
   const auth = buildAuthEmailTemplates(identity.siteOrigin);
   return {
@@ -28,12 +23,6 @@ export async function representativeEmails() {
       items: [{ name: "Super Serum", variantLabel: "30 mL", quantity: 2 },
         { name: "Daily Cleanser", variantLabel: "120 mL", quantity: 1 }],
     }, identity)).html,
-    availability: (await renderProductNotification("product_availability", available, identity)).html,
-    cancellation: (await renderProductNotification("product_waitlist_recovery", { schemaVersion: 1, links: [
-      { enrollmentId: 1, generation: 1, productId, productName: "Super Serum", token: "T".repeat(43), expiresAt: "2026-10-08T18:30:00Z" },
-      { enrollmentId: 2, generation: 1, productId, productName: "Daily Cleanser", token: "U".repeat(43), expiresAt: "2026-10-08T18:30:00Z" },
-    ] }, identity)).html,
-    longProduct: (await renderProductNotification("product_availability", { ...available, productName: "P".repeat(200) }, identity)).html,
   };
 }
 
@@ -68,16 +57,6 @@ describe("email design accessibility and compatibility", () => {
       expect(logo.style.backgroundColor).toBe(doc.body.style.backgroundColor);
       expect(logo.style.color).toBe("rgb(17, 19, 18)");
     }
-  });
-
-  it("preserves long Product names without putting them inside the compact primary action", async () => {
-    const productName = "P".repeat(200);
-    const mail = await renderProductNotification("product_availability", { ...available, productName }, identity);
-    const doc = new DOMParser().parseFromString(mail.html, "text/html");
-    expect(doc.body.textContent).toContain(productName);
-    expect(mail.text).toContain(productName);
-    expect(doc.querySelector('a[href="https://helix.example.test/products/super-serum"]')?.textContent)
-      .toBe("View Product details");
   });
 
   it("keeps messages readable with one controlled PNG and safe font and layout fallbacks", async () => {
