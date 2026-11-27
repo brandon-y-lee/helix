@@ -39,4 +39,17 @@ $owner$;
 \ir retire_product_notifications.sql
 revoke all on function private.retire_helix_product_notifications() from public, anon, authenticated, service_role;
 grant execute on function private.retire_helix_product_notifications() to :"writer_role";
+do $acl$
+declare
+  capability constant regprocedure := 'private.retire_helix_product_notifications()'::regprocedure;
+  writer constant oid := current_setting('helix.enroll_writer')::regrole;
+begin
+  if not has_function_privilege(writer, capability, 'EXECUTE')
+    or exists (select from pg_proc p cross join lateral aclexplode(p.proacl) a
+      where p.oid = capability and a.grantee <> p.proowner
+        and (a.grantee <> writer or a.grantor <> p.proowner or a.is_grantable)) then
+    raise exception 'Unexpected Product retirement capability privileges';
+  end if;
+end;
+$acl$;
 commit;

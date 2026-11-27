@@ -148,6 +148,10 @@ try {
     GRANT EXECUTE ON FUNCTION public.read_helix_environment(),private.read_helix_environment() TO ${writer};`);
   assert.equal(sql(sidecar.verify).trim(), "f", "Six-argument enrollment prevents an absent-module verdict");
   assert.throws(() => runRetirement(), /Install the reviewed Product retirement capability/);
+  sql("ALTER DEFAULT PRIVILEGES IN SCHEMA private GRANT EXECUTE ON FUNCTIONS TO authenticator;");
+  assert.throws(() => sql(install), /Unexpected Product retirement capability privileges/);
+  assert.equal(sql("SELECT pg_catalog.to_regprocedure('private.retire_helix_product_notifications()') IS NULL;").trim(), "t");
+  sql("ALTER DEFAULT PRIVILEGES IN SCHEMA private REVOKE EXECUTE ON FUNCTIONS FROM authenticator;");
   sql(install);
   runRetirement("ROLLBACK");
   assert.equal(sql(sidecar.verify).trim(), "f", "Rolling back the early-module apply restores its access");
