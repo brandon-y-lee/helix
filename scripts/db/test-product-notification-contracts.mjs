@@ -100,15 +100,26 @@ SET LOCAL statement_timeout='15s';\n${secondStatement}\nCOMMIT;`);
 
 assert.equal(docker(["inspect", "-f", '{{index .Config.Labels "helix.task"}}', container]).trim(),
   "spec358-synthetic-sql", "Refusing a container without the synthetic-test label");
-let created = false;
+const writer = `product_retirement_writer_${process.pid}`;
+let created = false, writerCreated = false;
 try {
   docker(["exec", container, "createdb", "-U", "postgres", database]);
   created = true;
   assert.equal(sql("SELECT current_setting('server_version_num')::integer / 10000;").trim(), "17");
-  const retirement = "_product_notifications_retirement.sql";
   const sidecar = JSON.parse(source("supabase/releases/20261127022715_product_notifications_retirement.json"));
-  migration(retirement);
-  assert.equal(sql(sidecar.verify).trim(), "t", "No-op when the optional module was never installed");
+  const retirementSql = source("supabase/migrations/20261127022715_product_notifications_retirement.sql");
+  const install = source("supabase/operations/release-bootstrap/enroll_product_notifications_retirement.sql")
+    .replace("\\ir retire_product_notifications.sql", () => source("supabase/operations/release-bootstrap/retire_product_notifications.sql"))
+    .replace(":'writer_role'", `'${writer}'`).replace(':"writer_role"', writer)
+    .replace(":'expected_environment'", "'development'")
+    .replace(":'expected_project_ref'", "'zyfkunnpnlmgvrojmrbg'");
+  const runRetirement = (end = "COMMIT") => sql(`SET SESSION AUTHORIZATION ${writer};
+    BEGIN;
+    ${retirementSql}
+    ${end};`);
+
+  sql(retirementSql);
+  assert.equal(sql(sidecar.verify).trim(), "t", "The never-installed module needs no capability");
   sql(source("supabase/tests/checkpoints/catalog-current-20260909042518.sql"));
   sql(checkoutComposition());
   loadCheckoutPaymentTestEffects(sql, source);
@@ -126,6 +137,23 @@ try {
   assert.equal(waitlistPredecessor.split("do $waitlist$").length, 2);
   sql(waitlistPredecessor.split("do $waitlist$")[0]);
   migration("_harden_product_waitlist_abuse_controls.sql");
+  sql(`CREATE ROLE ${writer} LOGIN; CREATE SCHEMA supabase_migrations;
+    CREATE TABLE supabase_migrations.schema_migrations(version text primary key);
+    GRANT USAGE ON SCHEMA private,public,supabase_migrations TO ${writer};
+    GRANT SELECT,INSERT ON supabase_migrations.schema_migrations TO ${writer};`);
+  writerCreated = true;
+  sql(source("supabase/operations/release-bootstrap/20261120131122_helix_environment_identity.sql"));
+  sql(`INSERT INTO private.helix_environment (environment,project_ref)
+    VALUES ('development','zyfkunnpnlmgvrojmrbg');
+    GRANT EXECUTE ON FUNCTION public.read_helix_environment(),private.read_helix_environment() TO ${writer};`);
+  assert.equal(sql(sidecar.verify).trim(), "f", "Six-argument enrollment prevents an absent-module verdict");
+  assert.throws(() => runRetirement(), /Install the reviewed Product retirement capability/);
+  sql(install);
+  runRetirement("ROLLBACK");
+  assert.equal(sql(sidecar.verify).trim(), "f", "Rolling back the early-module apply restores its access");
+  runRetirement();
+  assert.equal(sql(sidecar.verify).trim(), "t", "Restricted writer retires the six-argument RPC");
+  sql("DROP FUNCTION private.retire_helix_product_notifications();");
   for (const suffix of ["_catalog_restore_current_identity.sql", "_catalog_reviewed_guidance.sql",
     "_catalog_stable_media_boundary.sql", "_catalog_restore_current_timestamps.sql"]) migration(suffix);
   const [fixtures, assertions] = source("supabase/tests/product_notification_contracts.integration.sql")
@@ -190,11 +218,11 @@ try {
       ON e.id=t.enrollment_id WHERE e.normalized_email='recovery-parallel@example.invalid';`).trim(), "1",
       "Concurrent recovery cannot rotate an existing capability");
 
-    async function cancellationAdmissionRace(key, cancelFirst) {
+    async function cancellationAdmissionRace(key, cancelFirst, tokenOffset) {
       const email = `${key}@example.invalid`;
       sql(`SELECT notification_contract_test.seed_product('${key}');`);
       sql(enroll(key,email,`${key}-enroll`));
-      sql(recovery(email,`${key}-recovery`,cancelFirst ? 200 : 240));
+      sql(recovery(email,`${key}-recovery`,tokenOffset));
       const token = sql(`SELECT receipt#>>'{links,0,token}' FROM private.email_intents
         WHERE recipient='${email}' AND purpose='product_waitlist_recovery';`).trim();
       sql(publish(key));
@@ -214,6 +242,7 @@ try {
       } else {
         assert.equal(sql(`SELECT first_attempt_at IS NOT NULL AND request_payload IS NOT NULL FROM private.email_intents WHERE id='${intent}';`).trim(), 't',
           'Previously admitted exact content remains available for reconciliation after cancellation');
+        if (key === "admit-unresolved") return;
         sql(`SET ROLE service_role; SELECT public.finish_email_attempt('${intent}','${lease}','blocked',null,'product_request_not_eligible');`);
         assert.equal(sql(`SELECT state FROM private.email_intents WHERE id='${intent}';`).trim(), 'uncertain',
           'Cancellation after handoff cannot claim the provider message was recalled');
@@ -226,8 +255,9 @@ try {
           'Manual retry cannot authorize another send after attempted cancellation');
       }
     }
-    await cancellationAdmissionRace('cancel-first',true);
-    await cancellationAdmissionRace('admit-first',false);
+    await cancellationAdmissionRace('cancel-first',true,200);
+    await cancellationAdmissionRace('admit-first',false,240);
+    await cancellationAdmissionRace('admit-unresolved',false,280);
 
     // Count all well-formed anonymous requests before lookup, including missing addresses.
     sql('DELETE FROM private.product_notification_recovery_limits;');
@@ -240,10 +270,19 @@ try {
   // Apply retirement after any composed predecessor assertions.
   const retiredPurposes = "purpose IN ('product_availability','product_waitlist_recovery')";
   const historicalCount = sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`);
+  const awaitingOutcome = `SELECT id, recipient, lease_token, lease_expires_at, first_attempt_at, idempotency_key, request_payload
+    FROM private.email_intents WHERE ${retiredPurposes} AND request_payload IS NOT NULL
+      AND first_attempt_at IS NOT NULL AND provider_email_id IS NULL AND delivery_status IS NULL
+    ORDER BY id LIMIT 2`;
+  const admittedBefore = JSON.parse(sql(`SELECT coalesce(jsonb_agg(to_jsonb(i)),'[]'::jsonb) FROM (${awaitingOutcome}) i;`));
   assert.equal(sql(sidecar.verify).trim(), "f");
-  migration(retirement);
-  migration(retirement);
-  assert.equal(sql(sidecar.verify).trim(), "t");
+  sql(install);
+  runRetirement("ROLLBACK");
+  assert.equal(sql(sidecar.verify).trim(), "f");
+  assert.equal(sql(`SELECT has_function_privilege('${writer}','private.retire_helix_product_notifications()','EXECUTE');`).trim(), "t");
+  runRetirement();
+  assert.equal(sql(`SET SESSION AUTHORIZATION ${writer}; ${sidecar.verify};`).trim(), "t");
+  assert.throws(() => runRetirement(), /Install the reviewed Product retirement capability/);
   assert.equal(sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`), historicalCount);
   assert.equal(sql(`SELECT count(*) FROM private.email_controls WHERE enabled AND ${retiredPurposes};`).trim(), "0");
   assert.throws(() => sql(`UPDATE private.email_controls SET enabled=true WHERE ${retiredPurposes};`), /retired_product_notification_controls/);
@@ -258,6 +297,44 @@ try {
   assert.equal(sql(`SET ROLE service_role; SELECT NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.claim_email_intents(
     'sandbox','40000000-0000-0000-0000-000000000003',5)) work WHERE work->>'purpose' IN ('product_availability','product_waitlist_recovery'));`).trim(), "t");
   if (!process.argv.includes("--enrollment-only")) {
+    assert.equal(admittedBefore.length, 2, "Need one resolvable and one unresolved admitted Product intent");
+    assert.deepEqual(JSON.parse(sql(`SELECT coalesce(jsonb_agg(to_jsonb(i)),'[]'::jsonb) FROM (${awaitingOutcome}) i;`)), admittedBefore,
+      "Retirement preserves frozen bytes and lease identities");
+    const resolved = admittedBefore.find((candidate) => candidate.lease_token === null);
+    const unresolved = admittedBefore.find((candidate) => candidate.lease_token !== null);
+    assert.ok(resolved && unresolved, "The unresolved Product intent has its original live lease");
+    assert.equal(sql(`BEGIN; SET LOCAL ROLE service_role;
+      SELECT public.prepare_email_attempt(id,lease_token,request_payload) IS NULL
+      FROM private.email_intents WHERE id='${unresolved.id}';
+      ROLLBACK;`).trim(), "t", "An older worker with a live lease cannot readmit a retired send");
+    assert.equal(sql(`SET ROLE service_role; SELECT public.record_email_delivery_event(
+      'evt-retired-product', 'sandbox', id, 'retired-product-provider', 'email.delivered',
+      clock_timestamp(), request_payload->>'from', recipient)
+      FROM private.email_intents WHERE id='${resolved.id}';`).trim(), "matched");
+
+    const membership = source("supabase/migrations/20260730034330_catalog_editor_backend.sql")
+      .match(/create table public\.admin_memberships \([\s\S]*?\n\);/);
+    assert.ok(membership);
+    sql(`SELECT pg_catalog.to_regclass('public.admin_memberships') IS NULL AS missing \\gset
+      \\if :missing
+      ${membership[0]}
+      ALTER TABLE public.admin_memberships ENABLE ROW LEVEL SECURITY;
+      REVOKE ALL ON public.admin_memberships FROM public,anon,authenticated;
+      GRANT SELECT,INSERT,UPDATE,DELETE ON public.admin_memberships TO service_role;
+      \\endif`);
+    migration("_support_ai_drafts.sql");
+    migration("_support_retention.sql");
+    const actor = "40000000-0000-4000-8000-000000000400";
+    sql(`INSERT INTO auth.users(id) VALUES ('${actor}');
+      INSERT INTO public.admin_memberships(user_id,role,active) VALUES ('${actor}','admin',true);`);
+    assert.equal(sql(`SET ROLE service_role; SELECT public.mark_synthetic_email_intents(
+      '${actor}',ARRAY['${resolved.id}'::uuid,'${unresolved.id}'::uuid]);`).trim(), "2");
+    sql("SELECT private.apply_support_retention(20,clock_timestamp()+interval '31 days');");
+    assert.equal(sql(`SELECT content_deleted_at IS NOT NULL AND request_payload IS NULL
+      AND provider_email_id='retired-product-provider' AND delivery_status='delivered'
+      FROM private.email_intents WHERE id='${resolved.id}';`).trim(), "t");
+    assert.deepEqual(JSON.parse(sql(`SELECT to_jsonb(i) FROM (${awaitingOutcome}) i WHERE id='${unresolved.id}';`)),
+      unresolved, "Unresolved acceptance retains its original payload and identity");
     const retry = sql(`UPDATE private.email_intents SET state='blocked', attempt_count=0, first_attempt_at=null,
       request_payload=null, lease_token=null, lease_expires_at=null, error_code='recipient_not_allowed'
       WHERE recipient='enroll-first@example.invalid' AND purpose='product_availability'
@@ -285,4 +362,5 @@ try {
     providerMutations: 0 }, null, 2));
 } finally {
   if (created) docker(["exec", container, "dropdb", "-U", "postgres", database]);
+  if (writerCreated) docker(["exec", container, "dropuser", "-U", "postgres", writer]);
 }

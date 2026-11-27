@@ -61,12 +61,12 @@ A Product whose Catalog Status is archived and is retained in the Catalog but ex
 _Avoid_: Deleted Product, Unpublished Product
 
 **Merchandising Status**:
-The Storefront presentation of a Product's purchase readiness: available, coming soon, sold out, or waitlist.
+The Storefront presentation of a Product's purchase readiness: available, coming soon, or sold out. Historical waitlist values display as Coming soon.
 _Avoid_: Status, Product Status, Inventory Status
 
 **Waitlist Product**:
-A Customer-visible Product whose Merchandising Status is waitlist. It is not Purchasable and may accept Product Waitlist Enrollments before a Product Offer exists.
-_Avoid_: Sold-out Product, Coming Soon Product, Available Product
+A historical Catalog designation for a Product whose stored status is waitlist. The Storefront displays Coming soon and the Product remains unavailable for Checkout. Spec #622 retired new Product Waitlist Enrollments.
+_Avoid_: Sold-out Product, Available Product
 
 **Inventory Status**:
 The stock condition of a Product Variant.
