@@ -47,6 +47,7 @@ const psql = (role = "postgres", db = "postgres") => [
 const sql = (query, role, db) => local(psql(role, db), query);
 const source = (path) => readFileSync(new URL("../../supabase/" + path, import.meta.url), "utf8");
 const direct = () => source("operations/production-marketing/direct-welcome.sql");
+const cutover = () => source("operations/production-marketing/worker-credential-cutover.sql");
 const fixture = (phase, db = "postgres") =>
   local(
     [...psql("postgres", db), "-v", "legacy=" + (phase === "legacy")],
@@ -148,9 +149,16 @@ try {
     "t",
     "a marked development child never serves a production operator report",
   );
+  assert.throws(
+    () => sql(cutover(), "postgres", "proof_child"),
+    (error) => /Verified production database owner required/.test(error.stderr),
+  );
   sql(direct(), "postgres", "proof_journey");
+  sql(cutover(), "postgres", "proof_journey");
   sql(direct());
+  sql(cutover());
   fixture("direct");
+  sql(source("tests/production_marketing_worker_cutover.integration.sql"));
   for (const phase of ["first", "retry"]) {
     for (const denyFirst of [true, false]) {
       const label = phase + (denyFirst ? "-deny-first" : "-handoff-first");

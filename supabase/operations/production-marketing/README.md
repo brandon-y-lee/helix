@@ -18,3 +18,12 @@ Pause new enrollment and dispatch before rolling back the storefront. Preserve f
 ## Local rehearsal
 
 Run `node scripts/db/test-production-marketing-forward.mjs` from a checkout with the reviewed predecessor commit available locally. Set `SUPABASE_CLI` to the local stack CLI 3.1.0 and `HELIX_SUPABASE_CLI` to the migration CLI 2.117.0. The test uses independent disposable managed PostgreSQL 17.12 targets, the original unused owner functions and a synthetic existing child consent. It verifies rejection of stale or already-run native state, atomic enrollment and migration failures, retry and an unchanged repeat. It takes no hosted credentials. Run `node scripts/db/test-direct-welcome.mjs` for the signed storefront and worker journey with synthetic recipients.
+
+## Rotate the storefront worker credential
+
+Apply `worker-credential-cutover.sql` once as the production database owner. Installation changes no stored switch, binding or consent. The owner-only function `private.production_marketing_worker_cutover(action, contract_hash, expected_primary, other_binding, expires_at)` lets two exact builds use the same delivery contract for up to 30 minutes.
+
+1. Record the exact held deployment’s contract and new worker hashes from its authenticated maintenance read. Compare its contract hash with the current stored contract and record the current primary hash. Confirm the old build is serving with marketing ready.
+2. Call `register` with the current primary, the new binding and an absolute expiry within 30 minutes. Start the overlap when the new build is ready to promote. The current delivery rules and switches still apply to both builds.
+3. Promote the exact held build. Verify the canonical deployment ID and read-only marketing readiness. Call `swap` with the same contract, old primary and new binding. Omit the expiry; the old build retains only the time left on the original overlap.
+4. After in-flight work finishes and a replacement-credential rollback build is verified, call `clear` with the new primary and the old binding. Omit the expiry. A changed delivery contract clears overlap immediately. A missed deadline disables only the alternate.
