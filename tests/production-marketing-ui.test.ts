@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { productionMarketingLanding } from "@/components/marketing/production-marketing-document";
+import { productionMarketingLanding } from "@/tests/helpers/retired-production-marketing/document";
 
 function load(view: "enrollment" | "confirm" | "preferences", enabled = false, fragment = "") {
   const response = productionMarketingLanding(view, enabled);

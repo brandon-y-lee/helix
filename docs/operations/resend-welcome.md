@@ -1,5 +1,8 @@
 # Restricted welcome subscriptions
 
+Ticket #624 retires the standalone legacy welcome intake and its welcome series. Generic enrollment is closed. The scoped lifecycle intake, consent actions, one-click unsubscribe, signed reconciliation and retention continue under their existing controls. Instructions below document the original sandbox contract. Follow the [retirement procedure](production-marketing-readiness.md) for a current release.
+
+
 Ticket #436 / Spec #430 supplies source and local verification. It does not create provider resources, change hosted configuration, apply a remote migration, enroll a real Contact, or send email. R1-10 owns the exact activation manifest and hosted proof. Consent and welcome messages use the shared delivery service with its existing Order and Support safeguards.
 
 ## Ownership and native reuse

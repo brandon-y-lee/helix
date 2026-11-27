@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
-import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe, type ProductionMarketingRequestStorage } from "../../lib/production-marketing/requests";
+import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe, type ProductionMarketingRequestStorage } from "@/tests/helpers/retired-production-marketing/requests";
 import type { ProductionMarketingHeldEnvelope } from "../../lib/production-marketing/capabilities";
 
 // Only the owning no-network PostgreSQL harness may invoke this synthetic integration.

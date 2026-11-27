@@ -228,7 +228,7 @@ function fixture(input: RequestInfo | URL, init?: RequestInit): Promise<Response
       case "/api/checkout/sessions": return new Response(null,{status: url.origin === canonical ? 405 : 403});
       case "/api/internal/release-status": return json({version:1,productSlug:example.productSlug,deploymentId:candidate.id,
         sha:candidate.sha,features:example.features,database:example.database,searchCredentials:example.searchCredentials});
-      case "/marketing/production": return html("<fieldset disabled>New email enrollment is paused.</fieldset>");
+      case "/marketing/production": return new Response(null, {status:404});
       case "/api/marketing/readiness": return json({ready:false});
       case "/api/reviews": return json({reviews:[],count:0});
       case "/api/support/intake": return json({available:false,photosAvailable:false});

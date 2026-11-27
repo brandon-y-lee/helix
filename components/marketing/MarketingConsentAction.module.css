@@ -23,49 +23,12 @@
   margin-top: 28px;
 }
 
-.field {
-  display: grid;
-  gap: 8px;
-}
-
-.field input {
-  width: 100%;
-  min-width: 0;
-  padding: 13px 14px;
-  border: 1px solid var(--control-line);
-  border-radius: var(--radius);
-  background: var(--surface-inset);
-  color: var(--ink);
-  font: inherit;
-}
-
-.consent {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.consent input {
-  flex: 0 0 20px;
-  width: 20px;
-  height: 20px;
-  margin: 2px 0 0;
-  accent-color: var(--ink);
-}
-
 .note {
   color: var(--ink-soft);
   font-size: 0.85rem;
 }
 
-.note a {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.panel :is(input, button, a):focus-visible {
+.panel button:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 4px;
 }

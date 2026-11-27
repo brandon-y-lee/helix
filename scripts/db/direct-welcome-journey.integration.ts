@@ -1,16 +1,10 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { afterEach, expect, it, vi } from "vitest";
-import { GET as status, POST as subscribe } from "@/app/api/marketing/production/subscription/route";
-import { POST as confirm } from "@/app/api/marketing/production/confirm/route";
-import { POST as withdraw } from "@/app/api/marketing/production/preferences/route";
-import { POST as oneClick } from "@/app/api/marketing/production/unsubscribe/route";
-import { POST as scheduledDispatch } from "@/app/api/internal/marketing/production/maintenance/route";
+import { signupStatus as status, subscribe, confirm, withdraw, oneClick, dispatch, confirmationPage, preferencePage } from "@/tests/helpers/retired-production-marketing/routes";
 import { POST as callback } from "@/app/api/webhooks/marketing-production/route";
-import { GET as confirmationPage } from "@/app/marketing/production/confirm/route";
-import { GET as preferencePage } from "@/app/marketing/production/preferences/route";
 import { GET as readOperatorStatus } from "@/app/api/internal/marketing/production/status/route";
-import { productionSignupQualification } from "@/lib/production-marketing/storage";
+import { productionSignupQualification } from "@/lib/production-marketing/delivery-config";
 import { directMarketingDeliveryContract } from "@/lib/production-marketing/delivery-config";
 import { HELIX_VERCEL_PROJECT_ID, supabaseOriginForTarget } from "@/lib/supabase/project-safety";
 import { journeyServiceKey, rpcFixture, sql } from "./direct-welcome-journey-pg";
@@ -73,10 +67,10 @@ const enroll = (email: Customer) =>
 const state = (email: Customer) =>
   sql(`SELECT state FROM private.production_marketing_subscribers WHERE normalized_email='${email}';`);
 const tick = async () => {
-  const response = await scheduledDispatch(
-    new Request(origin + "/api/internal/marketing/production/maintenance", {
+  const response = await dispatch(
+    new Request(origin + "/api/internal/marketing/production/dispatch", {
       method: "POST",
-      headers: { authorization: "Bearer " + runtime.CRON_SECRET },
+      headers: { authorization: "Bearer " + runtime.HELIX_PRODUCTION_MARKETING_WORKER_TOKEN },
     }),
   );
   expect(response.status).toBe(200);

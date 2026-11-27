@@ -183,3 +183,32 @@ it("does not fall back to the Order sender when a new Product notification has n
   expect(item.storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "blocked", code: "invalid_email_identity" });
   expect(item.send).not.toHaveBeenCalled();
 });
+
+it("sends no frozen marketing message with an action link to the retired page", async () => {
+  const requestPayload: NonNullable<EmailIntent["requestPayload"]> = {
+    tags: [], from: "Helix <onboarding@resend.dev>", reply_to: env.HELIX_EMAIL_REPLY_TO,
+    to: [intent.recipient], subject: "Confirm subscription",
+    html: '<a href="https://helixskin.vercel.app/email-preferences?confirm=demo">Confirm</a>',
+    text: "https://helixskin.vercel.app/email-preferences?confirm=demo",
+  };
+  const { dependencies, storage, send } = setup({
+    purpose: "marketing_confirmation",
+    requestPayload,
+    firstAttemptAt: new Date().toISOString(),
+    attemptCount: 1,
+  });
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ deferred: 1, accepted: 0 });
+  expect(storage.prepare).not.toHaveBeenCalled();
+  expect(storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "uncertain", code: "reconciliation_required" });
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("blocks unattempted legacy welcome work without rendering or contacting the provider", async () => {
+  const { dependencies, storage, send } = setup({
+    purpose: "welcome_initial",
+  });
+  expect(await dispatchEmailIntents(dependencies)).toMatchObject({ blocked: 1, accepted: 0 });
+  expect(storage.prepare).not.toHaveBeenCalled();
+  expect(storage.finish).toHaveBeenCalledWith(intent.id, intent.leaseToken, { kind: "blocked", code: "marketing_not_eligible" });
+  expect(send).not.toHaveBeenCalled();
+});

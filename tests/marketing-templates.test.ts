@@ -21,7 +21,7 @@ it("renders an exact reviewed native version into a complete immutable welcome e
   const rendered = await renderMarketingMessage("welcome_initial", receipt, "re_synthetic", read);
   expect(read).toHaveBeenCalledWith(id, "re_synthetic");
   expect(rendered.subject).toBe("Welcome to helix");
-  expect(rendered.html).toContain('href="https://helixskin.vercel.app/email-preferences?unsubscribe=' + "P".repeat(43));
+  expect(rendered.html).toContain('href="https://helixskin.vercel.app/marketing/consent?unsubscribe=' + "P".repeat(43));
   expect(rendered.text).toContain("Synthetic business mailing address");
   expect(rendered.headers).toEqual({
     "List-Unsubscribe": '<https://helixskin.vercel.app/api/marketing/unsubscribe?token=' + "P".repeat(43) + '>',

@@ -22,7 +22,7 @@ for (const version of ['lifecycle_v1', 'lifecycle_v2'] as const) {
   it(`renders ${version} confirmation with the actual scoped link and no marketing handoff headers`, async () => {
     const { native, receipt } = fixture();
     const scope = version === 'lifecycle_v2' ? 'lifecycle_reviews' : 'lifecycle';
-    const url = `https://helixskin.us/email-preferences?confirm=${'C'.repeat(43)}&scope=${scope}`;
+    const url = `https://helixskin.us/marketing/consent?confirm=${'C'.repeat(43)}&scope=${scope}`;
     const message = await renderMarketingMessage('marketing_confirmation', receipt, 're_synthetic', async () => native);
     expect(message.text).toContain(url);
     expect(message.html).toContain(url.replace('&', '&amp;'));
