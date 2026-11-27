@@ -49,8 +49,8 @@ export async function handleMarketingRequest(request: Request, action: Marketing
     }
     if (typeof body.token !== "string" || !CAPABILITY.test(body.token)) return response(400);
     if (action === "confirm") {
-      if (body.scope !== undefined && body.scope !== "welcome" && body.scope !== "lifecycle" && body.scope !== "lifecycle_reviews") return response(400);
-      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"), body.scope === "lifecycle_reviews" ? "lifecycle_reviews" : body.scope === "lifecycle" ? "lifecycle" : "welcome");
+      if (body.scope !== "lifecycle" && body.scope !== "lifecycle_reviews") return response(400);
+      const result = await storage.confirm(body.token, randomBytes(32).toString("base64url"), body.scope);
       return response(result.status === "confirmed" ? 200 : 400, result.status === "confirmed");
     }
     if (body.scope !== "all" && body.scope !== "welcome") return response(400);

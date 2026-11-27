@@ -17,6 +17,7 @@ export default async function MarketingConsentPage({ searchParams }: { searchPar
   const { confirm, unsubscribe, scope = "welcome" } = await searchParams;
   if (scope !== "welcome" && scope !== "lifecycle" && scope !== "lifecycle_reviews") notFound();
   if ((confirm === undefined) === (unsubscribe === undefined)) notFound();
+  if (confirm !== undefined && scope === "welcome") notFound();
   const token = confirm ?? unsubscribe;
   if (typeof token !== "string" || !CAPABILITY.test(token)) notFound();
 

@@ -15,6 +15,8 @@ test("retired email pages and APIs have no enrollment or delivery entry points",
   }
   expect((await request.post("/api/internal/marketing/production/dispatch")).status()).toBe(404);
   expect((await request.get("/marketing/consent")).status()).toBe(404);
+  expect((await request.get("/marketing/consent?confirm=" + demoToken)).status()).toBe(404);
+  expect((await request.get("/marketing/consent?scope=welcome&confirm=" + demoToken)).status()).toBe(404);
 });
 
 test("independent confirmation works through a keyboard action with no token referrer", async ({ page }) => {

@@ -9,6 +9,7 @@ const page = (query: Record<string, string | string[]>) =>
 
 it.each([
   {}, { confirm: "invalid" }, { confirm: token, unsubscribe: token },
+  { confirm: token }, { confirm: token, scope: "welcome" },
   { confirm: [token, token] }, { confirm: token, scope: ["lifecycle", "lifecycle_reviews"] },
 ])("serves no generic form or ambiguous action for %j", async (query) => {
   await expect(page(query as Record<string, string | string[]>)).rejects.toThrow("NEXT_HTTP_ERROR_FALLBACK;404");

@@ -9,6 +9,8 @@ the separately approved hosted rehearsal below. Preserve unresolved evidence in
 
 The development procedure targets the persistent child. Recreate the manifest for the child and bind the reviewed `development-provider-isolation` evidence hash to the development Resend account, keys, webhook, testing recipients, and rollback. The tool checks this local evidence before accessing Resend or hosting. The historic parent manifest and its credentials cannot run this procedure. Disabling admission on the child remains available during a provider outage.
 
+Spec #622 retires standalone welcome enrollment, its scheduled messages, and the demo links. The historical **Welcome** rehearsal row and `/email-preferences` inspection below are superseded by the [retirement procedure](production-marketing-readiness.md). Shared reconciliation, suppression and lifecycle consent remain available.
+
 ## Freeze the operational change
 
 After all ten Tickets are integrated, the sole Spec Closer incorporates current

@@ -158,7 +158,7 @@ export function MarketingConsentAction({ action, token, scope }: {
       <p className="eyebrow">helix emails</p>
       <h1 id="marketing-consent-heading">Confirm your subscription</h1>
       <p className={styles.intro}>
-        {reviews ? "Confirm that you want helix welcome offers, cart and product reminders, skincare education, post-purchase follow-ups, review invitations and next-purchase offers. Helix may use your signed-in product visits and cart activity for reminders. You can unsubscribe at any time." : lifecycle ? "Confirm that you want helix welcome offers, cart and product reminders, and skincare education emails. We use your signed-in product visits and cart activity for these reminders. You can unsubscribe at any time." : "Confirm that you want to receive helix marketing emails, including our welcome series and skincare education."}
+        {reviews ? "Confirm that you want helix welcome offers, cart and product reminders, skincare education, post-purchase follow-ups, review invitations and next-purchase offers. Helix may use your signed-in product visits and cart activity for reminders. You can unsubscribe at any time." : "Confirm that you want helix welcome offers, cart and product reminders, and skincare education emails. We use your signed-in product visits and cart activity for these reminders. You can unsubscribe at any time."}
       </p>
       <div className={styles.form}>
         {submission.kind !== "success" && (
