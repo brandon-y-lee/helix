@@ -233,6 +233,37 @@ try {
     assert.equal(sql("SELECT cardinality(occurrences) FROM private.product_notification_recovery_limits WHERE key='global';").trim(), "30",
       "Concurrent different-address requests cannot spend the final global hourly slot twice");
   }
+  const retiredPurposes = "purpose IN ('product_availability','product_waitlist_recovery')";
+  const historicalCount = sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`);
+  migration("_product_notifications_retirement.sql");
+  assert.equal(sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`), historicalCount);
+  assert.equal(sql(`SELECT count(*) FROM private.email_controls WHERE enabled AND ${retiredPurposes};`).trim(), "0");
+  assert.throws(() => sql(`UPDATE private.email_controls SET enabled=true WHERE ${retiredPurposes};`), /retired_product_notification_controls/);
+  for (const signature of [
+    "public.enroll_product_waitlist(uuid,text,boolean,text,text,text,uuid,text,jsonb)",
+    "public.materialize_product_notifications(integer)",
+    "public.request_product_notification_recovery(text,text,jsonb,boolean,uuid)",
+    "public.cancel_product_notification(text)",
+  ]) {
+    assert.equal(sql(`SELECT has_function_privilege('service_role','${signature}','EXECUTE');`).trim(), "f");
+  }
+  assert.equal(sql(`SET ROLE service_role; SELECT NOT EXISTS(SELECT 1 FROM jsonb_array_elements(public.claim_email_intents(
+    'sandbox','40000000-0000-0000-0000-000000000003',5)) work WHERE work->>'purpose' IN ('product_availability','product_waitlist_recovery'));`).trim(), "t");
+  if (!process.argv.includes("--enrollment-only")) {
+    const retry = sql(`UPDATE private.email_intents SET state='blocked', attempt_count=0, first_attempt_at=null,
+      request_payload=null, lease_token=null, lease_expires_at=null, error_code='recipient_not_allowed'
+      WHERE recipient='enroll-first@example.invalid' AND purpose='product_availability'
+      RETURNING id || ':' || updated_at;`).trim();
+    const separator = retry.indexOf(":");
+    assert.ok(separator > 0);
+    assert.equal(sql(`SET ROLE service_role; SELECT public.retry_email_delivery(
+      '${retry.slice(0, separator)}','${retry.slice(separator + 1)}');`).trim(), "f");
+    const transitions = sql("SELECT count(*) FROM private.product_notification_transitions;");
+    sql("SELECT notification_contract_test.seed_product('published-after-retirement');");
+    sql("SET ROLE service_role; SELECT notification_contract_test.publish(notification_contract_test.id('published-after-retirement'),'available');");
+    assert.equal(sql("SELECT status FROM public.products WHERE id=notification_contract_test.id('published-after-retirement');").trim(), "available");
+    assert.equal(sql("SELECT count(*) FROM private.product_notification_transitions;"), transitions);
+  }
   console.log(JSON.stringify({ status: "passed", postgresMajor: 17,
     legacyPreserved: true, fixedCalendarExpiry: true, independentMarketingConsent: true,
     canonicalPublication: !process.argv.includes("--enrollment-only"),
