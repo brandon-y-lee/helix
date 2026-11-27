@@ -109,7 +109,7 @@ const tail=`
   assert.deepEqual(reservations.map(value=>value.split('\\n').find(line=>line==='t'||line==='f')),['t','f']);
 `;
 const assertionsAnchor='  sql(process.argv.includes("--enrollment-only") ? assertions.split("-- Canonical publication")[0] : assertions);';
-const resultAnchor='  console.log(JSON.stringify({ status: "passed", postgresMajor: 17,';
+const resultAnchor='  // Apply retirement after any composed predecessor assertions.';
 const injection=`
 for(const anchor of ${JSON.stringify([assertionsAnchor,resultAnchor])}) assert.equal(harness.split(anchor).length-1,1,'Combined predecessor anchor changed');
 harness=harness.replace(${JSON.stringify(assertionsAnchor)},()=>${JSON.stringify(addition)}+${JSON.stringify(assertionsAnchor)}).replace(${JSON.stringify(resultAnchor)},()=>${JSON.stringify(tail)}+${JSON.stringify(resultAnchor)});

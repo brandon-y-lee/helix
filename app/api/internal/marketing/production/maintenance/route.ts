@@ -1,11 +1,9 @@
 import { ADMIN_CAPABILITIES, checkAdminCapability } from "@/lib/admin/capabilities";
 import { timingSafeEqual } from "node:crypto";
-import { POST as dispatch } from "@/app/api/internal/marketing/production/dispatch/route";
 import { readBoundedBody } from "@/lib/email/provider";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
-import { productionMarketingScheduleSecret, productionMarketingWorkerAuthorized, productionMarketingWorkerToken } from "@/lib/production-marketing/delivery-config";
+import { productionMarketingScheduleSecret, productionMarketingWorkerAuthorized, productionMarketingWorkerToken, productionSignupQualification } from "@/lib/production-marketing/delivery-config";
 import { createProductionMarketingDeliveryStorage } from "@/lib/production-marketing/delivery-storage";
-import { productionSignupQualification } from "@/lib/production-marketing/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,12 +62,7 @@ export async function POST(request: Request) {
       });
       if (!serving.ok || serving.headers.get("x-helix-deployment") !== env.VERCEL_DEPLOYMENT_ID) return unavailable(409);
     }
-    if (env.HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED !== "true") {
-      await createProductionMarketingDeliveryStorage(env).cleanup();
-      return reply(200, { status: "paused" });
-    }
-    return await dispatch(new Request(canonical + "/api/internal/marketing/production/dispatch", {
-      method: "POST", headers: { Authorization: "Bearer " + worker },
-    }));
+    await createProductionMarketingDeliveryStorage(env).cleanup();
+    return reply(200, { status: "cleaned_up" });
   } catch { return unavailable(503); }
 }

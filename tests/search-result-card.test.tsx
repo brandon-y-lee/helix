@@ -56,7 +56,7 @@ const waitlistProduct: AlgoliaProductRecord = {
   systemStepPosition: 6,
   systemStepName: "PROTECT",
   routineSort: 60,
-  badge: "Waitlist",
+  badge: "Coming soon",
   status: "waitlist",
   waitlist: true,
   variantCount: 0,
@@ -114,7 +114,7 @@ describe("SearchResultCard", () => {
   it("omits fabricated pricing for a zero-Offer Waitlist Product", () => {
     render(<SearchResultCard hit={waitlistProduct} />);
 
-    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.getByText("View details")).toBeInTheDocument();
     expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
   });

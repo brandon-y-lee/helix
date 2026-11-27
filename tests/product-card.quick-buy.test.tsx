@@ -279,7 +279,7 @@ describe("ProductCard quick buy", () => {
       />,
     );
 
-    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "CLEANSE" })).toHaveAttribute(
@@ -291,7 +291,7 @@ describe("ProductCard quick buy", () => {
   it("fails closed when stale waitlist card data still contains an Offer", () => {
     render(<ProductCard product={makeProduct({ status: "waitlist" })} />);
 
-    expect(screen.getByText("Waitlist")).toBeInTheDocument();
+    expect(screen.getByText("Coming soon")).toBeInTheDocument();
     expect(screen.queryByText("$20.00")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });

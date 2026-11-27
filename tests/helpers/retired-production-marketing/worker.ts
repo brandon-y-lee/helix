@@ -1,11 +1,11 @@
 import "server-only";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { directProductionMarketingContract, productionMarketingWorkerAuthorized, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
-import { openProductionMarketingCapabilities } from "./open-capabilities";
-import { renderProductionMarketingMessage } from "./templates";
-import type { ProductionMarketingEnvironment } from "./contract";
-import type { ProductionMarketingDeliveryStorage, ProductionMarketingOutcome } from "./delivery-types";
+import { directProductionMarketingContract, productionMarketingWorkerAuthorized, readProductionMarketingDeliveryConfiguration } from "@/lib/production-marketing/delivery-config";
+import { openProductionMarketingCapabilities } from "@/lib/production-marketing/open-capabilities";
+import { renderProductionMarketingMessage } from "@/lib/production-marketing/templates";
+import type { ProductionMarketingEnvironment } from "@/lib/production-marketing/contract";
+import type { ProductionMarketingDeliveryStorage, ProductionMarketingOutcome } from "@/lib/production-marketing/delivery-types";
 export type ProductionMarketingWorkerDependencies={env:ProductionMarketingEnvironment;storage:ProductionMarketingDeliveryStorage;provider:{
   permission(email:string,topic:string,env:ProductionMarketingEnvironment):Promise<boolean>;
   send(body:string,idempotencyKey:string,expiresAt:string,env:ProductionMarketingEnvironment):Promise<ProductionMarketingOutcome>;

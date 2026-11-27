@@ -9,6 +9,8 @@ the separately approved hosted rehearsal below. Preserve unresolved evidence in
 
 The development procedure targets the persistent child. Recreate the manifest for the child and bind the reviewed `development-provider-isolation` evidence hash to the development Resend account, keys, webhook, testing recipients, and rollback. The tool checks this local evidence before accessing Resend or hosting. The historic parent manifest and its credentials cannot run this procedure. Disabling admission on the child remains available during a provider outage.
 
+Spec #622 retires standalone welcome enrollment, its scheduled messages, and the demo links. The historical **Welcome** rehearsal row and `/email-preferences` inspection below are superseded by the [retirement procedure](production-marketing-readiness.md). Shared reconciliation, suppression and lifecycle consent remain available.
+
 ## Freeze the operational change
 
 After all ten Tickets are integrated, the sole Spec Closer incorporates current
@@ -260,7 +262,7 @@ feature runbooks and their existing tests rather than another test harness.
 | AI inside Helix | Owner requests a real draft from the running Pro worker. Exercise demo-order, injection and skin-safety synthetic text; require qualified facts, supplied references and appropriate human attention. Edit/new inbound/cancel invalidates stale completion; unsaved editor text survives. An AI draft sends nothing until explicit human approval. Stop the worker or revoke its app access to prove truthful failure and manual fallback. Do not exhaust quota or buy usage to simulate a limit. |
 | Auth | Through the configured flows, prove mailbox delivery, scanner GET/HEAD without consumption, human confirmation, recovery, applicable secure email change, expiry/replay, safe redirects, generic failures, original SSR/cart behavior and existing-account continuity. Inspect actual links for tracking rewrites. Simulated delivery alone cannot prove Account access. |
 | Welcome | On `/email-preferences`, request and confirm explicit consent; scanners do not confirm. Repeated requests/confirmation do not duplicate the initial welcome. Observe education after the real 72-hour delay; do not backdate shared records. Withdraw locally and at the native Topic/global level, including during sync/import or before a retry; no later eligible handoff occurs, and old links can still withdraw. Existing imports/Contacts must not restore native opt-out. |
-| Product notice | Record a fresh unchecked Product request and a separate checked request; only the latter starts independent marketing confirmation. Perform the exact manifest-approved canonical Catalog Draft → Publish transition to Purchasable and verify one notice. Inspect cancellation via `/product-notifications`, scanner-safe links, expiry and continued cancellation when the Product disappears or sends pause. Re-publishing does not replay a consumed transition. |
+| Product notifications | Confirm both controls are closed. Check the retired page and APIs return 404, and Catalog publication continues without creating Product notification work. See the [retirement procedure](resend-product-notifications.md). |
 | Failure and suppression | Use exact official delivered/bounced/complained/suppressed simulator addresses only when enabled. Replay genuine signed callbacks in delayed/repeated order; invalid signatures fail. Diagnose interrupted sends and uncertain imports through existing inspection, never reset keys or infer nonacceptance. Confirm suppression blocks retry and email failure does not undo a paid Order. |
 | Disable/recovery | Execute the reviewed disable packet below while a controlled accepted Checkout and email/ingest work are pending. New work stops, accepted payment still settles, signed callbacks reconcile, withdrawals/import repairs and retained Inquiry/photo access continue. Re-enable only through a fresh verified manifest; confirm no historical backfill. |
 
@@ -273,7 +275,7 @@ an unknown import ID remains blocked unless provider identity evidence resolves
 it. Approximate times, counts or a Contact's existence are insufficient.
 
 Inspect `/contact`, `/admin/support`, `/email-preferences`,
-`/product-notifications`, `/admin/demo-orders` and the owned receipt at 390×844
+`/admin/demo-orders` and the owned receipt at 390×844
 and 1440×900 in the in-app browser, including keyboard/focus and mobile touch.
 Check truthful pending/disabled/error states, privacy, overflow and approval
 content. Inspect actual owner-received HTML and plaintext on desktop/mobile for

@@ -1,9 +1,9 @@
 import "server-only";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { readBoundedBody } from "@/lib/email/provider";
-import { productionMarketingEnrollmentEnabled, productionMarketingRpcHeaders, readProductionMarketingConfiguration } from "./config";
-import { productionSignupQualification } from "./delivery-config";
-import type { ProductionMarketingEnvironment } from "./contract";
+import { productionMarketingEnrollmentEnabled, productionMarketingRpcHeaders, readProductionMarketingConfiguration } from "@/lib/production-marketing/config";
+import { productionSignupQualification } from "@/lib/production-marketing/delivery-config";
+import type { ProductionMarketingEnvironment } from "@/lib/production-marketing/contract";
 import type { ProductionMarketingRequestStorage } from "./requests";
 
 export { productionSignupQualification };

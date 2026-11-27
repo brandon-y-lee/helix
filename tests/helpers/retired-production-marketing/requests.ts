@@ -1,12 +1,12 @@
 import "server-only";
 import { productionDeploymentAuthorized } from "@/lib/release/deployment-authorization";
 import { createHash, createHmac } from "node:crypto";
-import { sealProductionMarketingCapabilities, type ProductionMarketingHeldEnvelope } from "./capabilities";
+import { sealProductionMarketingCapabilities, type ProductionMarketingHeldEnvelope } from "@/lib/production-marketing/capabilities";
 import { isIP } from "node:net";
 import { isEmailAddress } from "@/lib/email/config";
 import { readBoundedBody } from "@/lib/email/provider";
-import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "./config";
-import { PRODUCTION_MARKETING_CAPABILITY, PRODUCTION_MARKETING_WORDING_VERSION, type ProductionMarketingEnvironment } from "./contract";
+import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "@/lib/production-marketing/config";
+import { PRODUCTION_MARKETING_CAPABILITY, PRODUCTION_MARKETING_WORDING_VERSION, type ProductionMarketingEnvironment } from "@/lib/production-marketing/contract";
 export type ProductionMarketingSubscriptionRequest = {
   email: string; explicitConsent: true; wordingVersion: typeof PRODUCTION_MARKETING_WORDING_VERSION;
   confirmationHash: string; preferenceHash: string; requesterHash: string; deliveryPayload: ProductionMarketingHeldEnvelope;

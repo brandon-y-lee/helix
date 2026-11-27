@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { dispatchEmailIntents } from "@/lib/email/delivery";
 import { emailDeliveryStorage } from "@/lib/email/storage";
 import { sendResendEmail } from "@/lib/email/provider";
-import { readEmailConfig, readEmailSender } from "@/lib/email/config";
-import { materializeProductNotifications } from "@/lib/waitlist/storage";
+import { readEmailConfig } from "@/lib/email/config";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,23 +18,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401, headers });
   }
   if (process.env.HELIX_EMAIL_DISPATCH_ENABLED !== "true") {
-    return NextResponse.json({ ok: true, claimed: 0, accepted: 0, deferred: 0, blocked: 0,
-      productNotifications: { status: "disabled", created: 0 } }, { headers });
+    return NextResponse.json({ ok: true, claimed: 0, accepted: 0, deferred: 0, blocked: 0 }, { headers });
   }
   try {
     // Validate the shared restricted environment before any dispatch mutation.
     readEmailConfig(process.env);
-    let productNotifications: { status: "complete" | "unavailable"; created: number };
-    try {
-      readEmailSender("product_availability", process.env);
-      productNotifications = { status: "complete", created: await materializeProductNotifications() };
-    } catch {
-      // Product work is bounded and independent of financial, support, and
-      // already prepared mail. Report the failure without exposing its payload.
-      productNotifications = { status: "unavailable", created: 0 };
-    }
     const result = await dispatchEmailIntents({ storage: emailDeliveryStorage, send: sendResendEmail, env: process.env });
-    return NextResponse.json({ ok: true, ...result, productNotifications }, { headers });
+    return NextResponse.json({ ok: true, ...result }, { headers });
   } catch {
     return NextResponse.json({ error: "Email delivery needs operator attention." }, { status: 503, headers });
   }
