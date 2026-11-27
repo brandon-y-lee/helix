@@ -212,7 +212,8 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
     const resp = await fetchImpl(origin + path, { method: options.method ?? "GET",
       headers: { ...headers, ...options.headers }, redirect: "manual", credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(10000) });
     try {
-      requireValue(resp.status === status, "unexpected response at " + path);
+      requireValue([status, options.alternateStatus].includes(resp.status), "unexpected response at " + path);
+      if (resp.status === options.alternateStatus) return null;
       if (kind === "headers") return resp.headers;
       const type = resp.headers.get("content-type") ?? "";
       requireValue(type.includes(kind === "json" ? "application/json" : "text/html"), "unexpected representation at " + path);
@@ -278,8 +279,12 @@ export async function verifyReleaseObservations({ phase, origin, deploymentId, s
   } else {
     const contact = await read("/api/support/production/intake",200,"json");
     requireValue(isDeepStrictEqual(contact, {available:false,photosAvailable:false}), "production Contact unavailable");
-    const welcome = await read("/marketing/production",200,"html");
-    requireValue(welcome.includes("New email enrollment is paused.") && /<fieldset\s+disabled>/.test(welcome), "welcome enrollment enabled");
+    if (phase === "previous") {
+      const welcome = await read("/marketing/production", 200, "html", { alternateStatus: 404 });
+      requireValue(welcome === null || (welcome.includes("New email enrollment is paused.") && /<fieldset\s+disabled>/.test(welcome)), "welcome enrollment enabled");
+    } else {
+      await read("/marketing/production", 404, "headers");
+    }
     const reviews = await read("/api/reviews?slug=" + e.productSlug,200,"json");
     requireValue(reviews.count === 0 && Array.isArray(reviews.reviews) && reviews.reviews.length === 0, "public reviews");
     if (isPublic) {

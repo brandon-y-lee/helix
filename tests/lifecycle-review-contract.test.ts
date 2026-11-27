@@ -31,14 +31,15 @@ it("renders independent review and shopping links with unconditional 10% terms",
  receipt.templateContract.templates.lifecycle_review_winback={id,sha256:marketingTemplateFingerprint(bad)};
  await expect(renderMarketingMessage("lifecycle_review_winback",receipt,"re_synthetic",async()=>bad)).rejects.toThrow();
 });
-it("passes explicit displayed v2 scope to storage but missing scope remains welcome",async()=>{
+it("passes explicit displayed v2 scope to storage and rejects missing scope before storage",async()=>{
  const storage={request:vi.fn(),confirm:vi.fn().mockResolvedValue({status:"invalid"}),withdraw:vi.fn()};
  const token="T".repeat(43);
  const req=(scope?:string)=>new Request("https://helixskin.vercel.app/api/marketing/confirm",{method:"POST",headers:{origin:"https://helixskin.vercel.app"},body:JSON.stringify({token,scope})});
  expect((await handleMarketingRequest(req("lifecycle_reviews"),"confirm",{storage,env:{}})).status).toBe(400);
  expect(storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"lifecycle_reviews");
+ storage.confirm.mockClear();
  expect((await handleMarketingRequest(req(),"confirm",{storage,env:{}})).status).toBe(400);
- expect(storage.confirm).toHaveBeenLastCalledWith(token,expect.any(String),"welcome");
+ expect(storage.confirm).not.toHaveBeenCalled();
 });
 
 it("renders a bounded guest capability at fixed origin, keeps account redemption terms",async()=>{

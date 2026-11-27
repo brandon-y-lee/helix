@@ -284,7 +284,7 @@ describe("System content architecture", () => {
     expect(
       within(protect).getByRole("heading", { name: "Mineral Guard" }),
     ).toBeInTheDocument();
-    expect(within(protect).getByText("Waitlist")).toBeInTheDocument();
+    expect(within(protect).getByText("Coming soon")).toBeInTheDocument();
     expect(within(protect).getByRole("link", { name: /view mineral guard/i })).toHaveAttribute(
       "href",
       "/products/mineral-guard",

@@ -1,9 +1,9 @@
 import "server-only";
 import { readBoundedBody } from "@/lib/email/provider";
 import { resendMarketingContacts } from "@/lib/marketing/provider";
-import { directProductionMarketingContract, productionMarketingUuid, readProductionMarketingDeliveryConfiguration } from "./delivery-config";
-import type { ProductionMarketingEnvironment } from "./contract";
-import type { ProductionMarketingOutcome } from "./delivery-types";
+import { directProductionMarketingContract, productionMarketingUuid, readProductionMarketingDeliveryConfiguration } from "@/lib/production-marketing/delivery-config";
+import type { ProductionMarketingEnvironment } from "@/lib/production-marketing/contract";
+import type { ProductionMarketingOutcome } from "@/lib/production-marketing/delivery-types";
 export const productionMarketingProvider={
   async permission(email:string,topic:string,env:ProductionMarketingEnvironment):Promise<boolean> {
     const config=readProductionMarketingDeliveryConfiguration(env),key=env.HELIX_PRODUCTION_MARKETING_PREFERENCE_KEY;

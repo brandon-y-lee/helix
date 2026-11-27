@@ -20,7 +20,6 @@ import {
   type ProductStatus,
 } from "@/lib/products";
 import { PREVIEW_COMMERCE_DISABLED_LABEL } from "@/lib/catalog-editor/preview-commerce";
-import { ProductWaitlistSheet } from "@/components/product-detail/ProductWaitlistSheet";
 import type { ProductFamily } from "@/lib/catalog/models";
 import { statusLabel } from "@/lib/catalog/product-status";
 import { focusHeaderCart, useModalPresence } from "@/components/overlays/modal-state";
@@ -49,7 +48,6 @@ export type PdpPurchaseIslandProps = {
   children: ReactNode;
   currency: "USD";
   productKey: string;
-  productId: string;
   productName: string;
   productType: string | null;
   productFamily: ProductFamily | null;
@@ -72,7 +70,6 @@ export function PdpPurchaseIsland({
   children,
   currency,
   productKey,
-  productId,
   productName,
   productType,
   productFamily,
@@ -103,9 +100,7 @@ export function PdpPurchaseIsland({
   const [hasPassedVideoStart, setHasPassedVideoStart] = useState(false);
   const [hasPassedMainAction, setHasPassedMainAction] = useState(false);
   const [footerEnteringViewport, setFooterEnteringViewport] = useState(false);
-  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [actionOrigin, setActionOrigin] = useState<"main" | "sticky">("main");
-  const waitlistReturnFocusRef = useRef<() => void>(() => undefined);
   const mainBuyButtonRef = useRef<HTMLButtonElement>(null);
   const stickyBuyButtonRef = useRef<HTMLButtonElement>(null);
   const stickyPanelRef = useRef<HTMLDivElement>(null);
@@ -116,9 +111,7 @@ export function PdpPurchaseIsland({
   const variant =
     variants.find((option) => option.id === variantId) ?? variants[0];
   const waitlist = status === "waitlist";
-  const productCta = waitlist
-    ? { label: "Join the waitlist", purchasable: false }
-    : variant
+  const productCta = !waitlist && variant
     ? {
         label: variant.purchaseLabel,
         purchasable: variant.purchasable,
@@ -144,17 +137,6 @@ export function PdpPurchaseIsland({
   const stickyConfiguration = presentation === "mobile-pilot" && !waitlist && showVariantOptions
     && variants.length > 1 && variants.some((option) => option.purchasable);
   const stickyFeedback = mobilePilot && stickyVisible && actionOrigin === "sticky";
-  const closeWaitlist = useCallback(() => setWaitlistOpen(false), []);
-  const restoreWaitlistFocus = useCallback(
-    () => waitlistReturnFocusRef.current(),
-    [],
-  );
-
-  function openWaitlist(returnFocus: () => void) {
-    waitlistReturnFocusRef.current = returnFocus;
-    setWaitlistOpen(true);
-  }
-
   const restoreActionFocus = useCallback((origin: "main" | "sticky") => {
     const request = ++focusRequestRef.current;
     if (presentation !== "mobile-pilot") {
@@ -401,14 +383,10 @@ export function PdpPurchaseIsland({
             onClick={() => {
               setActionOrigin("main");
               const returnFocus = () => restoreActionFocus("main");
-              if (waitlist && !commerceDisabled) {
-                openWaitlist(returnFocus);
-                return;
-              }
               void handleAdd(returnFocus);
             }}
             disabled={
-              commerceDisabled || (!waitlist && (!cta.purchasable || pending))
+              commerceDisabled || !cta.purchasable || pending
             }
           >
             {pending && cta.purchasable ? "Adding" : cta.label}
@@ -481,14 +459,10 @@ export function PdpPurchaseIsland({
             onClick={() => {
               setActionOrigin("sticky");
               const returnFocus = () => restoreActionFocus("sticky");
-              if (waitlist && !commerceDisabled) {
-                openWaitlist(returnFocus);
-                return;
-              }
               void handleAdd(returnFocus);
             }}
             disabled={
-              commerceDisabled || (!waitlist && (!cta.purchasable || pending))
+              commerceDisabled || !cta.purchasable || pending
             }
             tabIndex={stickyVisible ? undefined : -1}
             aria-label={mobilePilot ? `${productName}: ${cta.label}` : cta.label}
@@ -513,15 +487,6 @@ export function PdpPurchaseIsland({
           </p>
         )}
       </div>
-      {waitlist && !commerceDisabled && (
-        <ProductWaitlistSheet
-          open={waitlistOpen}
-          productId={productId}
-          productName={productName}
-          onClose={closeWaitlist}
-          returnFocus={restoreWaitlistFocus}
-        />
-      )}
     </>
   );
 }

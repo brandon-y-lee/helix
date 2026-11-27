@@ -4,11 +4,10 @@ import type { ProductStatus } from "@/lib/products";
 export function statusLabel(status: ProductStatus): string | null {
   switch (status) {
     case "coming_soon":
+    case "waitlist":
       return "Coming soon";
     case "sold_out":
       return "Sold out";
-    case "waitlist":
-      return "Waitlist";
     default:
       return null;
   }

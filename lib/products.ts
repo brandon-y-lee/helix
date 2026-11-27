@@ -85,7 +85,7 @@ const OUT_OF_STOCK_CTA_LABEL = "OUT OF STOCK";
 const COMING_SOON_CTA_LABEL = "COMING SOON";
 
 export function productUnavailableCtaLabel(status: ProductStatus): string {
-  return status === "coming_soon"
+  return status === "coming_soon" || status === "waitlist"
     ? COMING_SOON_CTA_LABEL
     : OUT_OF_STOCK_CTA_LABEL;
 }
@@ -152,13 +152,6 @@ export function productPurchaseCta<TOffer extends PurchaseOffer>(
   product: PurchaseProduct<TOffer>,
   variant: TOffer | null | undefined,
 ) {
-  if (product.status === "waitlist") {
-    return {
-      label: "Join the waitlist",
-      purchasable: false,
-      variant: variant ?? null,
-    };
-  }
   const purchasable = isVariantPurchasable(product, variant);
   return {
     label: purchasable

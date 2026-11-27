@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
-import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "@/lib/production-marketing/requests";
+import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "@/tests/helpers/retired-production-marketing/requests";
 import { productionMarketingEnrollmentEnabled, readProductionMarketingConfiguration } from "@/lib/production-marketing/config";
 
 const origin = "https://www.helixskin.us";
