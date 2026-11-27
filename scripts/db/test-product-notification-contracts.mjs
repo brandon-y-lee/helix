@@ -237,6 +237,7 @@ try {
     assert.equal(sql("SELECT cardinality(occurrences) FROM private.product_notification_recovery_limits WHERE key='global';").trim(), "30",
       "Concurrent different-address requests cannot spend the final global hourly slot twice");
   }
+  // Apply retirement after any composed predecessor assertions.
   const retiredPurposes = "purpose IN ('product_availability','product_waitlist_recovery')";
   const historicalCount = sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`);
   assert.equal(sql(sidecar.verify).trim(), "f");
