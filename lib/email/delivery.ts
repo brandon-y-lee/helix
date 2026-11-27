@@ -55,6 +55,21 @@ export async function dispatchEmailIntents({ storage, send, env }: EmailDelivery
       result.deferred++;
       continue;
     }
+    const frozenRetiredLink = marketingIntent(intent) && intent.requestPayload &&
+      [intent.requestPayload.html, intent.requestPayload.text].some((body) => body.includes("/email-preferences?"));
+    const retiredWelcome = intent.purpose === "welcome_initial" || intent.purpose === "welcome_education" ||
+      (intent.purpose === "marketing_confirmation" && intent.receipt?.templateContract?.version === "welcome_v1");
+    if (frozenRetiredLink || retiredWelcome) {
+      // Preserve the original provider key and bytes for reconciliation.
+      if (intent.firstAttemptAt) {
+        await storage.finish(intent.id, intent.leaseToken, { kind: "uncertain", code: "reconciliation_required" });
+        result.deferred++;
+      } else {
+        await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: "marketing_not_eligible" });
+        result.blocked++;
+      }
+      continue;
+    }
     if (!emailRecipientAllowed(intent.recipient, env)) {
       await storage.finish(intent.id, intent.leaseToken, { kind: "blocked", code: "recipient_not_allowed" });
       result.blocked++;

@@ -18,6 +18,8 @@ it("allows only clean public contexts and rejects private URLs/referrers and unv
     "/contact?email=private",
     "/#private",
     "/email-preferences",
+    "/marketing/consent?unsubscribe=private",
+    "/marketing/production/confirm",
     "/helix-verification/customer/order",
     "/products/arbitrary",
   ]) {

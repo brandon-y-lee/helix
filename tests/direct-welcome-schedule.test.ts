@@ -3,13 +3,15 @@ import { readFileSync } from "node:fs";
 import { GET, HEAD, POST } from "@/app/api/internal/marketing/production/maintenance/route";
 
 const mocks = vi.hoisted(() => ({
-  operator: vi.fn(), authorized: vi.fn(), qualification: vi.fn(), cleanup: vi.fn(), dispatch: vi.fn(),
+  operator: vi.fn(), authorized: vi.fn(), qualification: vi.fn(), cleanup: vi.fn(),
 }));
 vi.mock("@/lib/admin/capabilities", () => ({ ADMIN_CAPABILITIES: { access: "admin.access" }, checkAdminCapability: mocks.operator }));
 vi.mock("@/lib/release/deployment-authorization", () => ({ productionDeploymentAuthorized: mocks.authorized }));
-vi.mock("@/lib/production-marketing/storage", () => ({ productionSignupQualification: mocks.qualification }));
+vi.mock("@/lib/production-marketing/delivery-config", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/production-marketing/delivery-config")>(),
+  productionSignupQualification: mocks.qualification,
+}));
 vi.mock("@/lib/production-marketing/delivery-storage", () => ({ createProductionMarketingDeliveryStorage: () => ({ cleanup: mocks.cleanup }) }));
-vi.mock("@/app/api/internal/marketing/production/dispatch/route", () => ({ POST: mocks.dispatch }));
 
 const site = "https://www.helixskin.us";
 const immutable = "https://helix-one.vercel.app";
@@ -35,7 +37,6 @@ beforeEach(() => {
   mocks.authorized.mockResolvedValue(true);
   mocks.operator.mockResolvedValue({ status: "allowed", access: { role: "admin" } });
   mocks.qualification.mockReturnValue(binding);
-  mocks.dispatch.mockResolvedValue(Response.json({ status: "idle" }));
   canonical.mockResolvedValue(new Response(null, { headers: { "X-Helix-Deployment": identity.deploymentId } }));
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
@@ -52,7 +53,6 @@ describe("the production welcome schedule", () => {
     expect(await response.json()).toEqual({ ...identity, ...binding });
     expect(canonical).not.toHaveBeenCalled();
     expect(mocks.cleanup).not.toHaveBeenCalled();
-    expect(mocks.dispatch).not.toHaveBeenCalled();
     const readIdentity = await HEAD(new Request(site + path, { headers: { authorization: "Bearer " + worker } }));
     expect(readIdentity.headers.get("x-helix-deployment")).toBe(identity.deploymentId);
     expect(readIdentity.body).toBeNull();
@@ -75,35 +75,29 @@ describe("the production welcome schedule", () => {
     expect((await tick(site, worker)).status).toBe(401);
     expect(canonical).not.toHaveBeenCalled();
     expect(mocks.cleanup).not.toHaveBeenCalled();
-    expect(mocks.dispatch).not.toHaveBeenCalled();
   });
-  it("dispatches one empty, fixed canonical request and never forwards inputs", async () => {
-    expect((await tick()).status).toBe(200);
-    expect(mocks.dispatch).toHaveBeenCalledTimes(1);
-    const [sent] = mocks.dispatch.mock.calls[0] as [Request];
-    expect([sent.method, sent.url, sent.body]).toEqual(["POST", site + "/api/internal/marketing/production/dispatch", null]);
-    expect(sent.headers.get("authorization")).toBe("Bearer " + worker);
+  it("performs cleanup only, even with a stale dispatch setting", async () => {
+    expect(await (await tick()).json()).toEqual({ status: "cleaned_up" });
+    expect(mocks.cleanup).toHaveBeenCalledOnce();
     expect(canonical).not.toHaveBeenCalled();
   });
   it("on a provider hostname checks the canonical deployment before doing work", async () => {
     canonical.mockResolvedValueOnce(new Response(null, { headers: { "X-Helix-Deployment": "dpl_Other" } }));
     expect((await tick(immutable)).status).toBe(409);
-    expect(mocks.dispatch).not.toHaveBeenCalled();
+    expect(mocks.cleanup).not.toHaveBeenCalled();
     expect((await tick(immutable)).status).toBe(200);
     expect(canonical).toHaveBeenLastCalledWith(site + path, expect.objectContaining({ method: "HEAD", redirect: "error", cache: "no-store" }));
-    expect(mocks.dispatch).toHaveBeenCalledTimes(1);
+    expect(mocks.cleanup).toHaveBeenCalledOnce();
   });
   it("keeps payload erasure available while dispatch is paused", async () => {
     vi.stubEnv("HELIX_PRODUCTION_MARKETING_DISPATCH_ENABLED", "false");
-    expect(await (await tick()).json()).toEqual({ status: "paused" });
+    expect(await (await tick()).json()).toEqual({ status: "cleaned_up" });
     expect(mocks.cleanup).toHaveBeenCalledOnce();
-    expect(mocks.dispatch).not.toHaveBeenCalled();
   });
   it("keeps an unavailable canonical check or credential binding fail-closed", async () => {
     canonical.mockRejectedValue(new Error("down"));
     mocks.qualification.mockImplementation(() => { throw new Error("missing"); });
     expect((await get(immutable)).status).toBe(503);
     expect((await tick(immutable)).status).toBe(503);
-    expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 });
