@@ -209,8 +209,8 @@ for (const { width, count } of [
       exact: true,
     });
     await expect(cart).toBeVisible();
-    await expect(cart.locator(".cart-link__mobile > span")).toHaveText(String(count));
-    await expect(cart.locator(".cart-link__mobile")).toBeVisible();
+    await expect(cart.locator(".cart-link__count")).toHaveText(String(count));
+    await expect(cart.locator(".site-nav__icon")).toBeVisible();
     await expect(header.getByRole("navigation", { name: "Primary" })).toBeHidden();
 
     const identity = header.getByRole("link", { name: "helix home" });
@@ -240,18 +240,33 @@ for (const { width, count } of [
   });
 }
 
-test("desktop navigation remains visible above the compact header breakpoint", async ({ page }) => {
-  for (const width of [921, 1440]) {
+test("desktop navigation shows outlined utilities above the compact header breakpoint", async ({ page }) => {
+  for (const width of [921, 1020, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/");
     const header = page.locator(".site-header");
     await expect(header.getByRole("button", { name: "Menu", exact: true })).toBeHidden();
     await expect(header.getByRole("navigation", { name: "Primary" })).toBeVisible();
     const utilities = header.getByRole("navigation", { name: "Utilities" });
-    await expect(utilities.getByRole("link", { name: "ACCOUNT", exact: true })).toBeVisible();
-    await expect(utilities.locator(".site-nav__search .site-nav__label")).toBeVisible();
-    await expect(utilities.locator(".cart-link .site-nav__label")).toBeVisible();
-    await expect(utilities.locator(".cart-link__mobile")).toBeHidden();
+    const account = utilities.getByRole("link", { name: "ACCOUNT", exact: true });
+    const search = utilities.getByRole("button", { name: "SEARCH", exact: true });
+    const cart = utilities.getByRole("button", { name: /^CART/ });
+    await expect(account).toHaveAttribute("href", "/account");
+    await expect(cart.locator(".cart-link__count")).toBeVisible();
+    for (const control of [search, account, cart]) {
+      await expect(control.locator("svg[aria-hidden=true]")).toBeVisible();
+      await expect(control.locator("svg")).toHaveCSS("fill", "none");
+      const box = (await control.boundingBox())!;
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    const [searchCenter, accountCenter, cartCenter] = await utilities
+      .locator(".site-nav__icon")
+      .evaluateAll((icons) => icons.map((icon) => {
+        const { left, width } = icon.getBoundingClientRect();
+        return left + width / 2;
+      }));
+    expect(cartCenter - accountCenter).toBeCloseTo(accountCenter - searchCenter, 1);
     const identityBox = await header.getByRole("link", { name: "helix home" }).boundingBox();
     expect(identityBox).not.toBeNull();
     expect(identityBox!.x + identityBox!.width / 2).toBeCloseTo(width / 2, 1);
