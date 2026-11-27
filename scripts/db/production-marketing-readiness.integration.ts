@@ -6,14 +6,14 @@ vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
 import { withProductionMarketingBrowser } from "../../tests/helpers/production-marketing-browser";
-import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
+import { productionMarketingLanding } from "@/tests/helpers/retired-production-marketing/document";
 import { productionMarketingEnrollmentEnabled } from "../../lib/production-marketing/config";
 import { retainedMarketingSignup } from "./retained-marketing-signup";
 import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
-import { handleProductionMarketingRequest,handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
+import { handleProductionMarketingRequest,handleProductionMarketingUnsubscribe } from "@/tests/helpers/retired-production-marketing/requests";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
-import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
-import { dispatchProductionMarketing } from "../../lib/production-marketing/worker";
+import { productionMarketingProvider } from "@/tests/helpers/retired-production-marketing/delivery-provider";
+import { dispatchProductionMarketing } from "@/tests/helpers/retired-production-marketing/worker";
 import { createProductionMarketingEventStorage } from "../../lib/production-marketing/event-storage";
 import { receiveProductionMarketingEvent } from "../../lib/production-marketing/events";
 import { handleProductionMarketingStatus } from "../../lib/production-marketing/operator-status";

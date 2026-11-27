@@ -5,12 +5,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("@/lib/release/deployment-authorization", () => ({
   productionDeploymentAuthorized: async (env: Record<string, string | undefined>) => env.VERCEL_DEPLOYMENT_ID === "dpl_SyntheticEmailBuild",
 }));
-import { dispatchProductionMarketing } from "../../lib/production-marketing/worker";
-import { productionMarketingProvider } from "../../lib/production-marketing/delivery-provider";
+import { dispatchProductionMarketing } from "@/tests/helpers/retired-production-marketing/worker";
+import { productionMarketingProvider } from "@/tests/helpers/retired-production-marketing/delivery-provider";
 import { createProductionMarketingDeliveryStorage } from "../../lib/production-marketing/delivery-storage";
 import { retainedMarketingSignup } from "./retained-marketing-signup";
 import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
-import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "../../lib/production-marketing/requests";
+import { handleProductionMarketingRequest, handleProductionMarketingUnsubscribe } from "@/tests/helpers/retired-production-marketing/requests";
 import { productionMarketingTemplateHash } from "../../lib/production-marketing/templates";
 import { sealProductionMarketingCapabilities } from "../../lib/production-marketing/capabilities";
 const container=process.env.HELIX_SYNTHETIC_MARKETING_DELIVERY_CONTAINER??"";

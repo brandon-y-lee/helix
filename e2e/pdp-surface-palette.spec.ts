@@ -123,24 +123,17 @@ test("disabled purchase verification keeps size choices and mobile sticky contro
   }
 });
 
-test("the waitlist keeps a white sheet and an identifiable gray email field", async ({ page, storefront }) => {
+test("a former waitlist PDP shows a disabled Coming soon action", async ({ page, storefront }) => {
   const product = storefront.snapshot.products.find((candidate) => candidate.merchandisingStatus === "waitlist");
   test.skip(!product, "The canonical catalog currently has no waitlist PDP to inspect.");
   if (!product) return;
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     await page.goto(product.path);
-    const trigger = page.locator("[data-pdp-buy-button]");
-    await trigger.click();
-    const sheet = page.locator(".product-waitlist-sheet");
-    await expect(sheet).toBeVisible();
-    await expect(sheet).toHaveCSS("background-color", CANVAS_WHITE);
-    await expect(sheet).toHaveCSS("background-image", "none");
-    const email = sheet.getByRole("textbox", { name: "Email address" });
-    await expect(email).toHaveCSS("background-color", PANEL_GRAY);
-    await expect(email).toHaveCSS("border-top-color", CONTROL_BORDER);
-    await page.keyboard.press("Escape");
-    await expect(sheet).not.toBeVisible();
-    await expect(trigger).toBeFocused();
+    const action = page.locator("[data-pdp-buy-button]");
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAccessibleName(/^coming soon$/i);
+    await expect(action).toBeDisabled();
+    await expect(page.locator(".product-waitlist-sheet")).not.toBeVisible();
   }
 });

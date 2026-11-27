@@ -38,7 +38,7 @@ const props: PdpPurchaseIslandProps = {
   accordions: <div>Product details</div>,
   cartItem: { slug: "super-serum", name: "Super Serum", swatch: ["#eee", "#ddd"], imageUrl: null, imageAlt: null, placeholderMedia: null },
   children: <h1>Super Serum</h1>,
-  currency: "USD", productKey: "super-serum", productId: "product-test", productName: "Super Serum", productType: "Serum", productFamily: null,
+  currency: "USD", productKey: "super-serum", productName: "Super Serum", productType: "Serum", productFamily: null,
   routineLabel: "The Core", stickyMedia: null, stripePublishableKey: null, unavailableLabel: "COMING SOON", status: "coming_soon",
   variants: [], showPrice: false, showVariantOptions: false,
   presentation: "mobile-pilot",
@@ -159,30 +159,6 @@ describe("Super Serum mobile purchase", () => {
     expect(screen.queryByRole("combobox", { name: "Super Serum configuration" })).not.toBeInTheDocument();
     await changeViewport(820);
     expect(screen.getByRole("combobox", { name: "Super Serum configuration" })).toHaveValue("small");
-  });
-
-  it.each([820, 821, 920, 921])("keeps waitlist state and returns visible focus after resize to %s", async (nextWidth) => {
-    const user = userEvent.setup();
-    mainBottom = -1;
-    const { container } = mount({ status: "waitlist" });
-    const sticky = container.querySelector(".pdp-sticky-purchase")!;
-    const trigger = within(sticky as HTMLElement).getByRole("button", { name: /Join the waitlist/ });
-    await user.click(trigger);
-    const dialog = screen.getByRole("dialog");
-    expect(sticky).toHaveAttribute("data-visible", "false");
-    await user.type(within(dialog).getByRole("textbox", { name: "Email address" }), "visitor@example.com");
-    await changeViewport(nextWidth);
-    expect(within(dialog).getByRole("textbox", { name: "Email address" })).toHaveValue("visitor@example.com");
-    await user.keyboard("{Escape}");
-    await waitFor(() => expect(dialog).not.toBeInTheDocument());
-    if (nextWidth <= 820) {
-      await waitFor(() => expect(trigger).toHaveFocus());
-      expect(fallbackFocus).not.toHaveBeenCalled();
-    } else {
-      await waitFor(() => expect(fallbackFocus).toHaveBeenCalledOnce());
-      expect(trigger).not.toHaveFocus();
-    }
-    expect(document.body).not.toHaveAttribute("data-sheet-scroll-lock");
   });
 
   it("prefers the returned main action, then header Cart when the footer is visible", async () => {

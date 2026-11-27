@@ -316,7 +316,7 @@ describe("buildAlgoliaRecord", () => {
     });
     expect(waitlist.available).toBe(false);
     expect(waitlist.waitlist).toBe(true);
-    expect(waitlist.badge).toBe("Waitlist");
+    expect(waitlist.badge).toBe("Coming soon");
     expect(waitlist).not.toHaveProperty("priceMin");
     expect(waitlist).not.toHaveProperty("priceMax");
 

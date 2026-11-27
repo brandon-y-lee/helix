@@ -227,7 +227,7 @@ export function ProductCard({
     ? Math.min(...offerPresentation.offers.map((variant) => variant.price))
     : null;
   const priceLabel = isWaitlist
-    ? "Waitlist"
+    ? "Coming soon"
     : startingPrice === null
       ? null
       : `${offerPresentation.hasMultipleOffers ? "From " : ""}${formatPrice(startingPrice)}`;

@@ -160,7 +160,6 @@ export function purchaseIslandProps(
       ...cartMediaSnapshot(media),
     },
     currency: product.currency,
-    productId: product.id,
     productKey: product.slug,
     productName: product.displayName,
     productType: product.productType,

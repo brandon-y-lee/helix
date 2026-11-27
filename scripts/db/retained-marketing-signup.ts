@@ -1,9 +1,9 @@
 // Exercise signup as the earlier client against the original P2/P3 schema in
 // the owned PostgreSQL harness. New storefronts qualify only the direct cohort.
 import { confirmationWorkerQualification } from "../../lib/production-marketing/delivery-config";
-import { createProductionMarketingStorage } from "../../lib/production-marketing/storage";
+import { createProductionMarketingStorage } from "@/tests/helpers/retired-production-marketing/storage";
 import type { ProductionMarketingEnvironment } from "../../lib/production-marketing/contract";
-import type { ProductionMarketingSubscriptionRequest } from "../../lib/production-marketing/requests";
+import type { ProductionMarketingSubscriptionRequest } from "@/tests/helpers/retired-production-marketing/requests";
 
 export function retainedMarketingSignup(env: ProductionMarketingEnvironment, sql: (statement: string) => string) {
   const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";

@@ -49,7 +49,7 @@
     "catalogSchema": true,
     "support": null,
     "marketing": null,
-    "waitlist": true
+    "waitlist": false
   },
   "canonicalCheckoutGet": 405,
   "stagedCheckoutGet": 403,

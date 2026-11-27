@@ -1,6 +1,6 @@
 import { productionMarketingTestTarget } from "./helpers/production-marketing-target";
 import { afterEach, expect, it, vi } from "vitest";
-import { productionMarketingProvider } from "@/lib/production-marketing/delivery-provider";
+import { productionMarketingProvider } from "@/tests/helpers/retired-production-marketing/delivery-provider";
 import { productionMarketingTemplateHash } from "@/lib/production-marketing/templates";
 const contract={version:"production_welcome_delivery_v1",from:"news@helixskin.us",replyTo:"support@helixskin.us",topicId:"11111111-1111-4111-8111-111111111111",postalAddress:"Synthetic test only",templateHash:productionMarketingTemplateHash};
 const env={...productionMarketingTestTarget,

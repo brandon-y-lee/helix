@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import assert from "node:assert/strict";
 import { chromium, type BrowserContext } from "@playwright/test";
-import { productionMarketingLanding } from "../../components/marketing/production-marketing-document";
+import { productionMarketingLanding } from "@/tests/helpers/retired-production-marketing/document";
 
 /** Test-only owned-loopback browser lifecycle shared by synthetic and database proofs. */
 export async function withProductionMarketingBrowser(handler:RequestListener, proof:(context:BrowserContext,origin:string)=>Promise<void>, options:{actualOrigin?:string;viewports?:Array<{width:number;height:number}>}={}) {

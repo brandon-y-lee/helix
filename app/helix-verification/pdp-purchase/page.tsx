@@ -49,7 +49,6 @@ export default async function PdpPurchaseVerificationPage({
         />
         <PdpPurchaseIsland
           productKey={productKey}
-          productId={productKey}
           productName="Verification Serum"
           productType="Purchase control verification"
           productFamily={{
