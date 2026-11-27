@@ -31,8 +31,7 @@ const CORE_STEP_HERO_LINES: Record<
 
 function availabilityLabel(product: ProductCard) {
   if (firstPurchasableVariant(product)) return "Available";
-  if (product.status === "coming_soon") return "Coming soon";
-  if (product.status === "waitlist") return "Waitlist";
+  if (product.status === "coming_soon" || product.status === "waitlist") return "Coming soon";
   return "Sold out";
 }
 

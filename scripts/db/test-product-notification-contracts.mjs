@@ -105,6 +105,10 @@ try {
   docker(["exec", container, "createdb", "-U", "postgres", database]);
   created = true;
   assert.equal(sql("SELECT current_setting('server_version_num')::integer / 10000;").trim(), "17");
+  const retirement = "_product_notifications_retirement.sql";
+  const sidecar = JSON.parse(source("supabase/releases/20261127022715_product_notifications_retirement.json"));
+  migration(retirement);
+  assert.equal(sql(sidecar.verify).trim(), "t", "No-op when the optional module was never installed");
   sql(source("supabase/tests/checkpoints/catalog-current-20260909042518.sql"));
   sql(checkoutComposition());
   loadCheckoutPaymentTestEffects(sql, source);
@@ -235,7 +239,10 @@ try {
   }
   const retiredPurposes = "purpose IN ('product_availability','product_waitlist_recovery')";
   const historicalCount = sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`);
-  migration("_product_notifications_retirement.sql");
+  assert.equal(sql(sidecar.verify).trim(), "f");
+  migration(retirement);
+  migration(retirement);
+  assert.equal(sql(sidecar.verify).trim(), "t");
   assert.equal(sql(`SELECT count(*) FROM private.email_intents WHERE ${retiredPurposes};`), historicalCount);
   assert.equal(sql(`SELECT count(*) FROM private.email_controls WHERE enabled AND ${retiredPurposes};`).trim(), "0");
   assert.throws(() => sql(`UPDATE private.email_controls SET enabled=true WHERE ${retiredPurposes};`), /retired_product_notification_controls/);
