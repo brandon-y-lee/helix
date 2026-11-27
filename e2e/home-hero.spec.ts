@@ -8,7 +8,7 @@ test("homepage hero CTAs remain usable on desktop and mobile", async ({
   await expect(
     hero.getByRole("heading", {
       level: 1,
-      name: "Your skin starts with three steps.",
+      name: "The frontier of skincare. Designed for men.",
     }),
   ).toBeVisible();
   await expect(hero.getByRole("link", { name: "SEE THE SYSTEM" })).toHaveAttribute(

@@ -1,5 +1,5 @@
 import { expect, test } from "./storefront-fixture";
-for (const width of [390, 1440]) {
+for (const width of [390, 1020]) {
   test(`footer signs up an address immediately at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const writes: unknown[] = [], unexpected: string[] = [];
@@ -26,6 +26,19 @@ for (const width of [390, 1440]) {
     await page.clock.fastForward(13000);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     const email = form.getByRole("textbox", { name: "Email address" });
+    const centers = await form.evaluate((element) => {
+      const centerY = (node: Element) => {
+        const { top, height } = node.getBoundingClientRect();
+        return top + height / 2;
+      };
+      return {
+        band: centerY(element.closest("section")!),
+        input: centerY(element.querySelector("input")!),
+        submit: centerY(element.querySelector("button")!),
+      };
+    });
+    expect(centers.input).toBeCloseTo(centers.submit, 0);
+    if (width === 1020) expect(centers.input).toBeCloseTo(centers.band, 0);
     await email.fill("repeat@example.invalid");
     expect(writes).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath(`footer-signup-${width}.png`) });

@@ -80,9 +80,9 @@ test("the Helix Wordmark preserves full-band scaling and reduced motion", async 
   }
 });
 
-for (const width of [320, 390, 430, 720, 721, 769, 980]) {
-  test(`compact footer exposes four full-width navigation groups before services at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 844 });
+for (const width of [320, 390, 430, 620, 621, 720, 721, 732, 980]) {
+  test(`compact footer exposes four navigation groups before services at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 732 ? 776 : 844 });
     await page.goto("/");
     const footer = page.locator("#site-footer");
     const navigation = footer.getByRole("navigation", { name: "Footer navigation" });
@@ -90,7 +90,7 @@ for (const width of [320, 390, 430, 720, 721, 769, 980]) {
     await expect(navigation).toBeVisible();
     await expect(footer.locator(".site-footer__mobile-groups")).toBeHidden();
     await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
-      "Navigate", "Support", "Legal", "Account",
+      "Navigate", "Support", "Official", "Account",
     ]);
 
     const geometry = await footer.evaluate((element) => {
@@ -125,16 +125,22 @@ for (const width of [320, 390, 430, 720, 721, 769, 980]) {
     expect(geometry.nav.right).toBeCloseTo(geometry.contentRight, 1);
     expect(geometry.nav.top).toBeGreaterThanOrEqual(geometry.wordmark.bottom);
     expect(geometry.services.top).toBeGreaterThanOrEqual(geometry.nav.bottom);
+    const columns = width <= 620 ? 2 : 4;
     expect(geometry.groups).toHaveLength(4);
-    for (const index of [0, 2]) {
-      expect(geometry.groups[index].left).toBeCloseTo(geometry.nav.left, 1);
-      expect(geometry.groups[index + 1].right).toBeCloseTo(geometry.nav.right, 1);
-      expect(geometry.groups[index].top).toBeCloseTo(geometry.groups[index + 1].top, 1);
-      expect(geometry.groups[index].width).toBeCloseTo((geometry.nav.width - 16) / 2, 1);
-      expect(geometry.groups[index + 1].width).toBeCloseTo(geometry.groups[index].width, 1);
+    expect(geometry.groups[0].left).toBeCloseTo(geometry.nav.left, 1);
+    expect(geometry.groups[columns - 1].right).toBeCloseTo(geometry.nav.right, 1);
+    for (const group of geometry.groups) {
+      expect(group.width).toBeCloseTo((geometry.nav.width - 16 * (columns - 1)) / columns, 1);
     }
-    expect(geometry.groups[2].top).toBeGreaterThanOrEqual(geometry.groups[0].bottom);
-    expect(geometry.groups[3].top).toBeGreaterThanOrEqual(geometry.groups[1].bottom);
+    for (const group of geometry.groups.slice(1, columns)) {
+      expect(group.top).toBeCloseTo(geometry.groups[0].top, 1);
+    }
+    if (columns === 2) {
+      expect(geometry.groups[2].left).toBeCloseTo(geometry.nav.left, 1);
+      expect(geometry.groups[2].top).toBeGreaterThanOrEqual(geometry.groups[0].bottom);
+      expect(geometry.groups[3].top).toBeCloseTo(geometry.groups[2].top, 1);
+      expect(geometry.groups[3].right).toBeCloseTo(geometry.nav.right, 1);
+    }
     for (const link of geometry.links) {
       expect(link.height, `${link.label} should have a usable target`).toBeGreaterThanOrEqual(44);
       expect(link.clipped, `${link.label} should wrap without clipping`).toBe(false);
@@ -143,9 +149,9 @@ for (const width of [320, 390, 430, 720, 721, 769, 980]) {
   });
 }
 
-for (const width of [981, 1440]) {
+for (const width of [981, 1020, 1440]) {
   test(`desktop footer keeps visible navigation at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 1000 });
+    await page.setViewportSize({ width, height: width === 1020 ? 776 : 1000 });
     await page.goto("/");
     const footer = page.locator("#site-footer");
     const disclosures = footer.locator(".site-footer__mobile-groups");
@@ -154,11 +160,17 @@ for (const width of [981, 1440]) {
     await expect(navigation).toBeVisible();
     await expect(disclosures).toBeHidden();
     await expect(navigation.getByRole("heading", { level: 3 })).toHaveText([
-      "Navigate", "Support", "Legal", "Account",
+      "Navigate", "Support", "Official", "Account",
     ]);
     const rows = await navigation.locator("section").evaluateAll((sections) =>
       sections.map((section) => section.getBoundingClientRect().top),
     );
     for (const top of rows) expect(top).toBeCloseTo(rows[0], 1);
+
+    const services = footer.getByRole("complementary", { name: "Footer service links" });
+    for (const link of await services.getByRole("link").all()) {
+      await expect(link).toHaveCSS("height", "56px");
+      await expect(link).toHaveCSS("border-top-left-radius", "999px");
+    }
   });
 }

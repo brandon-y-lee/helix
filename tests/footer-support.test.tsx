@@ -70,12 +70,9 @@ describe("global footer", () => {
     for (const [name, href] of [
       ["Shop", "/collections/shop"],
       ["System", "/system"],
-      ["helix rewards", "/rewards"],
-      ["Account overview", "/account"],
-      ["Sign in", "/account/sign-in"],
-      ["Create account", "/account/sign-up"],
       ["FAQ", "/faq"],
       ["Contact", "/contact"],
+      ["Shipping Policy", "/faq#shipping"],
       ["Privacy", "/privacy"],
       ["Terms", "/terms"],
     ] as const) {
@@ -88,34 +85,32 @@ describe("global footer", () => {
     const desktopNav = within(footer).getByRole("navigation", {
       name: "Footer navigation",
     });
-    const navigateGroup = within(desktopNav).getByRole("region", {
-      name: "Navigate",
-    });
-    const accountGroup = within(desktopNav).getByRole("region", {
-      name: "Account",
-    });
-    expect(within(navigateGroup).queryByRole("link", { name: "Account overview" }))
-      .not.toBeInTheDocument();
-    expect(within(navigateGroup).queryByRole("link", { name: "Rewards" }))
-      .not.toBeInTheDocument();
-    expect(within(accountGroup).getByRole("link", { name: "Account overview" }))
-      .toHaveAttribute("href", "/account");
-    expect(within(accountGroup).getByRole("link", { name: "helix rewards" }))
-      .toHaveAttribute("href", "/rewards");
+    expect(within(desktopNav).getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent))
+      .toEqual(["Navigate", "Support", "Official", "Account"]);
+    const accountGroup = within(desktopNav).getByRole("region", { name: "Account" });
+    expect(within(accountGroup).getAllByRole("listitem").map((item) => item.textContent))
+      .toEqual(["Sign in", "Create account", "Rewards", "Subscription"]);
+    for (const [name, href] of [
+      ["Sign in", "/account/sign-in"],
+      ["Create account", "/account/sign-up"],
+      ["Rewards", "/rewards"],
+    ] as const) {
+      expect(within(accountGroup).getByRole("link", { name })).toHaveAttribute("href", href);
+    }
+    expect(within(accountGroup).queryByRole("link", { name: "Subscription" })).not.toBeInTheDocument();
+    expect(within(footer).queryByRole("link", { name: "Product notifications" })).not.toBeInTheDocument();
+    expect(within(footer).queryByRole("link", { name: "Email preferences" })).not.toBeInTheDocument();
 
     const serviceLinks = within(footer).getByRole("complementary", {
       name: "Footer service links",
     });
-    expect(
-      within(serviceLinks).getByRole("link", {
-        name: "Contact status: Check Support Intake availability",
-      }),
-    ).toHaveAttribute("href", "/contact");
-    expect(
-      within(serviceLinks).getByRole("link", {
-        name: "Shipping & returns: Review current policy status",
-      }),
-    ).toHaveAttribute("href", "/faq");
+    for (const [name, href] of [
+      ["Contact Us", "/contact"],
+      ["Shipping & returns", "/faq"],
+      ["FAQ", "/faq"],
+    ] as const) {
+      expect(within(serviceLinks).getByRole("link", { name })).toHaveAttribute("href", href);
+    }
 
     const reviews = within(footer).getByRole("region", {
       name: "Customer reviews",
@@ -158,16 +153,16 @@ describe("global footer", () => {
       "/collections/shop",
     );
 
-    const account = within(mobileGroups).getByText("Account");
-    const accountDetails = account.closest("details");
-    expect(accountDetails).not.toHaveAttribute("open");
-    account.focus();
-    expect(account).toHaveFocus();
-    expect(account.tagName).toBe("SUMMARY");
-    await user.click(account);
-    expect(accountDetails).toHaveAttribute("open");
-    expect(within(mobileGroups).getByRole("link", { name: "Create account" }))
-      .toHaveAttribute("href", "/account/sign-up");
+    const official = within(mobileGroups).getByText("Official");
+    const officialDetails = official.closest("details");
+    expect(officialDetails).not.toHaveAttribute("open");
+    official.focus();
+    expect(official).toHaveFocus();
+    expect(official.tagName).toBe("SUMMARY");
+    await user.click(official);
+    expect(officialDetails).toHaveAttribute("open");
+    expect(within(mobileGroups).getByRole("link", { name: "Privacy" }))
+      .toHaveAttribute("href", "/privacy");
 
     await user.click(screen.getByRole("button", { name: "Your Privacy Choices" }));
     const dialog = screen.getByRole("dialog", { name: "Your Privacy Choices" });

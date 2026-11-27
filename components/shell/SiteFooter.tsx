@@ -4,6 +4,7 @@ import {
   footerLinkGroups,
   footerServiceCards,
   footerStatusModules,
+  type FooterLinkGroup,
   type FooterServiceCard,
 } from "@/content/footer";
 import { PrivacyChoicesDialog } from "@/components/privacy/PrivacyChoicesDialog";
@@ -37,6 +38,22 @@ function FooterServiceIcon({ name }: { name: FooterServiceCard["icon"] }) {
   );
 }
 
+function FooterLinks({ links }: { links: FooterLinkGroup["links"] }) {
+  return (
+    <ul>
+      {links.map(({ label, href }) => (
+        <li key={label}>
+          {href ? (
+            <Link href={href}>{label}</Link>
+          ) : (
+            <span className="site-footer__nav-label">{label}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
   const year = new Date().getFullYear();
 
@@ -60,13 +77,7 @@ export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
               {footerLinkGroups.map((group) => (
                 <section key={group.id} aria-labelledby={`footer-${group.id}`}>
                   <h3 id={`footer-${group.id}`}>{group.label}</h3>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
+                  <FooterLinks links={group.links} />
                 </section>
               ))}
             </nav>
@@ -77,13 +88,7 @@ export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
                   <summary className="site-footer__accordion-trigger">
                     {group.label}
                   </summary>
-                  <ul>
-                    {group.links.map((link) => (
-                      <li key={`${group.id}-${link.href}`}>
-                        <Link href={link.href}>{link.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
+                  <FooterLinks links={group.links} />
                 </details>
               ))}
             </div>
@@ -95,15 +100,11 @@ export function SiteFooter({ signup = true }: { signup?: boolean } = {}) {
                 key={card.id}
                 href={card.href}
                 className="site-footer__service-card"
-                aria-label={`${card.label}: ${card.description}`}
               >
                 <span className="site-footer__service-icon">
                   <FooterServiceIcon name={card.icon} />
                 </span>
-                <span className="site-footer__service-copy">
-                  <strong>{card.label}</strong>
-                  <small>{card.description}</small>
-                </span>
+                <span className="site-footer__service-label">{card.label}</span>
                 <span className="site-footer__service-arrow" aria-hidden="true">
                   ↗
                 </span>
